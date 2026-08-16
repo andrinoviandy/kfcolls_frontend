@@ -26,8 +26,6 @@ import AddEditUserManagement from 'views/UserManagement/components/AddEditUserMa
 import AddEditUserApproval from 'views/Approval/components/AddEditApproval'
 import AddEditAnggaran from 'views/ManajemenAnggaran/components/AddEditAnggaran'
 import AddEditMasterData from 'views/MasterData/components/AddEditMasterData'
-import JenisPajak from 'views/JenisPajak'
-import AddEditJenisPajak from 'views/JenisPajak/components/AddEditJenisPajak'
 import Penjualan from 'views/Penjualan'
 import PenandatanganDokumen from 'views/PenandatanganDokumen'
 import AddEditPenandatangan from 'views/PenandatanganDokumen/components/AddEditPenandatangan'
@@ -139,10 +137,6 @@ const routes = [
     component: Approval,
   },
   {
-    path: '/jenis-pajak',
-    component: JenisPajak,
-  },
-  {
     path: '/master-vendor',
     component: DataVendor,
   },
@@ -158,17 +152,10 @@ const routes = [
     path: '/add-penandatangan-dokumen',
     component: AddEditPenandatangan,
   },
-  {
-    path: '/add-jenis-pajak',
-    component: AddEditJenisPajak,
-  },
+  
   {
     path: '/add-vendor',
     component: AddEditVendor,
-  },
-  {
-    path: '/edit-jenis-pajak',
-    component: AddEditJenisPajak,
   },
   {
     path: '/edit-vendor',
