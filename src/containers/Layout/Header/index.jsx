@@ -621,12 +621,12 @@ const Header = () => {
             prev.map(
               (item) =>
                 item.notifikasi_push_id ===
-                status_id
+                  status_id
                   ? {
-                      ...item,
-                      is_read:
-                        "F",
-                    }
+                    ...item,
+                    is_read:
+                      "F",
+                  }
                   : item
             )
         );
@@ -649,7 +649,7 @@ const Header = () => {
 
               project:
                 loginAccess?.role_id ===
-                "RL01"
+                  "RL01"
                   ? "Data Pengajuan"
                   : "Approval Pengajuan",
 
@@ -742,7 +742,7 @@ const Header = () => {
         }
 
       } catch (
-        error
+      error
       ) {
 
         swal.error(
@@ -800,7 +800,7 @@ const Header = () => {
 
   const desktopSidebarWidth =
     !isMobile &&
-    toggleSidebar
+      toggleSidebar
       ? 240
       : 0;
 
@@ -826,11 +826,10 @@ const Header = () => {
         transition-all
         duration-300
         ease-in-out
-        ${
-          dimensionScreenW < 768 &&
+        ${dimensionScreenW < 768 &&
           check
-            ? "bringToBack"
-            : ""
+          ? "bringToBack"
+          : ""
         }
       `}
       style={{
@@ -935,37 +934,43 @@ const Header = () => {
           </button>
 
 
+          {/* ================================================= */}
           {/* LOGO */}
+          {/* ================================================= */}
 
-          <div
-            className="
-              text-[28px]
-              md:text-[30px]
-              font-extrabold
-              tracking-wide
-              leading-none
-              select-none
-              whitespace-nowrap
-            "
-          >
+          {(!toggleSidebar || isMobile) && (
 
-            <span
+            <div
               className="
-                text-orange-500
-              "
+      text-[28px]
+      md:text-[30px]
+      font-extrabold
+      tracking-wide
+      leading-none
+      select-none
+      whitespace-nowrap
+    "
             >
-              KF
-            </span>
 
-            <span
-              className="
-                text-primary
-              "
-            >
-              COLLS
-            </span>
+              <span
+                className="
+        text-orange-500
+      "
+              >
+                KF
+              </span>
 
-          </div>
+              <span
+                className="
+        text-primary
+      "
+              >
+                COLLS
+              </span>
+
+            </div>
+
+          )}
 
         </div>
 
@@ -989,30 +994,30 @@ const Header = () => {
           {/* ================================================= */}
 
           {access?.role_id !==
-          "RL00" && (
+            "RL00" && (
 
-            <div
-              className="
+              <div
+                className="
                 relative
                 header-notification
               "
-            >
+              >
 
-              <button
-                type="button"
-                onClick={() => {
+                <button
+                  type="button"
+                  onClick={() => {
 
-                  setShowNotification(
-                    (prev) =>
-                      !prev
-                  );
+                    setShowNotification(
+                      (prev) =>
+                        !prev
+                    );
 
-                  setShowProfile(
-                    false
-                  );
+                    setShowProfile(
+                      false
+                    );
 
-                }}
-                className="
+                  }}
+                  className="
                   relative
                   w-11
                   h-11
@@ -1027,20 +1032,20 @@ const Header = () => {
                   transition-all
                   duration-200
                 "
-              >
+                >
 
-                <FaBell
-                  className="
+                  <FaBell
+                    className="
                     text-xl
                   "
-                />
+                  />
 
 
-                {unreadCount >
-                0 && (
+                  {unreadCount >
+                    0 && (
 
-                  <span
-                    className="
+                      <span
+                        className="
                       absolute
                       -top-1
                       -right-1
@@ -1058,28 +1063,28 @@ const Header = () => {
                       border-2
                       border-white
                     "
-                  >
+                      >
 
-                    {
-                      unreadCount >
-                      99
-                        ? "99+"
-                        : unreadCount
-                    }
+                        {
+                          unreadCount >
+                            99
+                            ? "99+"
+                            : unreadCount
+                        }
 
-                  </span>
+                      </span>
 
-                )}
+                    )}
 
-              </button>
+                </button>
 
 
-              {/* NOTIFICATION POPUP */}
+                {/* NOTIFICATION POPUP */}
 
-              {showNotification && (
+                {showNotification && (
 
-                <div
-                  className="
+                  <div
+                    className="
                     absolute
                     right-0
                     top-[56px]
@@ -1092,12 +1097,12 @@ const Header = () => {
                     shadow-2xl
                     overflow-hidden
                   "
-                >
+                  >
 
-                  {/* HEADER */}
+                    {/* HEADER */}
 
-                  <div
-                    className="
+                    <div
+                      className="
                       px-4
                       py-3
                       border-b
@@ -1105,18 +1110,18 @@ const Header = () => {
                       items-center
                       justify-between
                     "
-                  >
-
-                    <div
-                      className="
-                        flex
-                        items-center
-                        gap-2
-                      "
                     >
 
                       <div
                         className="
+                        flex
+                        items-center
+                        gap-2
+                      "
+                      >
+
+                        <div
+                          className="
                           w-9
                           h-9
                           rounded-full
@@ -1126,46 +1131,46 @@ const Header = () => {
                           items-center
                           justify-center
                         "
-                      >
+                        >
 
-                        <IoNotificationsSharp />
+                          <IoNotificationsSharp />
 
-                      </div>
+                        </div>
 
-                      <div>
+                        <div>
 
-                        <p
-                          className="
+                          <p
+                            className="
                             font-bold
                             text-gray-800
                           "
-                        >
-                          Notifikasi
-                        </p>
+                          >
+                            Notifikasi
+                          </p>
 
-                        <p
-                          className="
+                          <p
+                            className="
                             text-[11px]
                             text-gray-400
                           "
-                        >
-                          {
-                            unreadCount
-                          }{" "}
-                          belum terbaca
-                        </p>
+                          >
+                            {
+                              unreadCount
+                            }{" "}
+                            belum terbaca
+                          </p>
+
+                        </div>
 
                       </div>
 
-                    </div>
 
-
-                    <button
-                      type="button"
-                      onClick={
-                        handleReadAll
-                      }
-                      className="
+                      <button
+                        type="button"
+                        onClick={
+                          handleReadAll
+                        }
+                        className="
                         flex
                         items-center
                         gap-1
@@ -1178,87 +1183,86 @@ const Header = () => {
                         font-semibold
                         hover:bg-blue-800
                       "
-                    >
+                      >
 
-                      <FaCheckDouble />
+                        <FaCheckDouble />
 
-                      Semua Terbaca
+                        Semua Terbaca
 
-                    </button>
+                      </button>
 
-                  </div>
+                    </div>
 
 
-                  {/* LIST */}
+                    {/* LIST */}
 
-                  <div
-                    ref={
-                      notificationListRef
-                    }
-                    className="
+                    <div
+                      ref={
+                        notificationListRef
+                      }
+                      className="
                       max-h-[320px]
                       overflow-y-auto
                     "
-                    onScroll={
-                      handleScroll
-                    }
-                  >
+                      onScroll={
+                        handleScroll
+                      }
+                    >
 
-                    {listNotif.length >
-                    0 ? (
+                      {listNotif.length >
+                        0 ? (
 
-                      listNotif.map(
-                        (
-                          item,
-                          index
-                        ) => (
+                        listNotif.map(
+                          (
+                            item,
+                            index
+                          ) => (
 
-                          <div
-                            key={
-                              index
-                            }
-                            className="
+                            <div
+                              key={
+                                index
+                              }
+                              className="
                               border-b
                               border-gray-100
                             "
-                          >
+                            >
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleFlag(
-                                  item.notifikasi_push_id,
-                                  item.no_pengajuan
-                                )
-                              }
-                              className={`
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleFlag(
+                                    item.notifikasi_push_id,
+                                    item.no_pengajuan
+                                  )
+                                }
+                                className={`
                                 w-full
                                 text-left
                                 px-4
                                 py-3
                                 hover:bg-blue-50
                                 transition
-                                ${
-                                  item.is_read ===
-                                  "T"
+                                ${item.is_read ===
+                                    "T"
                                     ? "bg-orange-50/40"
                                     : "bg-white"
-                                }
+                                  }
                               `}
-                            >
+                              >
 
-                              <div
-                                className="
+                                <div
+                                  className="
                                   flex
                                   items-start
                                   gap-3
                                 "
-                              >
+                                >
 
-                                {/* ICON */}
+                                  {/* ICON */}
 
-                                <div
-                                  className="
+                                  <div
+                                    className="
                                     w-9
                                     h-9
                                     rounded-full
@@ -1269,65 +1273,65 @@ const Header = () => {
                                     justify-center
                                     shrink-0
                                   "
-                                >
+                                  >
 
-                                  {item.title
-                                    ?.toLowerCase()
-                                    .includes(
-                                      "pembayaran"
-                                    ) ? (
-                                    <FaMoneyBillWave />
-                                  ) : (
-                                    <FaTruck />
-                                  )}
+                                    {item.title
+                                      ?.toLowerCase()
+                                      .includes(
+                                        "pembayaran"
+                                      ) ? (
+                                      <FaMoneyBillWave />
+                                    ) : (
+                                      <FaTruck />
+                                    )}
 
-                                </div>
+                                  </div>
 
 
-                                {/* CONTENT */}
-
-                                <div
-                                  className="
-                                    min-w-0
-                                    flex-1
-                                  "
-                                >
+                                  {/* CONTENT */}
 
                                   <div
                                     className="
+                                    min-w-0
+                                    flex-1
+                                  "
+                                  >
+
+                                    <div
+                                      className="
                                       flex
                                       justify-between
                                       items-start
                                       gap-2
                                     "
-                                  >
+                                    >
 
-                                    <p
-                                      className="
+                                      <p
+                                        className="
                                         text-sm
                                         font-bold
                                         text-gray-800
                                       "
-                                    >
-                                      {
-                                        item.title
-                                      }
-                                    </p>
+                                      >
+                                        {
+                                          item.title
+                                        }
+                                      </p>
 
 
-                                    {item.is_read ===
-                                    "T" ? (
+                                      {item.is_read ===
+                                        "T" ? (
 
-                                      <span
-                                        className="
+                                        <span
+                                          className="
                                           relative
                                           flex
                                           size-2.5
                                         "
-                                      >
+                                        >
 
-                                        <span
-                                          className="
+                                          <span
+                                            className="
                                             absolute
                                             inline-flex
                                             h-full
@@ -1337,37 +1341,37 @@ const Header = () => {
                                             bg-red-400
                                             opacity-75
                                           "
-                                        />
+                                          />
 
-                                        <span
-                                          className="
+                                          <span
+                                            className="
                                             relative
                                             inline-flex
                                             size-2.5
                                             rounded-full
                                             bg-red-500
                                           "
-                                        />
+                                          />
 
-                                      </span>
+                                        </span>
 
-                                    ) : (
+                                      ) : (
 
-                                      <IoCheckmarkDoneOutline
-                                        className="
+                                        <IoCheckmarkDoneOutline
+                                          className="
                                           text-gray-400
                                           text-lg
                                           shrink-0
                                         "
-                                      />
+                                        />
 
-                                    )}
+                                      )}
 
-                                  </div>
+                                    </div>
 
 
-                                  <div
-                                    className="
+                                    <div
+                                      className="
                                       flex
                                       items-center
                                       gap-1
@@ -1376,33 +1380,33 @@ const Header = () => {
                                       text-orange-500
                                       mt-1
                                     "
-                                  >
+                                    >
 
-                                    <FaTags />
+                                      <FaTags />
 
-                                    {
-                                      item.no_pengajuan
-                                    }
+                                      {
+                                        item.no_pengajuan
+                                      }
 
-                                  </div>
+                                    </div>
 
 
-                                  <p
-                                    className="
+                                    <p
+                                      className="
                                       text-xs
                                       text-gray-600
                                       mt-1
                                       line-clamp-2
                                     "
-                                  >
-                                    {
-                                      item.body
-                                    }
-                                  </p>
+                                    >
+                                      {
+                                        item.body
+                                      }
+                                    </p>
 
 
-                                  <div
-                                    className="
+                                    <div
+                                      className="
                                       flex
                                       items-center
                                       gap-1
@@ -1410,33 +1414,33 @@ const Header = () => {
                                       text-gray-400
                                       mt-2
                                     "
-                                  >
+                                    >
 
-                                    <IoCalendarOutline />
+                                      <IoCalendarOutline />
 
-                                    {
-                                      formatDateJam(
-                                        item.created_at
-                                      )
-                                    }
+                                      {
+                                        formatDateJam(
+                                          item.created_at
+                                        )
+                                      }
+
+                                    </div>
 
                                   </div>
 
                                 </div>
 
-                              </div>
+                              </button>
 
-                            </button>
+                            </div>
 
-                          </div>
-
+                          )
                         )
-                      )
 
-                    ) : (
+                      ) : (
 
-                      <div
-                        className="
+                        <div
+                          className="
                           flex
                           flex-col
                           items-center
@@ -1444,10 +1448,10 @@ const Header = () => {
                           py-10
                           text-center
                         "
-                      >
+                        >
 
-                        <div
-                          className="
+                          <div
+                            className="
                             w-16
                             h-16
                             rounded-full
@@ -1457,41 +1461,41 @@ const Header = () => {
                             items-center
                             justify-center
                           "
-                        >
+                          >
 
-                          <FaInbox
-                            className="
+                            <FaInbox
+                              className="
                               text-2xl
                             "
-                          />
+                            />
 
-                        </div>
+                          </div>
 
 
-                        <p
-                          className="
+                          <p
+                            className="
                             mt-3
                             text-sm
                             font-semibold
                             text-gray-600
                           "
-                        >
-                          Tidak ada notifikasi
-                        </p>
+                          >
+                            Tidak ada notifikasi
+                          </p>
 
-                      </div>
+                        </div>
 
-                    )}
+                      )}
+
+                    </div>
 
                   </div>
 
-                </div>
+                )}
 
-              )}
+              </div>
 
-            </div>
-
-          )}
+            )}
 
 
           {/* ================================================= */}
@@ -1604,10 +1608,10 @@ const Header = () => {
 
                       {
                         access?.cabang_id !==
-                        "2000"
+                          "2000"
                           ? access?.cabang
                           : access?.unit_kerja ??
-                            access?.nama
+                          access?.nama
                       }
 
                     </p>
@@ -1622,20 +1626,20 @@ const Header = () => {
 
                       {
                         access?.cabang_id !==
-                        "2000"
+                          "2000"
                           ? access?.jabatan
                           : access?.role_id ===
                             "RL17"
                             ? access?.jabatan
                             : (
-                                access?.jenis_user ??
-                                (
-                                  access?.role_id ===
+                              access?.jenis_user ??
+                              (
+                                access?.role_id ===
                                   "RL16"
-                                    ? access?.role
-                                    : "Pemohon"
-                                )
+                                  ? access?.role
+                                  : "Pemohon"
                               )
+                            )
                       }
 
                     </p>
@@ -1661,10 +1665,9 @@ const Header = () => {
                         text-xs
                         transition-transform
                         duration-200
-                        ${
-                          showProfile
-                            ? "rotate-180"
-                            : ""
+                        ${showProfile
+                          ? "rotate-180"
+                          : ""
                         }
                       `}
                     />

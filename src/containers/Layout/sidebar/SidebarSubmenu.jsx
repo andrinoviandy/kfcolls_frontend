@@ -1,220 +1,488 @@
-import React from 'react'
-import { FaFileAlt } from 'react-icons/fa';
-import { NavLink, useLocation } from 'react-router-dom'
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  NavLink,
+  useLocation,
+} from "react-router-dom";
+
+import {
+  FaChevronDown,
+  FaFileAlt,
+} from "react-icons/fa";
+
+
+// =====================================================
+// NORMALIZE PATH
+// =====================================================
 
 const normalizePath = (path) => {
-  if (!path) return '/';
 
-  const cleaned = path.trim();
-
-  if (!cleaned || cleaned === '/') return '/';
-
-  return cleaned.replace(/\/+$/, '');
-};
-
-const isRouteActive = (targetPath, currentPath) => {
-  const normalizedTarget = normalizePath(targetPath);
-  const normalizedCurrent = normalizePath(currentPath);
-
-  if (!normalizedTarget || normalizedTarget === '/') {
-    return normalizedCurrent === '/';
+  if (!path) {
+    return "/";
   }
 
-  return (
-    normalizedCurrent === normalizedTarget ||
-    normalizedCurrent.startsWith(`${normalizedTarget}/`)
+  const cleaned =
+    path.trim();
+
+  if (
+    !cleaned ||
+    cleaned === "/"
+  ) {
+    return "/";
+  }
+
+  return cleaned.replace(
+    /\/+$/,
+    ""
   );
+
 };
 
-function SidebarSubmenu({
+
+// =====================================================
+// COMPONENT
+// =====================================================
+
+const SidebarSubmenu = ({
   id,
   name,
   path,
   parent,
-  submenu,
-  icon: Icon
-}) {
-  const location = useLocation();
+  submenu = [],
+  icon: Icon,
+}) => {
 
-  const isPathActive = (targetPath) => {
-    if (!targetPath) return false;
+  const location =
+    useLocation();
 
-    const current = (location.pathname || '/').replace(/\/+$/, '') || '/';
-    const target = targetPath.trim().replace(/\/+$/, '') || '/';
 
-    if (target === '/') return current === '/';
+  // ===================================================
+  // ACTIVE PATH
+  // ===================================================
 
-    return current === target || current.startsWith(`${target}/`);
+  const isPathActive = (
+    targetPath
+  ) => {
+
+    if (!targetPath) {
+      return false;
+    }
+
+
+    const current =
+      normalizePath(
+        location.pathname
+      );
+
+    const target =
+      normalizePath(
+        targetPath
+      );
+
+
+    if (
+      target === "/"
+    ) {
+
+      return current === "/";
+
+    }
+
+
+    return (
+      current === target ||
+      current.startsWith(
+        `${target}/`
+      )
+    );
+
   };
 
-  // Cek apakah salah satu submenu sedang aktif
-  const isSubmenuActive = submenu?.some((item) => isPathActive(item.path));
+
+  // ===================================================
+  // CHECK SUBMENU ACTIVE
+  // ===================================================
+
+  const isSubmenuActive =
+    submenu?.some(
+      (item) =>
+        isPathActive(
+          item?.path
+        )
+    );
+
+
+  // ===================================================
+  // OPEN STATE
+  // ===================================================
+
+  const [
+    isOpen,
+    setIsOpen,
+  ] = useState(
+    isSubmenuActive
+  );
+
+
+  // ===================================================
+  // AUTO OPEN WHEN ROUTE CHANGES
+  // ===================================================
+
+  useEffect(() => {
+
+    if (
+      isSubmenuActive
+    ) {
+
+      setIsOpen(true);
+
+    }
+
+  }, [
+    location.pathname,
+    isSubmenuActive,
+  ]);
+
+
+  // ===================================================
+  // TOGGLE
+  // ===================================================
+
+  const handleToggle = (
+    e
+  ) => {
+
+    e.preventDefault();
+
+    setIsOpen(
+      (prev) => !prev
+    );
+
+  };
+
+
+  // ===================================================
+  // RENDER
+  // ===================================================
 
   return (
-    <details
-      open={isSubmenuActive}
-      className="group"
-    >
-      <summary
+
+    <div className="w-full">
+
+
+      {/* ================================================= */}
+      {/* PARENT MENU */}
+      {/* ================================================= */}
+
+      <button
+        type="button"
+        onClick={
+          handleToggle
+        }
         className={`
+          group
+          w-full
           flex
           items-center
+          justify-between
           rounded-xl
           px-3
           py-2.5
-          cursor-pointer
-          list-none
           transition-all
           duration-200
           ease-out
-          ${isSubmenuActive
-            ? `
-              bg-blue-50
-              text-blue-700
-              font-semibold
-              border-l-4
-              border-orange-400
-              shadow-sm
-              scale-[1.01]
-            `
-            : `
-              text-gray-600
-              hover:bg-orange-50
-              hover:text-blue-700
-              hover:scale-[1.01]
-            `
+
+          ${
+            isSubmenuActive
+              ? `
+                bg-blue-50
+                text-primary
+                font-semibold
+                border-l-4
+                border-orange-400
+                shadow-sm
+              `
+              : `
+                text-gray-600
+                hover:bg-orange-50
+                hover:text-primary
+              `
           }
         `}
       >
-        <div className="flex items-center gap-3 w-full">
+
+        {/* LEFT */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-3
+            min-w-0
+          "
+        >
 
           {/* ICON */}
+
           <div
             className={`
               w-8
               h-8
+              shrink-0
               rounded-lg
               flex
               items-center
               justify-center
               transition-all
               duration-200
-              ${isSubmenuActive
-                ? 'bg-orange-100'
-                : 'bg-blue-50 group-hover:bg-orange-100'
+
+              ${
+                isSubmenuActive
+                  ? `
+                    bg-orange-100
+                    text-orange-500
+                  `
+                  : `
+                    bg-blue-50
+                    text-blue-600
+                    group-hover:bg-orange-100
+                    group-hover:text-orange-500
+                  `
               }
             `}
           >
+
             {Icon ? (
+
               <Icon
                 size={17}
-                className={`
-                  transition-colors
-                  duration-200
-                  ${isSubmenuActive
-                    ? 'text-orange-500'
-                    : 'text-blue-600 group-hover:text-orange-500'
-                  }
-                `}
               />
+
             ) : (
+
               <FaFileAlt
                 size={17}
-                className={`
-                  ${isSubmenuActive
-                    ? 'text-orange-500'
-                    : 'text-blue-600 group-hover:text-orange-500'
-                  }
-                `}
               />
+
             )}
+
           </div>
 
-          {/* MENU NAME */}
-          <span className="text-sm">
+
+          {/* NAME */}
+
+          <span
+            className="
+              text-sm
+              truncate
+              text-left
+            "
+          >
             {name}
           </span>
 
         </div>
-      </summary>
 
+
+        {/* ARROW */}
+
+        <FaChevronDown
+          className={`
+            shrink-0
+            ml-3
+            text-xs
+            transition-transform
+            duration-200
+            ease-out
+
+            ${
+              isOpen
+                ? "rotate-180 text-orange-500"
+                : "text-gray-400"
+            }
+          `}
+        />
+
+      </button>
+
+
+      {/* ================================================= */}
       {/* SUBMENU */}
-      <ul className="ml-4 mt-1 pl-2 border-l-2 border-orange-200">
+      {/* ================================================= */}
 
-        {submenu?.map((v, i) => (
-          <li key={i} className="mt-1">
+      <div
+        className={`
+          overflow-hidden
+          transition-all
+          duration-200
+          ease-out
 
-            <NavLink
-              to={v.path}
-              className={({ isActive }) => {
-                const active = isActive || isPathActive(v.path);
+          ${
+            isOpen
+              ? "max-h-[1000px] opacity-100"
+              : "max-h-0 opacity-0"
+          }
+        `}
+      >
 
-                return `
-                  group
-                  flex
-                  items-center
-                  rounded-lg
-                  px-3
-                  py-2
-                  transition-all
-                  duration-200
+        <ul
+          className="
+            mt-1
+            ml-4
+            pl-3
+            border-l-2
+            border-orange-100
+          "
+        >
 
-                  ${active
-                    ? `
-                      bg-blue-50
-                      text-blue-700
-                      font-semibold
-                      border-l-2
-                      border-orange-400
-                    `
-                    : `
-                      text-gray-500
-                      hover:bg-orange-50
-                      hover:text-blue-700
-                    `
+          {submenu?.map(
+            (
+              item,
+              index
+            ) => {
+
+              const active =
+                isPathActive(
+                  item?.path
+                );
+
+
+              return (
+
+                <li
+                  key={
+                    item?.id ||
+                    item?.path ||
+                    index
                   }
-                `;
-              }}
-              state={{
-                menu: {
-                  id: id,
-                  name: name,
-                  path: path,
-                  parent: parent,
-                  submenu: v,
-                },
-              }}
-            >
-              <div className="flex items-center gap-2">
+                  className="
+                    mt-1
+                  "
+                >
 
-                {/* titik kecil submenu */}
-                <span
-                  className={`
-                    w-1.5
-                    h-1.5
-                    rounded-full
-                    transition-all
-                    duration-200
-                    ${isPathActive(v.path)
-                      ? 'bg-orange-500 scale-125'
-                      : 'bg-blue-300 group-hover:bg-orange-400'
+                  <NavLink
+                    to={
+                      item.path
                     }
-                  `}
-                />
 
-                <span className="text-sm">
-                  {v.name}
-                </span>
+                    className={`
+                      group
+                      flex
+                      items-center
+                      rounded-lg
+                      px-3
+                      py-2
+                      transition-all
+                      duration-200
 
-              </div>
-            </NavLink>
+                      ${
+                        active
+                          ? `
+                            bg-blue-50
+                            text-primary
+                            font-semibold
+                            border-l-2
+                            border-orange-400
+                          `
+                          : `
+                            text-gray-500
+                            hover:bg-orange-50
+                            hover:text-primary
+                          `
+                      }
+                    `}
 
-          </li>
-        ))}
+                    state={{
+                      menu: {
 
-      </ul>
-    </details>
-  )
-}
+                        id:
+                          id,
 
-export default SidebarSubmenu
+                        name:
+                          item?.name,
+
+                        path:
+                          item?.path,
+
+                        parent:
+                          name,
+
+                        submenu:
+                          item,
+
+                      },
+                    }}
+                  >
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                        min-w-0
+                      "
+                    >
+
+                      {/* BULLET */}
+
+                      <span
+                        className={`
+                          w-1.5
+                          h-1.5
+                          shrink-0
+                          rounded-full
+                          transition-all
+                          duration-200
+
+                          ${
+                            active
+                              ? `
+                                bg-orange-500
+                                scale-125
+                              `
+                              : `
+                                bg-blue-300
+                                group-hover:bg-orange-400
+                              `
+                          }
+                        `}
+                      />
+
+
+                      {/* NAME */}
+
+                      <span
+                        className="
+                          text-sm
+                          truncate
+                        "
+                      >
+                        {item?.name}
+                      </span>
+
+                    </div>
+
+                  </NavLink>
+
+                </li>
+
+              );
+
+            }
+          )}
+
+        </ul>
+
+      </div>
+
+    </div>
+
+  );
+
+};
+
+
+export default SidebarSubmenu;

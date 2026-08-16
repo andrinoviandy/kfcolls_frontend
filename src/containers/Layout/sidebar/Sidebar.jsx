@@ -43,8 +43,7 @@ const normalizePath = (path) => {
     return "/";
   }
 
-  const cleaned =
-    path.trim();
+  const cleaned = path.trim();
 
   if (
     !cleaned ||
@@ -57,6 +56,7 @@ const normalizePath = (path) => {
     /\/+$/,
     ""
   );
+
 };
 
 
@@ -66,11 +66,9 @@ const normalizePath = (path) => {
 
 const Sidebar = () => {
 
-  const location =
-    useLocation();
+  const location = useLocation();
 
-  const dispatch =
-    useDispatch();
+  const dispatch = useDispatch();
 
 
   const {
@@ -104,37 +102,36 @@ const Sidebar = () => {
 
 
   // ===================================================
-  // GET LOGIN ACCESS
+  // LOGIN ACCESS
   // ===================================================
 
   useEffect(() => {
 
-    const getLoginAccess =
-      async () => {
+    const getLoginAccess = async () => {
 
-        try {
+      try {
 
-          const decoded =
-            await decodeData(
-              getCookies(
-                "accountAccess"
-              )
-            );
-
-          setLoginAccess(
-            decoded
+        const decoded =
+          await decodeData(
+            getCookies(
+              "accountAccess"
+            )
           );
 
-        } catch (error) {
+        setLoginAccess(
+          decoded
+        );
 
-          console.error(
-            "Gagal mendapatkan login access:",
-            error
-          );
+      } catch (error) {
 
-        }
+        console.error(
+          "Gagal mendapatkan login access:",
+          error
+        );
 
-      };
+      }
+
+    };
 
 
     getLoginAccess();
@@ -350,16 +347,13 @@ const Sidebar = () => {
       "
     >
 
-      <ul
+      <div
         className="
-          menu
-          pt-3
-          min-h-full
-          text-base-content
+          relative
+          h-full
+          w-full
           border-r
           border-gray-100
-          w-full
-          overflow-hidden
         "
         style={
           sidebarBackground
@@ -387,27 +381,29 @@ const Sidebar = () => {
 
 
         {/* ================================================= */}
-        {/* CONTENT */}
+        {/* SCROLL AREA */}
         {/* ================================================= */}
 
         <div
           className="
-            h-full
-            scrollsidebar
+            h-screen
             overflow-y-auto
             overflow-x-hidden
+            scrollsidebar
+            pt-3
+            pb-5
           "
         >
-
 
           {/* ================================================= */}
           {/* LOGO */}
           {/* ================================================= */}
 
-          <li
+          <div
             className="
               mb-5
               mt-2
+              px-2
             "
           >
 
@@ -428,10 +424,10 @@ const Sidebar = () => {
               "
             >
 
-              {/* LOGO HANYA DESKTOP */}
+              {/* LOGO DESKTOP */}
 
-              {!isMobile &&
-              toggleSidebar ? (
+              {/* {!isMobile &&
+                toggleSidebar ? ( */}
 
                 <>
 
@@ -517,7 +513,7 @@ const Sidebar = () => {
 
                 </>
 
-              ) : (
+              {/* ) : (
 
                 <div
                   className="
@@ -525,275 +521,225 @@ const Sidebar = () => {
                   "
                 />
 
-              )}
+              )} */}
 
             </Link>
 
-          </li>
+          </div>
 
 
           {/* ================================================= */}
           {/* SECTION */}
           {/* ================================================= */}
 
-          {!isMobile &&
-          toggleSidebar && (
+          {/* {!isMobile &&
+            toggleSidebar && ( */}
 
-            <div
-              className="
+              <div
+                className="
                 px-4
                 mb-3
                 flex
                 items-center
                 gap-2
               "
-            >
+              >
 
-              <div
-                className="
+                <div
+                  className="
                   w-1
                   h-4
                   rounded-full
                   bg-orange-400
                 "
-              />
+                />
 
-              <span
-                className="
+                <span
+                  className="
                   text-[10px]
                   font-bold
                   uppercase
                   tracking-widest
                   text-gray-400
                 "
-              >
-                Navigasi
-              </span>
+                >
+                  Navigasi
+                </span>
 
-            </div>
+              </div>
 
-          )}
+            {/* )} */}
 
 
           {/* ================================================= */}
           {/* MENU */}
           {/* ================================================= */}
 
-          {menuList?.map(
-            (
-              route,
-              index
-            ) => {
+          <div
+            className="
+    flex
+    flex-col
+    gap-1
+  "
+          >
+            {menuList?.map(
+              (
+                route,
+                index
+              ) => {
 
-              const Icon =
-                route.icon;
+                const Icon = route.icon;
 
+                return (
+                  <li
+                    key={route.id || index}
+                    className="
+            mt-1
+            px-2
+            list-none
+          "
+                  >
 
-              return (
+                    {route.submenu?.length > 0 ? (
 
-                <li
-                  key={
-                    route.id ||
-                    index
-                  }
-                  className="
-                    mt-1
-                    px-2
-                  "
-                >
+                      <SidebarSubmenu
+                        {...route}
+                      />
 
-                  {route.submenu?.length >
-                  0 ? (
+                    ) : (
 
-                    <SidebarSubmenu
-                      {...route}
-                    />
+                      <NavLink
+                        to={route.path}
+                        end={route.path === "/"}
 
-                  ) : (
+                        onClick={(e) => {
 
-                    <NavLink
-                      to={
-                        route.path
-                      }
+                          if (
+                            route.path === "/manual-book"
+                          ) {
 
-                      end={
-                        route.path ===
-                        "/"
-                      }
+                            e.preventDefault();
 
-                      onClick={(e) => {
+                            window.open(
+                              `${process.env.REACT_APP_BASE_URL_LOCAL}/files/MANUAL_BOOK.pdf`,
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
 
-                        // =================================
-                        // MANUAL BOOK
-                        // =================================
+                            closeMobileSidebar();
 
-                        if (
-                          route.path ===
-                          "/manual-book"
-                        ) {
-
-                          e.preventDefault();
-
-
-                          window.open(
-                            `${process.env.REACT_APP_BASE_URL_LOCAL}/files/MANUAL_BOOK.pdf`,
-                            "_blank",
-                            "noopener,noreferrer"
-                          );
-
+                            return;
+                          }
 
                           closeMobileSidebar();
 
+                        }}
 
-                          return;
+                        className={({ isActive }) => {
 
-                        }
+                          const active =
+                            isActive ||
+                            isPathActive(route.path);
 
+                          return `
+                  group
+                  flex
+                  items-center
+                  rounded-xl
+                  px-3
+                  py-2.5
+                  transition-all
+                  duration-200
 
-                        // =================================
-                        // MOBILE CLOSE SIDEBAR
-                        // =================================
-
-                        closeMobileSidebar();
-
-                      }}
-
-
-                      className={({
-                        isActive,
-                      }) => {
-
-                        const active =
-                          isActive ||
-                          isPathActive(
-                            route.path
-                          );
-
-
-                        return `
-                          group
-                          flex
-                          items-center
-                          rounded-xl
-                          px-3
-                          py-2.5
-                          transition-all
-                          duration-200
-                          ease-out
-
-                          ${
-                            active
+                  ${active
                               ? `
-                                bg-blue-50
-                                text-primary
-                                font-semibold
-                                border-l-4
-                                border-orange-400
-                                shadow-sm
-                                scale-[1.01]
-                              `
+                        bg-blue-50
+                        text-primary
+                        font-semibold
+                        border-l-4
+                        border-orange-400
+                        shadow-sm
+                      `
                               : `
-                                text-gray-600
-                                hover:bg-orange-50
-                                hover:text-blue-500
-                                hover:scale-[1.01]
-                              `
-                          }
-                        `;
+                        text-gray-600
+                        hover:bg-orange-50
+                        hover:text-blue-500
+                      `
+                            }
+                `;
 
-                      }}
+                        }}
 
-
-                      state={{
-                        menu: {
-
-                          id:
-                            route?.id,
-
-                          name:
-                            route?.name,
-
-                          path:
-                            route?.path,
-
-                          parent:
-                            route?.parent,
-
-                          submenu:
-                            route?.submenu,
-
-                          actions:
-                            route?.actions,
-
-                        },
-                      }}
-                    >
-
-                      <div
-                        className="
-                          flex
-                          items-center
-                          gap-3
-                          w-full
-                        "
+                        state={{
+                          menu: {
+                            id: route?.id,
+                            name: route?.name,
+                            path: route?.path,
+                            parent: route?.parent,
+                            submenu: route?.submenu,
+                            actions: route?.actions,
+                          },
+                        }}
                       >
 
-                        {Icon && (
-
-                          <div
-                            className="
-                              w-8
-                              h-8
-                              shrink-0
-                              rounded-lg
-                              flex
-                              items-center
-                              justify-center
-                              bg-blue-50
-                              group-hover:bg-orange-100
-                              transition-all
-                              duration-200
-                            "
-                          >
-
-                            <Icon
-                              size={17}
-                              className="
-                                text-blue-600
-                                group-hover:text-orange-500
-                                transition-colors
-                                duration-200
-                              "
-                            />
-
-                          </div>
-
-                        )}
-
-
-                        <span
+                        <div
                           className="
-                            text-sm
-                            truncate
-                          "
+                  flex
+                  items-center
+                  gap-3
+                  w-full
+                "
                         >
-                          {
-                            route.name
-                          }
-                        </span>
 
-                      </div>
+                          {Icon && (
+                            <div
+                              className="
+                      w-8
+                      h-8
+                      shrink-0
+                      rounded-lg
+                      flex
+                      items-center
+                      justify-center
+                      bg-blue-50
+                      group-hover:bg-orange-100
+                      transition-all
+                      duration-200
+                    "
+                            >
+                              <Icon
+                                size={17}
+                                className="
+                        text-blue-600
+                        group-hover:text-orange-500
+                        transition-colors
+                        duration-200
+                      "
+                              />
+                            </div>
+                          )}
 
-                    </NavLink>
+                          <span
+                            className="
+                    text-sm
+                    truncate
+                  "
+                          >
+                            {route.name}
+                          </span>
 
-                  )}
+                        </div>
 
-                </li>
+                      </NavLink>
 
-              );
+                    )}
 
-            }
-          )}
+                  </li>
+                );
+
+              }
+            )}
+          </div>
 
 
           {/* ================================================= */}
@@ -801,18 +747,18 @@ const Sidebar = () => {
           {/* ================================================= */}
 
           {!isMobile &&
-          toggleSidebar && (
+            toggleSidebar && (
 
-            <div
-              className="
+              <div
+                className="
                 px-4
                 mt-8
                 mb-5
               "
-            >
+              >
 
-              <div
-                className="
+                <div
+                  className="
                   h-px
                   w-full
                   bg-gradient-to-r
@@ -820,54 +766,55 @@ const Sidebar = () => {
                   via-blue-200
                   to-transparent
                 "
-              />
+                />
 
-              <div
-                className="
+
+                <div
+                  className="
                   flex
                   items-center
                   justify-center
                   gap-2
                   mt-4
                 "
-              >
+                >
 
-                <span
-                  className="
+                  <span
+                    className="
                     text-[9px]
                     text-gray-300
                   "
-                >
-                  KFCOLLS
-                </span>
+                  >
+                    KFCOLLS
+                  </span>
 
-                <span
-                  className="
+                  <span
+                    className="
                     text-[9px]
                     text-gray-300
                   "
-                >
-                  •
-                </span>
+                  >
+                    •
+                  </span>
 
-                <span
-                  className="
+                  <span
+                    className="
                     text-[9px]
                     text-gray-300
                   "
-                >
-                  Collection System
-                </span>
+                  >
+                    Collection System
+                  </span>
+
+                </div>
 
               </div>
 
-            </div>
-
-          )}
+            )}
 
         </div>
 
-      </ul>
+      </div>
 
     </div>
 
@@ -896,16 +843,15 @@ const Sidebar = () => {
             className={`
               fixed
               inset-0
-              z-[40]
+              z-[110]
               bg-black/40
               backdrop-blur-[1px]
               transition-opacity
               duration-300
 
-              ${
-                toggleSidebar
-                  ? "opacity-100 visible"
-                  : "opacity-0 invisible pointer-events-none"
+              ${toggleSidebar
+                ? "opacity-100 visible"
+                : "opacity-0 invisible pointer-events-none"
               }
             `}
             onClick={
@@ -922,18 +868,18 @@ const Sidebar = () => {
               top-0
               left-0
               bottom-0
-              z-[50]
+              z-[120]
               w-60
+              h-screen
               bg-white
               shadow-2xl
               transition-transform
               duration-300
               ease-in-out
 
-              ${
-                toggleSidebar
-                  ? "translate-x-0"
-                  : "-translate-x-full"
+              ${toggleSidebar
+                ? "translate-x-0"
+                : "-translate-x-full"
               }
             `}
           >
@@ -952,42 +898,38 @@ const Sidebar = () => {
 
         <aside
           className={`
-            relative
-            z-50
-            h-full
+            sticky
+            top-0
+            h-screen
             shrink-0
             bg-white
             overflow-hidden
-            transition-all
+            transition-[width]
             duration-300
             ease-in-out
+            z-[90]
 
-            ${
-              toggleSidebar
-                ? "w-60"
-                : "w-0"
+            ${toggleSidebar
+              ? "w-60"
+              : "w-0"
             }
           `}
         >
 
-          <div
-            className={`
-              h-full
-              w-60
-              transition-transform
-              duration-300
-              ease-in-out
-              ${
-                toggleSidebar
-                  ? "translate-x-0"
-                  : "-translate-x-full"
-              }
-            `}
-          >
+          {toggleSidebar && (
 
-            {renderSidebarContent()}
+            <div
+              className="
+                w-60
+                h-screen
+              "
+            >
 
-          </div>
+              {renderSidebarContent()}
+
+            </div>
+
+          )}
 
         </aside>
 
