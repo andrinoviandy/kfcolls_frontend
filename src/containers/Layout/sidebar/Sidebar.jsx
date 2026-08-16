@@ -57,7 +57,6 @@ const normalizePath = (path) => {
     /\/+$/,
     ""
   );
-
 };
 
 
@@ -95,13 +94,8 @@ const Sidebar = () => {
     windowSize,
     setWindowSize,
   ] = useState({
-
-    width:
-      window.innerWidth,
-
-    height:
-      window.innerHeight,
-
+    width: window.innerWidth,
+    height: window.innerHeight,
   });
 
 
@@ -110,7 +104,7 @@ const Sidebar = () => {
 
 
   // ===================================================
-  // LOGIN ACCESS
+  // GET LOGIN ACCESS
   // ===================================================
 
   useEffect(() => {
@@ -157,13 +151,8 @@ const Sidebar = () => {
     const handleResize = () => {
 
       setWindowSize({
-
-        width:
-          window.innerWidth,
-
-        height:
-          window.innerHeight,
-
+        width: window.innerWidth,
+        height: window.innerHeight,
       });
 
     };
@@ -262,20 +251,16 @@ const Sidebar = () => {
         (menu) => {
 
           if (
-            menu.submenu?.length >
-            0
+            menu.submenu?.length > 0
           ) {
 
             const submenu =
               menu.submenu.filter(
                 (sub) =>
-
                   !sub.roles ||
-
                   sub.roles.includes(
                     loginAccess?.role_id
                   ) ||
-
                   sub.roles.includes(
                     loginAccess?.nip
                   )
@@ -283,11 +268,8 @@ const Sidebar = () => {
 
 
             return {
-
               ...menu,
-
               submenu,
-
             };
 
           }
@@ -298,13 +280,11 @@ const Sidebar = () => {
         }
       )
 
-
       .filter(
         (menu) => {
 
           if (
-            menu.submenu?.length >
-            0
+            menu.submenu?.length > 0
           ) {
 
             return (
@@ -354,9 +334,6 @@ const Sidebar = () => {
     position:
       "relative",
 
-    overflow:
-      "hidden",
-
   };
 
 
@@ -364,533 +341,525 @@ const Sidebar = () => {
   // SIDEBAR CONTENT
   // ===================================================
 
-  const sidebarContent = (
+  const renderSidebarContent = () => (
 
-    <ul
-      className={`
-        menu
-        pt-3
-        min-h-full
-        text-base-content
-        border-r
-        border-gray-100
-        w-60
-
-        ${
-          !isMobile &&
-          !toggleSidebar
-            ? "w-0 p-0"
-            : ""
-        }
-      `}
-      style={
-        sidebarBackground
-      }
+    <div
+      className="
+        h-full
+        w-full
+      "
     >
 
-      {/* ================================================= */}
-      {/* TOP LINE */}
-      {/* ================================================= */}
-
-      <div
+      <ul
         className="
-          absolute
-          top-0
-          left-0
+          menu
+          pt-3
+          min-h-full
+          text-base-content
+          border-r
+          border-gray-100
           w-full
-          h-[4px]
-          bg-gradient-to-r
-          from-orange-400
-          via-orange-500
-          to-blue-600
+          overflow-hidden
         "
-      />
-
-
-      {/* ================================================= */}
-      {/* CONTENT */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          h-full
-          scrollsidebar
-          overflow-y-auto
-        "
+        style={
+          sidebarBackground
+        }
       >
 
-
         {/* ================================================= */}
-        {/* LOGO */}
-        {/* ================================================= */}
-
-        <li
-          className="
-            mb-5
-            mt-2
-          "
-        >
-
-          <Link
-            to="/dashboard"
-            onClick={
-              closeMobileSidebar
-            }
-            className="
-              flex
-              flex-col
-              items-center
-              justify-center
-              hover:bg-transparent
-              active:bg-transparent
-              focus:bg-transparent
-              p-2
-            "
-          >
-
-            {toggleSidebar &&
-            !isMobile ? (
-
-              <>
-
-                {/* LOGO */}
-
-                <div
-                  className="
-                    text-[30px]
-                    font-extrabold
-                    tracking-wide
-                    leading-none
-                    select-none
-                  "
-                >
-
-                  <span
-                    className="
-                      text-orange-500
-                    "
-                  >
-                    KF
-                  </span>
-
-                  <span
-                    className="
-                      text-primary
-                    "
-                  >
-                    COLLS
-                  </span>
-
-                </div>
-
-
-                {/* SUBTITLE */}
-
-                <div
-                  className="
-                    text-[10px]
-                    uppercase
-                    tracking-[0.25em]
-                    text-gray-400
-                    mt-1
-                  "
-                >
-                  Collection Faktur
-                </div>
-
-
-                {/* DECORATIVE LINE */}
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-1
-                    mt-3
-                  "
-                >
-
-                  <div
-                    className="
-                      h-[3px]
-                      w-8
-                      rounded-full
-                      bg-orange-400
-                    "
-                  />
-
-                  <div
-                    className="
-                      h-[3px]
-                      w-12
-                      rounded-full
-                      bg-blue-600
-                    "
-                  />
-
-                  <div
-                    className="
-                      h-[3px]
-                      w-3
-                      rounded-full
-                      bg-orange-400
-                    "
-                  />
-
-                </div>
-
-              </>
-
-            ) : (
-
-              <div
-                className="
-                  h-8
-                "
-              />
-
-            )}
-
-          </Link>
-
-        </li>
-
-
-        {/* ================================================= */}
-        {/* SECTION */}
-        {/* ================================================= */}
-
-        {toggleSidebar &&
-        !isMobile && (
-
-          <div
-            className="
-              px-4
-              mb-3
-              flex
-              items-center
-              gap-2
-            "
-          >
-
-            <div
-              className="
-                w-1
-                h-4
-                rounded-full
-                bg-orange-400
-              "
-            />
-
-            <span
-              className="
-                text-[10px]
-                font-bold
-                uppercase
-                tracking-widest
-                text-gray-400
-              "
-            >
-              Navigasi
-            </span>
-
-          </div>
-
-        )}
-
-
-        {/* ================================================= */}
-        {/* MENU */}
-        {/* ================================================= */}
-
-        {menuList?.map(
-          (
-            route,
-            index
-          ) => {
-
-            const Icon =
-              route.icon;
-
-
-            return (
-
-              <li
-                key={
-                  route.id ||
-                  index
-                }
-                className="
-                  mt-1
-                  px-2
-                "
-              >
-
-                {/* ================================================= */}
-                {/* SUBMENU */}
-                {/* ================================================= */}
-
-                {route.submenu?.length >
-                0 ? (
-
-                  <SidebarSubmenu
-                    {...route}
-                  />
-
-                ) : (
-
-                  <NavLink
-                    to={
-                      route.path
-                    }
-
-                    end={
-                      route.path ===
-                      "/"
-                    }
-
-                    onClick={(e) => {
-
-                      // -------------------------------
-                      // MANUAL BOOK
-                      // -------------------------------
-
-                      if (
-                        route.path ===
-                        "/manual-book"
-                      ) {
-
-                        e.preventDefault();
-
-
-                        window.open(
-                          `${process.env.REACT_APP_BASE_URL_LOCAL}/files/MANUAL_BOOK.pdf`,
-                          "_blank",
-                          "noopener,noreferrer"
-                        );
-
-
-                        closeMobileSidebar();
-
-
-                        return;
-
-                      }
-
-
-                      // -------------------------------
-                      // MOBILE CLOSE SIDEBAR
-                      // -------------------------------
-
-                      closeMobileSidebar();
-
-                    }}
-
-
-                    className={({
-                      isActive,
-                    }) => {
-
-                      const active =
-                        isActive ||
-                        isPathActive(
-                          route.path
-                        );
-
-
-                      return `
-                        group
-                        flex
-                        items-center
-                        rounded-xl
-                        px-3
-                        py-2.5
-                        transition-all
-                        duration-200
-                        ease-out
-
-                        ${
-                          active
-                            ? `
-                              bg-blue-50
-                              text-primary
-                              font-semibold
-                              border-l-4
-                              border-orange-400
-                              shadow-sm
-                              scale-[1.01]
-                            `
-                            : `
-                              text-gray-600
-                              hover:bg-orange-50
-                              hover:text-blue-500
-                              hover:scale-[1.01]
-                            `
-                        }
-                      `;
-
-                    }}
-
-
-                    state={{
-                      menu: {
-
-                        id:
-                          route?.id,
-
-                        name:
-                          route?.name,
-
-                        path:
-                          route?.path,
-
-                        parent:
-                          route?.parent,
-
-                        submenu:
-                          route?.submenu,
-
-                        actions:
-                          route?.actions,
-
-                      },
-                    }}
-                  >
-
-                    <div
-                      className="
-                        flex
-                        items-center
-                        gap-3
-                        w-full
-                      "
-                    >
-
-                      {/* ICON */}
-
-                      {Icon && (
-
-                        <div
-                          className="
-                            w-8
-                            h-8
-                            shrink-0
-                            rounded-lg
-                            flex
-                            items-center
-                            justify-center
-                            bg-blue-50
-                            group-hover:bg-orange-100
-                            transition-all
-                            duration-200
-                          "
-                        >
-
-                          <Icon
-                            size={17}
-                            className="
-                              text-blue-600
-                              group-hover:text-orange-500
-                              transition-colors
-                              duration-200
-                            "
-                          />
-
-                        </div>
-
-                      )}
-
-
-                      {/* NAME */}
-
-                      <span
-                        className="
-                          text-sm
-                          truncate
-                        "
-                      >
-                        {
-                          route.name
-                        }
-                      </span>
-
-                    </div>
-
-                  </NavLink>
-
-                )}
-
-              </li>
-
-            );
-
-          }
-        )}
-
-
-        {/* ================================================= */}
-        {/* BOTTOM */}
+        {/* TOP LINE */}
         {/* ================================================= */}
 
         <div
           className="
-            px-4
-            mt-8
-            mb-5
+            absolute
+            top-0
+            left-0
+            w-full
+            h-[4px]
+            bg-gradient-to-r
+            from-orange-400
+            via-orange-500
+            to-blue-600
+            z-10
+          "
+        />
+
+
+        {/* ================================================= */}
+        {/* CONTENT */}
+        {/* ================================================= */}
+
+        <div
+          className="
+            h-full
+            scrollsidebar
+            overflow-y-auto
+            overflow-x-hidden
           "
         >
 
-          <div
+
+          {/* ================================================= */}
+          {/* LOGO */}
+          {/* ================================================= */}
+
+          <li
             className="
-              h-px
-              w-full
-              bg-gradient-to-r
-              from-orange-200
-              via-blue-200
-              to-transparent
+              mb-5
+              mt-2
             "
-          />
+          >
 
-
-          {toggleSidebar &&
-          !isMobile && (
-
-            <div
+            <Link
+              to="/dashboard"
+              onClick={
+                closeMobileSidebar
+              }
               className="
                 flex
+                flex-col
                 items-center
                 justify-center
-                gap-2
-                mt-4
+                hover:bg-transparent
+                active:bg-transparent
+                focus:bg-transparent
+                p-2
               "
             >
 
-              <span
+              {/* LOGO HANYA DESKTOP */}
+
+              {!isMobile &&
+              toggleSidebar ? (
+
+                <>
+
+                  <div
+                    className="
+                      text-[30px]
+                      font-extrabold
+                      tracking-wide
+                      leading-none
+                      select-none
+                    "
+                  >
+
+                    <span
+                      className="
+                        text-orange-500
+                      "
+                    >
+                      KF
+                    </span>
+
+                    <span
+                      className="
+                        text-primary
+                      "
+                    >
+                      COLLS
+                    </span>
+
+                  </div>
+
+
+                  <div
+                    className="
+                      text-[10px]
+                      uppercase
+                      tracking-[0.25em]
+                      text-gray-400
+                      mt-1
+                    "
+                  >
+                    Collection Faktur
+                  </div>
+
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-1
+                      mt-3
+                    "
+                  >
+
+                    <div
+                      className="
+                        h-[3px]
+                        w-8
+                        rounded-full
+                        bg-orange-400
+                      "
+                    />
+
+                    <div
+                      className="
+                        h-[3px]
+                        w-12
+                        rounded-full
+                        bg-blue-600
+                      "
+                    />
+
+                    <div
+                      className="
+                        h-[3px]
+                        w-3
+                        rounded-full
+                        bg-orange-400
+                      "
+                    />
+
+                  </div>
+
+                </>
+
+              ) : (
+
+                <div
+                  className="
+                    h-8
+                  "
+                />
+
+              )}
+
+            </Link>
+
+          </li>
+
+
+          {/* ================================================= */}
+          {/* SECTION */}
+          {/* ================================================= */}
+
+          {!isMobile &&
+          toggleSidebar && (
+
+            <div
+              className="
+                px-4
+                mb-3
+                flex
+                items-center
+                gap-2
+              "
+            >
+
+              <div
                 className="
-                  text-[9px]
-                  text-gray-300
+                  w-1
+                  h-4
+                  rounded-full
+                  bg-orange-400
                 "
-              >
-                KFCOLLS
-              </span>
+              />
 
               <span
                 className="
-                  text-[9px]
-                  text-gray-300
+                  text-[10px]
+                  font-bold
+                  uppercase
+                  tracking-widest
+                  text-gray-400
                 "
               >
-                •
+                Navigasi
               </span>
 
-              <span
+            </div>
+
+          )}
+
+
+          {/* ================================================= */}
+          {/* MENU */}
+          {/* ================================================= */}
+
+          {menuList?.map(
+            (
+              route,
+              index
+            ) => {
+
+              const Icon =
+                route.icon;
+
+
+              return (
+
+                <li
+                  key={
+                    route.id ||
+                    index
+                  }
+                  className="
+                    mt-1
+                    px-2
+                  "
+                >
+
+                  {route.submenu?.length >
+                  0 ? (
+
+                    <SidebarSubmenu
+                      {...route}
+                    />
+
+                  ) : (
+
+                    <NavLink
+                      to={
+                        route.path
+                      }
+
+                      end={
+                        route.path ===
+                        "/"
+                      }
+
+                      onClick={(e) => {
+
+                        // =================================
+                        // MANUAL BOOK
+                        // =================================
+
+                        if (
+                          route.path ===
+                          "/manual-book"
+                        ) {
+
+                          e.preventDefault();
+
+
+                          window.open(
+                            `${process.env.REACT_APP_BASE_URL_LOCAL}/files/MANUAL_BOOK.pdf`,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+
+
+                          closeMobileSidebar();
+
+
+                          return;
+
+                        }
+
+
+                        // =================================
+                        // MOBILE CLOSE SIDEBAR
+                        // =================================
+
+                        closeMobileSidebar();
+
+                      }}
+
+
+                      className={({
+                        isActive,
+                      }) => {
+
+                        const active =
+                          isActive ||
+                          isPathActive(
+                            route.path
+                          );
+
+
+                        return `
+                          group
+                          flex
+                          items-center
+                          rounded-xl
+                          px-3
+                          py-2.5
+                          transition-all
+                          duration-200
+                          ease-out
+
+                          ${
+                            active
+                              ? `
+                                bg-blue-50
+                                text-primary
+                                font-semibold
+                                border-l-4
+                                border-orange-400
+                                shadow-sm
+                                scale-[1.01]
+                              `
+                              : `
+                                text-gray-600
+                                hover:bg-orange-50
+                                hover:text-blue-500
+                                hover:scale-[1.01]
+                              `
+                          }
+                        `;
+
+                      }}
+
+
+                      state={{
+                        menu: {
+
+                          id:
+                            route?.id,
+
+                          name:
+                            route?.name,
+
+                          path:
+                            route?.path,
+
+                          parent:
+                            route?.parent,
+
+                          submenu:
+                            route?.submenu,
+
+                          actions:
+                            route?.actions,
+
+                        },
+                      }}
+                    >
+
+                      <div
+                        className="
+                          flex
+                          items-center
+                          gap-3
+                          w-full
+                        "
+                      >
+
+                        {Icon && (
+
+                          <div
+                            className="
+                              w-8
+                              h-8
+                              shrink-0
+                              rounded-lg
+                              flex
+                              items-center
+                              justify-center
+                              bg-blue-50
+                              group-hover:bg-orange-100
+                              transition-all
+                              duration-200
+                            "
+                          >
+
+                            <Icon
+                              size={17}
+                              className="
+                                text-blue-600
+                                group-hover:text-orange-500
+                                transition-colors
+                                duration-200
+                              "
+                            />
+
+                          </div>
+
+                        )}
+
+
+                        <span
+                          className="
+                            text-sm
+                            truncate
+                          "
+                        >
+                          {
+                            route.name
+                          }
+                        </span>
+
+                      </div>
+
+                    </NavLink>
+
+                  )}
+
+                </li>
+
+              );
+
+            }
+          )}
+
+
+          {/* ================================================= */}
+          {/* BOTTOM */}
+          {/* ================================================= */}
+
+          {!isMobile &&
+          toggleSidebar && (
+
+            <div
+              className="
+                px-4
+                mt-8
+                mb-5
+              "
+            >
+
+              <div
                 className="
-                  text-[9px]
-                  text-gray-300
+                  h-px
+                  w-full
+                  bg-gradient-to-r
+                  from-orange-200
+                  via-blue-200
+                  to-transparent
+                "
+              />
+
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-center
+                  gap-2
+                  mt-4
                 "
               >
-                Collection System
-              </span>
+
+                <span
+                  className="
+                    text-[9px]
+                    text-gray-300
+                  "
+                >
+                  KFCOLLS
+                </span>
+
+                <span
+                  className="
+                    text-[9px]
+                    text-gray-300
+                  "
+                >
+                  •
+                </span>
+
+                <span
+                  className="
+                    text-[9px]
+                    text-gray-300
+                  "
+                >
+                  Collection System
+                </span>
+
+              </div>
 
             </div>
 
@@ -898,15 +867,15 @@ const Sidebar = () => {
 
         </div>
 
-      </div>
+      </ul>
 
-    </ul>
+    </div>
 
   );
 
 
   // ===================================================
-  // RETURN
+  // RENDER
   // ===================================================
 
   return (
@@ -923,27 +892,31 @@ const Sidebar = () => {
 
           {/* OVERLAY */}
 
-          {toggleSidebar && (
+          <div
+            className={`
+              fixed
+              inset-0
+              z-[40]
+              bg-black/40
+              backdrop-blur-[1px]
+              transition-opacity
+              duration-300
 
-            <div
-              className="
-                fixed
-                inset-0
-                z-[40]
-                bg-black/40
-                backdrop-blur-[1px]
-              "
-              onClick={
-                closeMobileSidebar
+              ${
+                toggleSidebar
+                  ? "opacity-100 visible"
+                  : "opacity-0 invisible pointer-events-none"
               }
-            />
-
-          )}
+            `}
+            onClick={
+              closeMobileSidebar
+            }
+          />
 
 
           {/* SIDEBAR */}
 
-          <div
+          <aside
             className={`
               fixed
               top-0
@@ -951,6 +924,7 @@ const Sidebar = () => {
               bottom-0
               z-[50]
               w-60
+              bg-white
               shadow-2xl
               transition-transform
               duration-300
@@ -964,9 +938,9 @@ const Sidebar = () => {
             `}
           >
 
-            {sidebarContent}
+            {renderSidebarContent()}
 
-          </div>
+          </aside>
 
         </>
 
@@ -976,17 +950,46 @@ const Sidebar = () => {
         /* DESKTOP */
         /* ================================================= */
 
-        <div
-          className="
-            drawer-side
+        <aside
+          className={`
+            relative
             z-50
-            shadow-xl
-          "
+            h-full
+            shrink-0
+            bg-white
+            overflow-hidden
+            transition-all
+            duration-300
+            ease-in-out
+
+            ${
+              toggleSidebar
+                ? "w-60"
+                : "w-0"
+            }
+          `}
         >
 
-          {sidebarContent}
+          <div
+            className={`
+              h-full
+              w-60
+              transition-transform
+              duration-300
+              ease-in-out
+              ${
+                toggleSidebar
+                  ? "translate-x-0"
+                  : "-translate-x-full"
+              }
+            `}
+          >
 
-        </div>
+            {renderSidebarContent()}
+
+          </div>
+
+        </aside>
 
       )}
 
