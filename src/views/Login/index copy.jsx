@@ -19,7 +19,7 @@ import LOGO_MAINTENANCE from 'assets/logo_maintenance.png';
 import { HiEye, HiEyeOff } from 'react-icons/hi';
 
 const Login = () => {
-  document.title = 'COSTRACK | Login';
+  document.title = 'KFCOLLS | Login';
 
   const dispatch = useDispatch();
   const { toggleModal } = useSelector(state => state.global);

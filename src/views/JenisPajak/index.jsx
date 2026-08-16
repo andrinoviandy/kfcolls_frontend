@@ -24,9 +24,9 @@ import {
 
 import { setToggleModal } from '../../redux/n2n/global';
 import ModalUpload from "./components/Modal/ModalUpload";
-import TableJenisPajak from "./components/TableJenisPajak";
 import { decodeData } from "global/helper/jwt";
 import { getCookies } from "global/helper/cookie";
+import TableDaftarTugasHarian from "./components/TableTugasHarian";
 
 // =========================
 // COMPONENT
@@ -129,7 +129,7 @@ const JenisPajak = () => {
         </div>
 
         <hr className="my-5" />
-        <TableJenisPajak
+        <TableDaftarTugasHarian
           check={check} dimensionScreenW={dimensionScreenW} loginAccess={loginAccess}
         />
 

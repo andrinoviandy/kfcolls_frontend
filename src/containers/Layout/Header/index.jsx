@@ -5,10 +5,6 @@ import {
   setToggleSidebar,
 } from "../../../redux/n2n/global";
 import { useDispatch, useSelector } from "react-redux";
-import { ReactComponent as LogoPSD } from "assets/PSD_LOGO_BLUE.svg";
-import LOGO_COST from "assets/LOGO_LOGIN.png";
-import { ReactComponent as BtnDropdown } from "assets/btn_dropdown.svg";
-import { ReactComponent as BgModal } from 'assets/BgModal.svg';
 import { decodeData } from "global/helper/jwt";
 import { getCookies, removeCookies, setCookies } from "global/helper/cookie";
 import { IoPersonSharp, IoPersonCircleSharp, IoReader, IoNotifications, IoCalendarOutline, IoCheckmarkDone, IoCheckmarkDoneOutline, IoNotificationsOutline, IoNotificationsSharp } from "react-icons/io5";
@@ -16,7 +12,7 @@ import storeSchema from "global/store";
 import { swal } from "global/helper/swal";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Label, Modal } from "components/atoms";
-import { FaArrowRight, FaCheckDouble, FaCogs, FaFileAlt, FaInbox, FaTags, FaUser, FaUserAlt, FaUserSlash } from "react-icons/fa";
+import { FaArrowRight, FaBell, FaCheckDouble, FaChevronDown, FaChevronLeft, FaChevronRight, FaCogs, FaFileAlt, FaInbox, FaTags, FaUser, FaUserAlt, FaUserSlash } from "react-icons/fa";
 import { formatDateJam } from "global/helper/formatDate";
 
 const Header = (props) => {
@@ -30,7 +26,81 @@ const Header = (props) => {
   const { dimensionComponent, dimensionScreenW, toggleSidebar, check } =
     useSelector((state) => state.global);
   const [loginData, setLoginData] = useState({});
-  const [listNotif, setListNotif] = useState([]);
+  const dummyListNotif = [
+    {
+      notifikasi_push_id: "NTF001",
+      no_pengajuan: "280000992",
+      title: "Faktur berhasil diantar",
+      body: "Faktur 280000992 berhasil diantarkan ke Dinkes Kota Medan.",
+      created_at: "2026-08-16T09:31:00",
+      is_read: "T",
+    },
+
+    {
+      notifikasi_push_id: "NTF002",
+      no_pengajuan: "280009812",
+      title: "Faktur berhasil diantar",
+      body: "Faktur 280009812 berhasil diantarkan ke Apotek Madju Djaya.",
+      created_at: "2026-08-16T09:35:00",
+      is_read: "T",
+    },
+
+    {
+      notifikasi_push_id: "NTF003",
+      no_pengajuan: "28000912",
+      title: "Pembayaran tunai berhasil diterima",
+      body: "Rp140.000.000 berhasil diterima untuk pembayaran tunai faktur 28000912 oleh Apotek Rusli.",
+      created_at: "2026-08-16T09:20:00",
+      is_read: "F",
+    },
+
+    {
+      notifikasi_push_id: "NTF004",
+      no_pengajuan: "2800091281",
+      title: "Pembayaran transfer berhasil diterima",
+      body: "Rp140.000.000 berhasil diterima untuk pembayaran transfer faktur 2800091281 oleh RSUD Pasuruan.",
+      created_at: "2026-08-16T09:15:00",
+      is_read: "F",
+    },
+
+    {
+      notifikasi_push_id: "NTF005",
+      no_pengajuan: "280009134",
+      title: "Faktur berhasil diantar",
+      body: "Faktur 280009134 berhasil diantarkan ke Klinik Sehat Medika.",
+      created_at: "2026-08-16T08:55:00",
+      is_read: "T",
+    },
+
+    {
+      notifikasi_push_id: "NTF006",
+      no_pengajuan: "280009155",
+      title: "Faktur berhasil diantar",
+      body: "Faktur 280009155 berhasil diantarkan ke Rumah Sakit Harapan Bunda.",
+      created_at: "2026-08-16T08:40:00",
+      is_read: "F",
+    },
+
+    {
+      notifikasi_push_id: "NTF007",
+      no_pengajuan: "280009167",
+      title: "Pembayaran tunai berhasil diterima",
+      body: "Rp85.500.000 berhasil diterima untuk pembayaran tunai faktur 280009167 oleh Apotek Sejahtera.",
+      created_at: "2026-08-16T08:25:00",
+      is_read: "F",
+    },
+
+    {
+      notifikasi_push_id: "NTF008",
+      no_pengajuan: "280009188",
+      title: "Pembayaran transfer berhasil diterima",
+      body: "Rp215.000.000 berhasil diterima untuk pembayaran transfer faktur 280009188 oleh RSUD Dr. Soetomo.",
+      created_at: "2026-08-16T08:10:00",
+      is_read: "T",
+    },
+  ];
+
+  const [listNotif, setListNotif] = useState(dummyListNotif);
   const [role, setRole] = useState({});
   const [access, setAccess] = useState({});
   const [loginAccess, setLoginAccess] = useState()
@@ -64,47 +134,47 @@ const Header = (props) => {
   //     setListNotif([])
   //   }
   // }
-  const getListNotification = async (pageNumber = 1, mode = "replace") => {
-    const isLoadMore = pageNumber > 1;
+  // const getListNotification = async (pageNumber = 1, mode = "replace") => {
+  //   const isLoadMore = pageNumber > 1;
 
-    if (isLoadMore && loadingMore) return;
-    if (!isLoadMore && refreshing) return;
+  //   if (isLoadMore && loadingMore) return;
+  //   if (!isLoadMore && refreshing) return;
 
-    if (isLoadMore) {
-      setLoadingMore(true);
-    } else {
-      setRefreshing(true);
-    }
+  //   if (isLoadMore) {
+  //     setLoadingMore(true);
+  //   } else {
+  //     setRefreshing(true);
+  //   }
 
-    try {
-      const res = await storeSchema.actions.getListNotification({
-        page: pageNumber,
-        limit: PAGE_LIMIT,
-      });
+  //   try {
+  //     const res = await storeSchema.actions.getListNotification({
+  //       page: pageNumber,
+  //       limit: PAGE_LIMIT,
+  //     });
 
-      const nextData = Array.isArray(res?.data) ? res.data : [];
+  //     const nextData = Array.isArray(res?.data) ? res.data : [];
 
-      setListNotif(prev => {
-        if (pageNumber === 1 || mode === "replace") {
-          return nextData;
-        }
+  //     setListNotif(prev => {
+  //       if (pageNumber === 1 || mode === "replace") {
+  //         return nextData;
+  //       }
 
-        return [...prev, ...nextData];
-      });
+  //       return [...prev, ...nextData];
+  //     });
 
-      setHasMore(nextData.length >= PAGE_LIMIT);
-      setPage(pageNumber);
-    } finally {
-      if (isLoadMore) {
-        setLoadingMore(false);
-      } else {
-        setRefreshing(false);
-      }
-    }
-  };
+  //     setHasMore(nextData.length >= PAGE_LIMIT);
+  //     setPage(pageNumber);
+  //   } finally {
+  //     if (isLoadMore) {
+  //       setLoadingMore(false);
+  //     } else {
+  //       setRefreshing(false);
+  //     }
+  //   }
+  // };
 
   const refreshNotifications = async () => {
-    await getListNotification(1, "replace");
+    // await getListNotification(1, "replace");
   };
 
   const handleScroll = (e) => {
@@ -117,7 +187,7 @@ const Header = (props) => {
     if (!isBottomReached || !hasMore || loadingMore || refreshing) return;
 
     const nextPage = page + 1;
-    getListNotification(nextPage, "append");
+    // getListNotification(nextPage, "append");
   };
 
   useEffect(() => {
@@ -203,45 +273,6 @@ const Header = (props) => {
     ).toUpperCase();
   };
 
-  const dummyNotif = [
-    {
-      NOTIFICATION_STATUS_ID: 1,
-      PROJECT_ID: "PRJ001",
-      NAVIGATE_TO: "/pengajuan",
-      IS_READ: "F",
-      NO_PENGAJUAN: "PJN-00123",
-      NAMA: "Andi Saputra",
-      NOMINAL: 15000000,
-      KETERANGAN: "Pengajuan biaya operasional kantor pusat bulan Juli",
-      CREATED_AT: "10:20",
-      STATUS: 'APPROVE'
-    },
-    {
-      NOTIFICATION_STATUS_ID: 2,
-      PROJECT_ID: "PRJ002",
-      NAVIGATE_TO: "/pengajuan",
-      IS_READ: "T",
-      NO_PENGAJUAN: "PJN-00124",
-      NAMA: "Budi Santoso",
-      NOMINAL: 8750000,
-      KETERANGAN: "Reimbursement perjalanan dinas luar kota",
-      CREATED_AT: "09:10",
-      STATUS: 'REJECT'
-    },
-    {
-      NOTIFICATION_STATUS_ID: 3,
-      PROJECT_ID: "PRJ003",
-      NAVIGATE_TO: "/pengajuan",
-      IS_READ: "F",
-      NO_PENGAJUAN: "PJN-00125",
-      NAMA: "Citra Dewi",
-      NOMINAL: 22000000,
-      KETERANGAN: "Pembelian alat kesehatan cabang",
-      CREATED_AT: "15:45",
-      STATUS: 'APPROVE'
-    },
-  ];
-
   useEffect(() => {
     const get = async () => {
       const decoded = await decodeData(getCookies('accountAccess'))
@@ -261,7 +292,7 @@ const Header = (props) => {
       >
         <div className="flex flex-row justify-between">
           <div className="flex gap-5">
-            <label
+            {/* <label
               htmlFor="left-sidebar-drawer"
               className="btn drawer-button"
               onClick={() => dispatch(setToggleSidebar(!toggleSidebar))}
@@ -271,11 +302,50 @@ const Header = (props) => {
                 <div className="burger-icon"></div>
                 <div className="burger-icon"></div>
               </div>
-            </label>
+            </label> */}
+            <button
+              type="button"
+              className="
+                w-12 h-12
+                flex items-center justify-center
+                rounded-xl
+                bg-blue-50
+                text-primary
+                hover:bg-blue-100
+                hover:text-orange-500
+                transition-all duration-200
+                shadow-lg
+              "
+              onClick={() => dispatch(setToggleSidebar(!toggleSidebar))}
+              title={toggleSidebar ? "Tutup Sidebar" : "Buka Sidebar"}
+            >
+              {toggleSidebar ? (
+                <FaChevronLeft className="text-xl" />
+              ) : (
+                <FaChevronRight className="text-xl" />
+              )}
+            </button>
             {(!toggleSidebar || dimensionScreenW <= 767) && (
               <div className="flex items-center">
-                {/* <LogoPSD /> */}
-                <img src={LOGO_COST} alt="Logo" className="w-auto h-12" />
+                <div
+                  className="
+                      text-[30px]
+                      font-extrabold
+                      tracking-wide
+                      leading-none
+                      select-none
+                    "
+                >
+
+                  <span className="text-orange-500">
+                    KF
+                  </span>
+
+                  <span className="text-primary">
+                    COLLS
+                  </span>
+
+                </div>
               </div>
             )}
           </div>
@@ -287,19 +357,61 @@ const Header = (props) => {
             {access?.role_id !== 'RL00' && (
               <div className="dropdown dropdown-end">
                 <div tabIndex={0} role="button" className="m-1 relative">
-                  <IoNotifications className="text-3xl text-blue-900" />
+                  {/* <IoNotifications className="text-3xl text-primary" />
                   {listNotif && listNotif.length > 0 && listNotif.filter(a => a.is_read === 'T').length > 0 && (
                     <span className="bg-red-500 w-4 h-4 text-white rounded-full absolute left-0 top-0 text-[8px] text-center animate-bounce">
                       {listNotif.filter(a => a.is_read === 'T').length > 99 ? '99+' : listNotif.filter(a => a.is_read === 'T').length}
                     </span>
-                  )}
+                  )} */}
+                  <div
+                    className="
+    relative
+    w-11 h-11
+    flex items-center justify-center
+    rounded-full
+    bg-blue-50
+    text-primary
+    hover:bg-blue-100
+    hover:text-orange-500
+    transition-all duration-200
+    cursor-pointer
+  "
+                  >
+                    <FaBell className="text-xl" />
+
+                    {listNotif &&
+                      listNotif.length > 0 &&
+                      listNotif.filter(a => a.is_read === 'T').length > 0 && (
+                        <span
+                          className="
+          absolute
+          -top-1
+          -right-1
+          min-w-[18px]
+          h-[18px]
+          px-1
+          flex items-center justify-center
+          bg-orange-500
+          text-white
+          rounded-full
+          text-[9px]
+          font-bold
+          border-2 border-white
+        "
+                        >
+                          {listNotif.filter(a => a.is_read === 'T').length > 99
+                            ? '99+'
+                            : listNotif.filter(a => a.is_read === 'T').length}
+                        </span>
+                      )}
+                  </div>
                 </div>
                 <ul
                   tabIndex={0}
                   className="dropdown-content menu bg-base-100 rounded-box z-[1] w-[290px] lg:w-[350px] shadow-sm divide-y-2 divide-base-200/70 shadow-blue-700 border overflow-x-auto"
                 >
                   <div className="flex justify-between">
-                    <span className="text-lg font-bold mx-3 py-3 items-center gap-2 flex text-blue-900 flex-row">
+                    <span className="text-lg font-bold mx-3 py-3 items-center gap-2 flex text-primary flex-row">
                       <div className="bg-blue-200 rounded-full p-1">
                         <IoNotificationsSharp />
                       </div>
@@ -316,7 +428,7 @@ const Header = (props) => {
                             px-1.5
                             gap-2 
                             rounded-full
-                            bg-blue-900
+                            bg-primary
                             hover:bg-blue-800
                             text-white
                             shadow-md
@@ -337,7 +449,7 @@ const Header = (props) => {
                     style={{ maxHeight: 250, overflowY: "auto" }}
                     onScroll={handleScroll}
                   >
-                    {listNotif && listNotif.length > 0 ? listNotif.map((item, index) => (
+                    {dummyListNotif && dummyListNotif.length > 0 ? dummyListNotif.map((item, index) => (
                       <React.Fragment key={index}>
                         <li className="text-sm relative">
                           <a onClick={() => handleFlag(item?.notifikasi_push_id, item?.no_pengajuan)}>
@@ -357,7 +469,7 @@ const Header = (props) => {
                             <div className="flex flex-col w-full">
                               <div className="flex flex-wrap text-wrap font-bold gap-3 items-center">
 
-                                <div className="text-blue-900 flex items-center gap-1">
+                                <div className="text-orange-500 flex items-center gap-1">
                                   <FaTags />
                                   {item?.no_pengajuan}
                                 </div>
@@ -437,11 +549,41 @@ const Header = (props) => {
 
             <div className="dropdown dropdown-end">
               <div tabIndex={0} role="button" className="flex gap-3">
-                <div className="">
+                {/* <div className="">
                   <div className="rounded-full items-center flex justify-center">
-                    <IoPersonCircleSharp className="text-5xl text-blue-900" />
-                    {/* <img alt="Tailwind CSS Navbar component" src="https://daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" /> */}
+                    <IoPersonCircleSharp className="text-5xl text-primary" />
+                    
                   </div>
+                </div> */}
+                <div className="relative">
+                  <div
+                    className="
+      w-11 h-11
+      rounded-full
+      bg-primary
+      flex items-center justify-center
+      text-white
+      shadow-sm
+      border-2 border-blue-100
+    "
+                  >
+                    <FaUser className="text-lg" />
+                  </div>
+
+                  {/* Online indicator */}
+                  <span
+                    className="
+      absolute
+      bottom-0
+      right-0
+      w-3
+      h-3
+      bg-green-500
+      rounded-full
+      border-2
+      border-white
+    "
+                  />
                 </div>
                 {dimensionScreenW > 767 && (
                   <div className="items-center flex gap-3">
@@ -466,7 +608,20 @@ const Header = (props) => {
                       </div>
                     </div>
                     <div className="flex justify-center items-center">
-                      <BtnDropdown />
+                      {/* <BtnDropdown /> */}
+                      <div
+                        className="
+    w-8 h-8
+    rounded-full
+    bg-gray-100
+    flex items-center justify-center
+    text-blue-700
+    hover:bg-blue-50
+    transition-all
+  "
+                      >
+                        <FaChevronDown className="text-sm" />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -481,7 +636,7 @@ const Header = (props) => {
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-base-200">
 
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold uppercase">
+                      <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold uppercase">
                         {access?.username?.charAt(0) || "U"}
                       </div>
 

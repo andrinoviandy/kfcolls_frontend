@@ -38,6 +38,15 @@ import UbahPassword from 'views/UbahPassword'
 import DataVendor from 'views/DataVendor'
 import AddEditVendor from 'views/DataVendor/components/AddEditVendor'
 import ManajemenSession from 'views/ManajemenSession'
+import DaftarTugasHarian from 'views/DaftarTugasHarian'
+import RiwayatPengantaran from 'views/RiwayatPengantaran'
+import BayarFaktur from 'views/BayarFaktur'
+import VerifikasiPembayaran from 'views/VerifikasiPembayaran'
+import PenugasanFaktur from 'views/PenugasanFaktur'
+import MonitoringPenugasan from 'views/MonitoringPenugasan'
+import Laporan from 'views/Laporan'
+import MasterFaktur from 'views/DataFaktur'
+import MasterPelanggan from 'views/MasterPelanggan'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -54,6 +63,55 @@ const routes = [
     path: '/dashboard',
     component: Dashboard,
   },
+  {
+    path: '/data-faktur',
+    component: MasterFaktur,
+  },
+  {
+    path: '/daftar-tugas-harian',
+    component: DaftarTugasHarian,
+  },
+  {
+    path: '/riwayat-pengantaran',
+    component: RiwayatPengantaran,
+  },
+  {
+    path: '/bayar-faktur',
+    component: BayarFaktur,
+  },
+  {
+    path: '/verifikasi-pembayaran',
+    component: VerifikasiPembayaran,
+  },
+  {
+    path: '/penugasan-faktur',
+    component: PenugasanFaktur,
+  },
+  {
+    path: '/monitoring-penugasan',
+    component: MonitoringPenugasan,
+  },
+  {
+    path: '/laporan',
+    component: Laporan,
+  },
+  {
+    path: '/data-pelanggan',
+    component: MasterPelanggan,
+  },
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   {
     path: '/ubah-password',

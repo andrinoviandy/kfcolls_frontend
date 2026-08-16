@@ -23,11 +23,11 @@ const Layout = () => {
   //     navigation('/login');
   //   }
   // }, [loginData, accountAccess, location?.state, menu, navigation])
-  useEffect(() => {
-    if (!loginData || !accountAccess) {
-      navigation('/login');
-    }
-  }, [loginData, accountAccess])
+  // useEffect(() => {
+  //   if (!loginData || !accountAccess) {
+  //     navigation('/login');
+  //   }
+  // }, [loginData, accountAccess])
 
   // useEffect(() => {
   //   const get = async () => {

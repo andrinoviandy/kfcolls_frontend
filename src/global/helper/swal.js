@@ -23,7 +23,7 @@ export const swal = {
       icon: "success",
       customClass: {
         confirmButton:
-          "bg-blue-900 text-white px-4 py-2 mx-3 rounded",
+          "bg-primary text-white px-4 py-2 mx-3 rounded",
       },
       confirmButtonText: "Ok",
       buttonsStyling: false,
@@ -37,7 +37,7 @@ export const swal = {
       icon: "error",
       customClass: {
         confirmButton:
-          "bg-blue-900 text-white px-4 py-2 mx-3 rounded",
+          "bg-primary text-white px-4 py-2 mx-3 rounded",
       },
       confirmButtonText: "Ok",
       buttonsStyling: false,
@@ -54,7 +54,7 @@ export const swal = {
       icon: "warning",
       customClass: {
         confirmButton:
-          "bg-blue-900 text-white px-4 py-2 mx-3 rounded",
+          "bg-primary text-white px-4 py-2 mx-3 rounded",
       },
       confirmButtonText: "Ok",
       buttonsStyling: false,
@@ -70,7 +70,7 @@ export const swal = {
       icon: "info",
       customClass: {
         confirmButton:
-          "bg-blue-900 text-white px-4 py-2 mx-3 rounded",
+          "bg-primary text-white px-4 py-2 mx-3 rounded",
       },
       confirmButtonText: "Ok",
       showCancelButton: true,
@@ -110,7 +110,7 @@ export const swal = {
       confirmButtonText: "Ok",
       allowOutsideClick: allowOutside,
       customClass: {
-        confirmButton: "bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 mx-2 rounded",
+        confirmButton: "bg-primary hover:bg-blue-800 text-white px-4 py-2 mx-2 rounded",
         cancelButton: "bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 mx-2 rounded"
       },
       buttonsStyling: false
@@ -119,6 +119,25 @@ export const swal = {
         swal.close()
       }
     });
+  },
+  confirm: async (title, message, allowOutside = true) => {
+    const result = await Swal.fire({
+      title: title,
+      text: message,
+      icon: "question",
+      confirmButtonText: 'Ya, Lanjutkan',
+      cancelButtonText: "Batalkan",
+      showCancelButton: true,
+      customClass: {
+        confirmButton:
+          "bg-primary hover:bg-primary text-white px-4 py-2 mx-3 rounded",
+        cancelButton:
+          "bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded",
+      },
+      buttonsStyling: false,
+    });
+
+    return result.isConfirmed;
   },
   customHtml: (title, html, icon, allowOutside = true) => {
     Swal.fire({
@@ -129,7 +148,7 @@ export const swal = {
       confirmButtonText: "Ok",
       allowOutsideClick: allowOutside,
       customClass: {
-        confirmButton: "bg-blue-900 hover:bg-blue-900 text-white px-4 py-2 mx-2 rounded",
+        confirmButton: "bg-primary hover:bg-primary text-white px-4 py-2 mx-2 rounded",
         cancelButton: "bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 mx-2 rounded"
       },
       buttonsStyling: false
