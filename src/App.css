@@ -110,7 +110,7 @@
 .scrollsidebar::-webkit-scrollbar-thumb {
   /* background-color: rgba(46, 102, 185, 0.7); */
   /* background-color: #eee; */
-  background-color: rgb(0, 0, 128) !important;
+  background-color: rgb(0, 108, 178) !important;
   border-radius: 10px;
 }
 
@@ -120,7 +120,7 @@
 }
 
 .scrollsidebar::-webkit-scrollbar-track {
-  background-color: rgb(0, 0, 128) !important;
+  background-color: rgb(0, 108, 178) !important;
 }
 
 ::-webkit-scrollbar {
@@ -130,7 +130,7 @@
 
 ::-webkit-scrollbar-thumb {
   /* background-color: rgba(46, 102, 185, 0.7); */
-  background-color: rgb(0, 0, 128) !important;
+  background-color: rgb(0, 108, 178) !important;
   border-radius: 10px;
 }
 

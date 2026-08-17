@@ -45,6 +45,8 @@ import MonitoringPenugasan from 'views/MonitoringPenugasan'
 import Laporan from 'views/Laporan'
 import MasterFaktur from 'views/DataFaktur'
 import MasterPelanggan from 'views/MasterPelanggan'
+import ManajemenUser from 'views/ManajemenUser'
+import KonfirmasiPiutang from 'views/KonfirmasiPiutang'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -90,8 +92,16 @@ const routes = [
     component: MonitoringPenugasan,
   },
   {
+    path: '/konfirmasi-piutang',
+    component: KonfirmasiPiutang,
+  },
+  {
     path: '/laporan',
     component: Laporan,
+  },
+  {
+    path: '/manajemen-user',
+    component: ManajemenUser,
   },
   {
     path: '/data-pelanggan',

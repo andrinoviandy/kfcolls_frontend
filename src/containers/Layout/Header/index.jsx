@@ -822,6 +822,7 @@ const Header = () => {
         bg-white
         border-b
         border-gray-100
+        shadow-primary
         shadow-sm
         transition-all
         duration-300

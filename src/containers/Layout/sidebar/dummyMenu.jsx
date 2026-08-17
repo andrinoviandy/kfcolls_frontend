@@ -9,7 +9,10 @@ import {
     FaChartBar,
     FaDatabase,
     FaFileInvoice,
+    FaUserCog,
+    FaUsersCog,
 } from "react-icons/fa";
+import { MdOutlineRequestQuote } from "react-icons/md";
 
 export const dummyMenu = [
     {
@@ -77,6 +80,14 @@ export const dummyMenu = [
         submenu: [],
     },
     {
+        id: 7,
+        name: "Konfirmasi Piutang",
+        path: "/konfirmasi-piutang",
+        icon: MdOutlineRequestQuote,
+        // roles: [],
+        submenu: [],
+    },
+    {
         id: 8,
         name: "Laporan",
         path: "/laporan",
@@ -86,6 +97,14 @@ export const dummyMenu = [
     },
     {
         id: 9,
+        name: "Manajemen User",
+        path: "/manajemen-user",
+        icon: FaUsersCog,
+        // roles: [],
+        submenu: [],
+    },
+    {
+        id: 10,
         name: "Data Master",
         path: "/data-master",
         icon: FaDatabase,
