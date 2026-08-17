@@ -19,6 +19,7 @@ import {
   FaWhatsapp,
   FaEnvelope,
   FaEye,
+  FaFileAlt,
 } from "react-icons/fa";
 
 import {
@@ -41,20 +42,23 @@ const formatDate = (
     return "-";
   }
 
+  const parsedDate =
+    new Date(date);
 
-  return new Date(
-    date
-  ).toLocaleDateString(
+  if (
+    Number.isNaN(
+      parsedDate.getTime()
+    )
+  ) {
+    return "-";
+  }
+
+  return parsedDate.toLocaleDateString(
     "id-ID",
     {
-      day:
-        "2-digit",
-
-      month:
-        "short",
-
-      year:
-        "numeric",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     }
   );
 
@@ -78,46 +82,16 @@ const formatRupiah = (
 
   }
 
-
   return new Intl.NumberFormat(
     "id-ID",
     {
-      style:
-        "currency",
-
-      currency:
-        "IDR",
-
-      minimumFractionDigits:
-        0,
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
     }
   ).format(
     value
   );
-
-};
-
-
-// =====================================================
-// ADD DAYS
-// =====================================================
-
-const addDays = (
-  date,
-  days
-) => {
-
-  const result =
-    new Date(
-      date
-    );
-
-  result.setDate(
-    result.getDate() +
-    days
-  );
-
-  return result;
 
 };
 
@@ -199,6 +173,9 @@ const dummyData = [
     no_faktur:
       "10000271521",
 
+    no_billing:
+      "BILL-202608-000001",
+
     customer_id:
       "CUST001",
 
@@ -247,6 +224,9 @@ const dummyData = [
 
     no_faktur:
       "10000271522",
+
+    no_billing:
+      "BILL-202608-000002",
 
     customer_id:
       "CUST002",
@@ -297,6 +277,9 @@ const dummyData = [
     no_faktur:
       "10000271523",
 
+    no_billing:
+      "BILL-202607-000003",
+
     customer_id:
       "CUST003",
 
@@ -345,6 +328,9 @@ const dummyData = [
 
     no_faktur:
       "10000271524",
+
+    no_billing:
+      "BILL-202608-000004",
 
     customer_id:
       "CUST004",
@@ -395,6 +381,9 @@ const dummyData = [
     no_faktur:
       "10000271525",
 
+    no_billing:
+      "BILL-202608-000005",
+
     customer_id:
       "CUST005",
 
@@ -444,6 +433,9 @@ const dummyData = [
     no_faktur:
       "10000271526",
 
+    no_billing:
+      "BILL-202608-000006",
+
     customer_id:
       "CUST006",
 
@@ -485,6 +477,214 @@ const dummyData = [
 
   },
 
+
+  {
+    id:
+      7,
+
+    no_faktur:
+      "10000271527",
+
+    no_billing:
+      "BILL-202608-000007",
+
+    customer_id:
+      "CUST007",
+
+    nama_customer:
+      "RSUP H. Adam Malik",
+
+    alamat:
+      "Jl. Bunga Lau No. 17, Medan",
+
+    nama_penagih:
+      "KFTD Medan",
+
+    nominal_tagihan:
+      225000000,
+
+    posting_date:
+      "2026-08-07",
+
+    tanggal_kirim_konfirmasi:
+      "2026-08-08",
+
+    batas_konfirmasi:
+      "2026-08-22",
+
+    tanggal_konfirmasi:
+      "2026-08-12",
+
+    media_wa:
+      true,
+
+    media_email:
+      true,
+
+    sales:
+      "Citra Lestari",
+
+    status:
+      "DISETUJUI_CUSTOMER",
+
+  },
+
+
+  {
+    id:
+      8,
+
+    no_faktur:
+      "10000271528",
+
+    no_billing:
+      "BILL-202608-000008",
+
+    customer_id:
+      "CUST008",
+
+    nama_customer:
+      "Apotek Karya Sehat",
+
+    alamat:
+      "Jl. Pemuda No. 45, Jakarta",
+
+    nama_penagih:
+      "KFTD Jakarta",
+
+    nominal_tagihan:
+      72500000,
+
+    posting_date:
+      "2026-08-08",
+
+    tanggal_kirim_konfirmasi:
+      "2026-08-09",
+
+    batas_konfirmasi:
+      "2026-08-23",
+
+    tanggal_konfirmasi:
+      null,
+
+    media_wa:
+      true,
+
+    media_email:
+      true,
+
+    sales:
+      "Dimas Pratama",
+
+    status:
+      "MENUNGGU_KONFIRMASI",
+
+  },
+
+
+  {
+    id:
+      9,
+
+    no_faktur:
+      "10000271529",
+
+    no_billing:
+      "BILL-202608-000009",
+
+    customer_id:
+      "CUST009",
+
+    nama_customer:
+      "Dinas Kesehatan Kota Bogor",
+
+    alamat:
+      "Jl. Pajajaran No. 21, Bogor",
+
+    nama_penagih:
+      "KFTD Bogor",
+
+    nominal_tagihan:
+      185000000,
+
+    posting_date:
+      "2026-08-09",
+
+    tanggal_kirim_konfirmasi:
+      "2026-08-10",
+
+    batas_konfirmasi:
+      "2026-08-24",
+
+    tanggal_konfirmasi:
+      "2026-08-15",
+
+    media_wa:
+      true,
+
+    media_email:
+      true,
+
+    sales:
+      "Dimas Pratama",
+
+    status:
+      "DITOLAK_CUSTOMER",
+
+  },
+
+
+  {
+    id:
+      10,
+
+    no_faktur:
+      "10000271530",
+
+    no_billing:
+      "BILL-202608-000010",
+
+    customer_id:
+      "CUST010",
+
+    nama_customer:
+      "RSUD Cibinong",
+
+    alamat:
+      "Jl. KSR Dadi Kusmayadi No. 27, Bogor",
+
+    nama_penagih:
+      "KFTD Bogor",
+
+    nominal_tagihan:
+      310000000,
+
+    posting_date:
+      "2026-08-10",
+
+    tanggal_kirim_konfirmasi:
+      "2026-08-11",
+
+    batas_konfirmasi:
+      "2026-08-25",
+
+    tanggal_konfirmasi:
+      null,
+
+    media_wa:
+      true,
+
+    media_email:
+      true,
+
+    sales:
+      "Andri Noviandy",
+
+    status:
+      "MENUNGGU_KONFIRMASI",
+
+  },
+
 ];
 
 
@@ -497,7 +697,6 @@ const TableListKonfirmasiPiutang = ({
   check,
   loginAccess,
 }) => {
-
 
   // ===================================================
   // STATE
@@ -663,6 +862,14 @@ const TableListKonfirmasiPiutang = ({
 
                 ||
 
+                item.no_billing
+                  ?.toLowerCase()
+                  .includes(
+                    search
+                  )
+
+                ||
+
                 item.nama_customer
                   ?.toLowerCase()
                   .includes(
@@ -756,7 +963,7 @@ const TableListKonfirmasiPiutang = ({
 
       const config =
         statusConfig[
-        status
+          status
         ];
 
 
@@ -850,21 +1057,6 @@ const TableListKonfirmasiPiutang = ({
       item
     ) => {
 
-      /*
-       * Nanti implementasi API:
-       *
-       * await storeSchema.actions
-       *   .sendKonfirmasiPiutang({
-       *      faktur_id: item.id
-       *   })
-       *
-       * API melakukan:
-       * 1. Kirim WhatsApp
-       * 2. Kirim Email
-       * 3. Simpan tanggal pengiriman
-       * 4. Set batas konfirmasi +14 hari
-       */
-
       console.log(
         "Kirim konfirmasi piutang:",
         item
@@ -901,6 +1093,14 @@ const TableListKonfirmasiPiutang = ({
 
       icon:
         <FaFileInvoiceDollar />,
+    },
+
+    {
+      label:
+        "No. Billing",
+
+      icon:
+        <FaFileAlt />,
     },
 
     {
@@ -969,18 +1169,18 @@ const TableListKonfirmasiPiutang = ({
   const startIndex =
     totalData > 0
       ? (
-        currentPage -
+          currentPage -
+          1
+        ) *
+          perPage +
         1
-      ) *
-      perPage +
-      1
       : 0;
 
 
   const endIndex =
     Math.min(
       currentPage *
-      perPage,
+        perPage,
       totalData
     );
 
@@ -1045,7 +1245,7 @@ const TableListKonfirmasiPiutang = ({
           <input
             type="text"
             placeholder="
-              Cari faktur / customer / penagih...
+              Cari faktur / billing / customer / penagih...
             "
             className="
               grow
@@ -1172,7 +1372,7 @@ const TableListKonfirmasiPiutang = ({
                   text-blue-700
                 "
               >
-                Total Faktur
+                Total Konfirmasi
               </p>
 
               <p
@@ -1493,7 +1693,7 @@ const TableListKonfirmasiPiutang = ({
         className={
           dimensionScreenW <
             768 &&
-            check
+          check
             ? "bringToBack"
             : ""
         }
@@ -1637,118 +1837,120 @@ const TableListKonfirmasiPiutang = ({
                         ) => (
 
                           <tr
-                            key={v.id}
+                            key={
+                              v.id
+                            }
                             className="
-    hover:bg-blue-50
-    transition
-    duration-200
-    border-b
-  "
+                              hover:bg-blue-50
+                              transition
+                              duration-200
+                              border-b
+                            "
                           >
 
-                            {/* ================================================= */}
                             {/* AKSI */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div
                                 className="
-        flex
-        items-center
-        gap-2
-      "
+                                  flex
+                                  items-center
+                                  gap-2
+                                "
                               >
 
-                                {v.status ===
-                                  "MENUNGGU_KONFIRMASI" ? (
+                                {
+                                  v.status ===
+                                    "MENUNGGU_KONFIRMASI"
+                                    ? (
 
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleSendConfirmation(
-                                        v
-                                      )
-                                    }
-                                    className="
-            inline-flex
-            items-center
-            gap-2
-            px-4
-            py-2
-            rounded-full
-            bg-primary
-            text-white
-            text-xs
-            font-semibold
-            hover:opacity-90
-            transition
-            shadow-sm
-          "
-                                  >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleSendConfirmation(
+                                            v
+                                          )
+                                        }
+                                        className="
+                                          inline-flex
+                                          items-center
+                                          gap-2
+                                          px-4
+                                          py-2
+                                          rounded-full
+                                          bg-primary
+                                          text-white
+                                          text-xs
+                                          font-semibold
+                                          hover:opacity-90
+                                          transition
+                                          shadow-sm
+                                        "
+                                      >
 
-                                    <FaWhatsapp />
+                                        <FaWhatsapp />
 
-                                    Kirim Konfirmasi
+                                        Kirim Konfirmasi
 
-                                  </button>
+                                      </button>
 
-                                ) : (
+                                    )
+                                    : (
 
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openDetail(
-                                        v
-                                      )
-                                    }
-                                    className="
-            inline-flex
-            items-center
-            gap-2
-            px-4
-            py-2
-            rounded-full
-            border
-            border-gray-200
-            bg-white
-            text-gray-600
-            text-xs
-            font-semibold
-            hover:bg-gray-50
-          "
-                                  >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openDetail(
+                                            v
+                                          )
+                                        }
+                                        className="
+                                          inline-flex
+                                          items-center
+                                          gap-2
+                                          px-4
+                                          py-2
+                                          rounded-full
+                                          border
+                                          border-gray-200
+                                          bg-white
+                                          text-gray-600
+                                          text-xs
+                                          font-semibold
+                                          hover:bg-gray-50
+                                        "
+                                      >
 
-                                    <FaEye />
+                                        <FaEye />
 
-                                    Detail
+                                        Detail
 
-                                  </button>
+                                      </button>
 
-                                )}
+                                    )
+                                }
 
                               </div>
 
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* NO */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      font-semibold
-      text-gray-700
-    "
+                                px-4
+                                py-3
+                                font-semibold
+                                text-gray-700
+                              "
                             >
 
                               {
@@ -1756,7 +1958,7 @@ const TableListKonfirmasiPiutang = ({
                                   currentPage -
                                   1
                                 ) *
-                                perPage +
+                                  perPage +
                                 i +
                                 1
                               }
@@ -1764,42 +1966,40 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* NO FAKTUR */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div
                                 className="
-        flex
-        items-center
-        gap-2
-      "
+                                  flex
+                                  items-center
+                                  gap-2
+                                "
                               >
 
                                 <div
                                   className="
-          w-9
-          h-9
-          rounded-lg
-          bg-blue-50
-          flex
-          items-center
-          justify-center
-        "
+                                    w-9
+                                    h-9
+                                    rounded-lg
+                                    bg-blue-50
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
                                 >
 
                                   <FaFileInvoiceDollar
                                     className="
-            text-primary
-          "
+                                      text-primary
+                                    "
                                   />
 
                                 </div>
@@ -1809,9 +2009,9 @@ const TableListKonfirmasiPiutang = ({
 
                                   <span
                                     className="
-            font-semibold
-            text-primary
-          "
+                                      font-semibold
+                                      text-primary
+                                    "
                                   >
                                     {
                                       v.no_faktur
@@ -1821,9 +2021,9 @@ const TableListKonfirmasiPiutang = ({
 
                                   <p
                                     className="
-            text-xs
-            text-gray-400
-          "
+                                      text-xs
+                                      text-gray-400
+                                    "
                                   >
                                     ID:
                                     {" "}
@@ -1839,37 +2039,105 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
-                            {/* CUSTOMER */}
-                            {/* ================================================= */}
+                            {/* NO BILLING */}
 
                             <td
                               className="
-      px-4
-      py-3
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div
                                 className="
-        flex
-        items-center
-        gap-3
-        min-w-[250px]
-      "
+                                  flex
+                                  items-center
+                                  gap-2
+                                "
                               >
 
                                 <div
                                   className="
-          w-9
-          h-9
-          rounded-full
-          bg-blue-50
-          text-primary
-          flex
-          items-center
-          justify-center
-        "
+                                    w-9
+                                    h-9
+                                    rounded-lg
+                                    bg-orange-50
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
+                                >
+
+                                  <FaFileAlt
+                                    className="
+                                      text-orange-500
+                                    "
+                                  />
+
+                                </div>
+
+
+                                <div>
+
+                                  <span
+                                    className="
+                                      font-semibold
+                                      text-gray-700
+                                    "
+                                  >
+                                    {
+                                      v.no_billing ||
+                                      "-"
+                                    }
+                                  </span>
+
+
+                                  <p
+                                    className="
+                                      text-xs
+                                      text-gray-400
+                                    "
+                                  >
+                                    Nomor Billing
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+                            </td>
+
+
+                            {/* CUSTOMER */}
+
+                            <td
+                              className="
+                                px-4
+                                py-3
+                              "
+                            >
+
+                              <div
+                                className="
+                                  flex
+                                  items-center
+                                  gap-3
+                                  min-w-[250px]
+                                "
+                              >
+
+                                <div
+                                  className="
+                                    w-9
+                                    h-9
+                                    rounded-full
+                                    bg-blue-50
+                                    text-primary
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
                                 >
 
                                   <FaBuilding />
@@ -1881,9 +2149,9 @@ const TableListKonfirmasiPiutang = ({
 
                                   <p
                                     className="
-            font-semibold
-            text-gray-700
-          "
+                                      font-semibold
+                                      text-gray-700
+                                    "
                                   >
                                     {
                                       v.nama_customer
@@ -1893,9 +2161,9 @@ const TableListKonfirmasiPiutang = ({
 
                                   <p
                                     className="
-            text-xs
-            text-gray-400
-          "
+                                      text-xs
+                                      text-gray-400
+                                    "
                                   >
                                     {
                                       v.alamat
@@ -1909,42 +2177,40 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* PENAGIH */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div
                                 className="
-        flex
-        items-center
-        gap-2
-      "
+                                  flex
+                                  items-center
+                                  gap-2
+                                "
                               >
 
                                 <div
                                   className="
-          w-8
-          h-8
-          rounded-full
-          bg-orange-50
-          flex
-          items-center
-          justify-center
-        "
+                                    w-8
+                                    h-8
+                                    rounded-full
+                                    bg-orange-50
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
                                 >
 
                                   <FaUser
                                     className="
-            text-orange-500
-          "
+                                      text-orange-500
+                                    "
                                   />
 
                                 </div>
@@ -1952,10 +2218,10 @@ const TableListKonfirmasiPiutang = ({
 
                                 <span
                                   className="
-          text-sm
-          font-medium
-          text-gray-700
-        "
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                  "
                                 >
                                   {
                                     v.nama_penagih
@@ -1967,23 +2233,21 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
-                            {/* NOMINAL */}
-                            {/* ================================================= */}
+                            {/* NOMINAL PIUTANG */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <span
                                 className="
-        font-bold
-        text-gray-700
-      "
+                                  font-bold
+                                  text-gray-700
+                                "
                               >
                                 {
                                   formatRupiah(
@@ -1995,32 +2259,30 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* POSTING DATE */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div
                                 className="
-        flex
-        items-center
-        gap-2
-        text-sm
-        text-gray-600
-      "
+                                  flex
+                                  items-center
+                                  gap-2
+                                  text-sm
+                                  text-gray-600
+                                "
                               >
 
                                 <FaCalendarAlt
                                   className="
-          text-primary
-        "
+                                    text-primary
+                                  "
                                 />
 
                                 {
@@ -2034,35 +2296,33 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* BATAS KONFIRMASI */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div>
 
                                 <div
                                   className="
-          flex
-          items-center
-          gap-2
-          text-sm
-          font-semibold
-          text-gray-700
-        "
+                                    flex
+                                    items-center
+                                    gap-2
+                                    text-sm
+                                    font-semibold
+                                    text-gray-700
+                                  "
                                 >
 
                                   <FaClock
                                     className="
-            text-amber-500
-          "
+                                      text-amber-500
+                                    "
                                   />
 
                                   {
@@ -2076,10 +2336,10 @@ const TableListKonfirmasiPiutang = ({
 
                                 <p
                                   className="
-          text-[11px]
-          text-gray-400
-          mt-1
-        "
+                                    text-[11px]
+                                    text-gray-400
+                                    mt-1
+                                  "
                                 >
                                   14 hari sejak pengiriman
                                 </p>
@@ -2089,42 +2349,40 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* SALES */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-      whitespace-nowrap
-    "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
                             >
 
                               <div
                                 className="
-        flex
-        items-center
-        gap-2
-      "
+                                  flex
+                                  items-center
+                                  gap-2
+                                "
                               >
 
                                 <div
                                   className="
-          w-8
-          h-8
-          rounded-full
-          bg-blue-50
-          flex
-          items-center
-          justify-center
-        "
+                                    w-8
+                                    h-8
+                                    rounded-full
+                                    bg-blue-50
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
                                 >
 
                                   <FaUser
                                     className="
-            text-blue-500
-          "
+                                      text-blue-500
+                                    "
                                   />
 
                                 </div>
@@ -2132,10 +2390,10 @@ const TableListKonfirmasiPiutang = ({
 
                                 <span
                                   className="
-          text-sm
-          text-gray-700
-          font-medium
-        "
+                                    text-sm
+                                    text-gray-700
+                                    font-medium
+                                  "
                                 >
                                   {
                                     v.sales
@@ -2147,15 +2405,13 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* ================================================= */}
                             {/* STATUS */}
-                            {/* ================================================= */}
 
                             <td
                               className="
-      px-4
-      py-3
-    "
+                                px-4
+                                py-3
+                              "
                             >
 
                               {
@@ -2182,7 +2438,7 @@ const TableListKonfirmasiPiutang = ({
 
 
           {/* ================================================= */}
-          {/* FOOTER */}
+          {/* FOOTER TABLE */}
           {/* ================================================= */}
 
           <div
@@ -2628,7 +2884,7 @@ const TableListKonfirmasiPiutang = ({
                 </div>
 
 
-                {/* DETAIL */}
+                {/* DETAIL GRID */}
 
                 <div
                   className="
@@ -2638,6 +2894,147 @@ const TableListKonfirmasiPiutang = ({
                     gap-4
                   "
                 >
+
+                  {/* NO FAKTUR */}
+
+                  <div
+                    className="
+                      bg-blue-50
+                      border
+                      border-blue-100
+                      rounded-xl
+                      p-4
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                      "
+                    >
+
+                      <div
+                        className="
+                          w-10
+                          h-10
+                          rounded-lg
+                          bg-white
+                          text-primary
+                          flex
+                          items-center
+                          justify-center
+                        "
+                      >
+
+                        <FaFileInvoiceDollar />
+
+                      </div>
+
+
+                      <div>
+
+                        <p
+                          className="
+                            text-xs
+                            text-gray-400
+                            mb-1
+                          "
+                        >
+                          No. Faktur
+                        </p>
+
+
+                        <p
+                          className="
+                            font-bold
+                            text-primary
+                          "
+                        >
+                          {
+                            selectedData.no_faktur
+                          }
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* NO BILLING */}
+
+                  <div
+                    className="
+                      bg-orange-50
+                      border
+                      border-orange-100
+                      rounded-xl
+                      p-4
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                      "
+                    >
+
+                      <div
+                        className="
+                          w-10
+                          h-10
+                          rounded-lg
+                          bg-white
+                          text-orange-500
+                          flex
+                          items-center
+                          justify-center
+                        "
+                      >
+
+                        <FaFileAlt />
+
+                      </div>
+
+
+                      <div>
+
+                        <p
+                          className="
+                            text-xs
+                            text-gray-400
+                            mb-1
+                          "
+                        >
+                          No. Billing
+                        </p>
+
+
+                        <p
+                          className="
+                            font-bold
+                            text-gray-700
+                          "
+                        >
+                          {
+                            selectedData.no_billing ||
+                            "-"
+                          }
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* CUSTOMER */}
 
                   <div
                     className="
@@ -2686,6 +3083,8 @@ const TableListKonfirmasiPiutang = ({
                   </div>
 
 
+                  {/* NOMINAL */}
+
                   <div
                     className="
                       bg-gray-50
@@ -2723,6 +3122,8 @@ const TableListKonfirmasiPiutang = ({
                   </div>
 
 
+                  {/* PENAGIH */}
+
                   <div
                     className="
                       bg-gray-50
@@ -2757,6 +3158,8 @@ const TableListKonfirmasiPiutang = ({
                   </div>
 
 
+                  {/* SALES */}
+
                   <div
                     className="
                       bg-gray-50
@@ -2790,10 +3193,119 @@ const TableListKonfirmasiPiutang = ({
 
                   </div>
 
+
+                  {/* POSTING DATE */}
+
+                  <div
+                    className="
+                      bg-gray-50
+                      border
+                      rounded-xl
+                      p-4
+                    "
+                  >
+
+                    <p
+                      className="
+                        text-xs
+                        text-gray-400
+                        mb-1
+                      "
+                    >
+                      Posting Date
+                    </p>
+
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                      "
+                    >
+
+                      <FaCalendarAlt
+                        className="
+                          text-primary
+                        "
+                      />
+
+                      <p
+                        className="
+                          font-semibold
+                          text-gray-700
+                        "
+                      >
+                        {
+                          formatDate(
+                            selectedData.posting_date
+                          )
+                        }
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* BATAS KONFIRMASI */}
+
+                  <div
+                    className="
+                      bg-amber-50
+                      border
+                      border-amber-100
+                      rounded-xl
+                      p-4
+                    "
+                  >
+
+                    <p
+                      className="
+                        text-xs
+                        text-gray-400
+                        mb-1
+                      "
+                    >
+                      Batas Konfirmasi
+                    </p>
+
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                      "
+                    >
+
+                      <FaClock
+                        className="
+                          text-amber-500
+                        "
+                      />
+
+                      <p
+                        className="
+                          font-semibold
+                          text-gray-700
+                        "
+                      >
+                        {
+                          formatDate(
+                            selectedData.batas_konfirmasi
+                          )
+                        }
+                      </p>
+
+                    </div>
+
+                  </div>
+
                 </div>
 
 
-                {/* CHANNEL */}
+                {/* MEDIA KONFIRMASI */}
 
                 <div
                   className="
@@ -2825,59 +3337,73 @@ const TableListKonfirmasiPiutang = ({
                     "
                   >
 
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        gap-2
-                        px-4
-                        py-2
-                        bg-white
-                        rounded-full
-                        border
-                        border-green-200
-                        text-green-700
-                        text-sm
-                        font-semibold
-                      "
-                    >
+                    {
+                      selectedData.media_wa &&
+                      (
 
-                      <FaWhatsapp />
+                        <span
+                          className="
+                            inline-flex
+                            items-center
+                            gap-2
+                            px-4
+                            py-2
+                            bg-white
+                            rounded-full
+                            border
+                            border-green-200
+                            text-green-700
+                            text-sm
+                            font-semibold
+                          "
+                        >
 
-                      WhatsApp
+                          <FaWhatsapp />
 
-                    </span>
+                          WhatsApp
+
+                        </span>
+
+                      )
+                    }
 
 
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        gap-2
-                        px-4
-                        py-2
-                        bg-white
-                        rounded-full
-                        border
-                        border-blue-200
-                        text-blue-700
-                        text-sm
-                        font-semibold
-                      "
-                    >
+                    {
+                      selectedData.media_email &&
+                      (
 
-                      <FaEnvelope />
+                        <span
+                          className="
+                            inline-flex
+                            items-center
+                            gap-2
+                            px-4
+                            py-2
+                            bg-white
+                            rounded-full
+                            border
+                            border-blue-200
+                            text-blue-700
+                            text-sm
+                            font-semibold
+                          "
+                        >
 
-                      Email
+                          <FaEnvelope />
 
-                    </span>
+                          Email
+
+                        </span>
+
+                      )
+                    }
 
                   </div>
 
                 </div>
 
 
-                {/* INFO 14 DAYS */}
+                {/* INFO 14 HARI */}
 
                 <div
                   className="
@@ -2957,7 +3483,8 @@ const TableListKonfirmasiPiutang = ({
 
                 {
                   selectedData.status ===
-                  "MENUNGGU_KONFIRMASI" && (
+                    "MENUNGGU_KONFIRMASI" &&
+                  (
 
                     <button
                       type="button"
