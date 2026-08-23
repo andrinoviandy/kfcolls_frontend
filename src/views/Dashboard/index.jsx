@@ -403,64 +403,61 @@ const channelData = [
 
 const produkData = [
   {
-    cabang: 'KFTD Ambon',
-    bulan: 'Jan',
-    lini: 'GENERIK',
-    principal: 'KIMIA FARMA',
+    salesOffice: '2247',
+    descSalesOffice: 'KFTD Jayapura',
+    billingNo: '2809361541',
+    postingDate: '01/08/2026',
+    material: '13076374',
+    namaProduk: 'ARTESUNATE INJ',
+    principal: 'GUILIN PHARMA',
+    customer: 'APOTEK MURAH FARMA 2',
     channel: 'Apotek',
-    penjualan: 1985473,
-    pcl: 'KFHO',
-    uhpNp: 'UHP',
-    ubiCabang: 'Cabang',
-    statusUhpNp: 'UHP',
-    kategori: 'NON ALKES',
-    jan: 1,
-    jun: 0,
+    quantity: 5,
+    salesUnit: 'VL',
+    unitPrice: 109998,
+    totalDiscount: 0,
+    totalPenjualan: 549990,
+    taxAmount: 60499,
+    totalCogs: 481241,
+    sled: '31/10/2028',
   },
   {
-    cabang: 'KFTD Ambon',
-    bulan: 'Jan',
-    lini: 'GENERIK',
+    salesOffice: '2247',
+    descSalesOffice: 'KFTD Jayapura',
+    billingNo: '2809361542',
+    postingDate: '01/08/2026',
+    material: '11001530',
+    namaProduk: 'NITROKAF RETARD (DUS 100 KAPS)-BJN',
     principal: 'KIMIA FARMA',
-    channel: 'KFA',
-    penjualan: 3591100,
-    pcl: 'KFHO',
-    uhpNp: 'UHP',
-    ubiCabang: 'Cabang',
-    statusUhpNp: 'UHP',
-    kategori: 'NON ALKES',
-    jan: 1,
-    jun: 0,
+    customer: 'APOTEK MURAH FARMA 2',
+    channel: 'Apotek',
+    quantity: 2,
+    salesUnit: 'DUS',
+    unitPrice: 264450,
+    totalDiscount: 176653,
+    totalPenjualan: 528900,
+    taxAmount: 58179,
+    totalCogs: 295397,
+    sled: '06/04/2028',
   },
   {
-    cabang: 'KFTD Ambon',
-    bulan: 'Jan',
-    lini: 'ETHICAL',
-    principal: 'NUFARINDO, PT',
-    channel: 'KFA',
-    penjualan: 119310,
-    pcl: 'PIHAK 3',
-    uhpNp: 'UHP',
-    ubiCabang: 'Cabang',
-    statusUhpNp: 'UHP',
-    kategori: 'NON ALKES',
-    jan: 1,
-    jun: 0,
-  },
-  {
-    cabang: 'KFTD Ambon',
-    bulan: 'Jan',
-    lini: 'Generik',
-    principal: 'SATORIA ANEKA INDUSTRI, PT',
-    channel: 'KFA',
-    penjualan: 691300,
-    pcl: 'PIHAK 3',
-    uhpNp: 'UHP',
-    ubiCabang: 'Cabang',
-    statusUhpNp: 'UHP',
-    kategori: 'NON ALKES',
-    jan: 1,
-    jun: 0,
+    salesOffice: '2247',
+    descSalesOffice: 'KFTD Jayapura',
+    billingNo: '2809361542',
+    postingDate: '01/08/2026',
+    material: '11002323',
+    namaProduk: 'MARCKS CLASSIC CREME 40GR (NEW)',
+    principal: 'KIMIA FARMA',
+    customer: 'APOTEK MURAH FARMA 2',
+    channel: 'Apotek',
+    quantity: 2,
+    salesUnit: 'PC',
+    unitPrice: 17300,
+    totalDiscount: 5709,
+    totalPenjualan: 34600,
+    taxAmount: 3806,
+    totalCogs: 25650,
+    sled: '04/06/2031',
   },
 ];
 
@@ -828,119 +825,403 @@ const Dashboard = () => {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
 
         {/* HEADER */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
 
-          <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
-            <FaBox />
+          <div className="flex items-center gap-3">
+
+            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
+              <FaBox />
+            </div>
+
+            <div>
+              <h3 className="font-bold text-gray-800">
+                Data Produk
+              </h3>
+
+              <p className="text-xs text-gray-400">
+                Detail transaksi penjualan berdasarkan produk
+              </p>
+            </div>
+
           </div>
 
-          <div>
-            <h3 className="font-bold text-gray-800">
-              Data Per Produk
-            </h3>
-
-            <p className="text-xs text-gray-400">
-              Detail penjualan berdasarkan cabang, lini, principal dan channel
-            </p>
-          </div>
+          <button
+            className="
+            text-xs
+            text-blue-600
+            font-semibold
+            hover:text-orange-500
+            transition
+          "
+          >
+            Lihat Detail
+          </button>
 
         </div>
+
 
         {/* TABLE */}
         <div className="overflow-x-auto">
 
-          <table className="w-full min-w-[1400px] text-sm">
+          <table className="w-full min-w-[1500px] text-sm">
 
             <thead>
+
               <tr className="bg-blue-50/70 text-gray-600">
 
-                <th className="px-4 py-3 text-left">Cabang</th>
-                <th className="px-4 py-3 text-left">Bulan</th>
-                <th className="px-4 py-3 text-left">Lini</th>
-                <th className="px-4 py-3 text-left">Principal</th>
-                <th className="px-4 py-3 text-left">Channel</th>
-                <th className="px-4 py-3 text-right">Penjualan</th>
-                <th className="px-4 py-3 text-left">PCL</th>
-                <th className="px-4 py-3 text-left">UHP/NP</th>
-                <th className="px-4 py-3 text-left">Ubi/Cabang</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">ALKES / NON ALKES</th>
-                <th className="px-4 py-3 text-center">Jan</th>
-                <th className="px-4 py-3 text-center">Jun</th>
+                <th className="px-4 py-3 text-center whitespace-nowrap">
+                  No
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Sales Office
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Billing No
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Posting Date
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Material
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Nama Produk
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Principal
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Customer
+                </th>
+
+                <th className="px-4 py-3 text-left whitespace-nowrap">
+                  Channel
+                </th>
+
+                <th className="px-4 py-3 text-right whitespace-nowrap">
+                  Qty
+                </th>
+
+                <th className="px-4 py-3 text-center whitespace-nowrap">
+                  Unit
+                </th>
+
+                <th className="px-4 py-3 text-right whitespace-nowrap">
+                  Unit Price
+                </th>
+
+                <th className="px-4 py-3 text-right whitespace-nowrap">
+                  Discount
+                </th>
+
+                <th className="px-4 py-3 text-right whitespace-nowrap">
+                  Total Penjualan
+                </th>
+
+                <th className="px-4 py-3 text-right whitespace-nowrap">
+                  Tax Amount
+                </th>
+
+                <th className="px-4 py-3 text-right whitespace-nowrap">
+                  Total COGS
+                </th>
+
+                <th className="px-4 py-3 text-center whitespace-nowrap">
+                  SLED
+                </th>
 
               </tr>
+
             </thead>
+
 
             <tbody>
 
               {data.map((row, index) => (
+
                 <tr
                   key={index}
-                  className="border-t border-gray-100 hover:bg-orange-50/30 transition"
+                  className="
+                  border-t
+                  border-gray-100
+                  hover:bg-orange-50/30
+                  transition
+                "
                 >
 
-                  <td className="px-4 py-3 font-semibold text-gray-700">
-                    {row.cabang}
+                  {/* NO */}
+                  <td className="px-4 py-3 text-center text-gray-500">
+                    {index + 1}
                   </td>
 
+
+                  {/* SALES OFFICE */}
+                  <td className="px-4 py-3">
+
+                    <div className="flex flex-col">
+
+                      <span className="font-semibold text-gray-700">
+                        {row.descSalesOffice}
+                      </span>
+
+                      <span className="text-[11px] text-gray-400">
+                        {row.salesOffice}
+                      </span>
+
+                    </div>
+
+                  </td>
+
+
+                  {/* BILLING */}
+                  <td className="px-4 py-3">
+
+                    <span className="font-semibold text-blue-600">
+                      {row.billingNo}
+                    </span>
+
+                  </td>
+
+
+                  {/* POSTING DATE */}
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    {row.postingDate}
+                  </td>
+
+
+                  {/* MATERIAL */}
                   <td className="px-4 py-3 text-gray-600">
-                    {row.bulan}
+                    {row.material}
                   </td>
 
-                  <td className="px-4 py-3 text-gray-600">
-                    {row.lini}
+
+                  {/* PRODUCT */}
+                  <td className="px-4 py-3">
+
+                    <div className="max-w-[260px]">
+
+                      <span
+                        className="
+                        font-semibold
+                        text-gray-700
+                        line-clamp-2
+                      "
+                        title={row.namaProduk}
+                      >
+                        {row.namaProduk}
+                      </span>
+
+                    </div>
+
                   </td>
 
-                  <td className="px-4 py-3 text-gray-700">
+
+                  {/* PRINCIPAL */}
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                     {row.principal}
                   </td>
 
-                  <td className="px-4 py-3 text-gray-600">
-                    {row.channel}
-                  </td>
 
-                  <td className="px-4 py-3 text-right font-semibold text-blue-700">
-                    Rp {formatRupiah(row.penjualan)}
-                  </td>
-
+                  {/* CUSTOMER */}
                   <td className="px-4 py-3">
-                    {row.pcl}
+
+                    <div className="max-w-[220px]">
+
+                      <span
+                        className="
+                        text-gray-700
+                        font-medium
+                        line-clamp-2
+                      "
+                        title={row.customer}
+                      >
+                        {row.customer}
+                      </span>
+
+                    </div>
+
                   </td>
 
-                  <td className="px-4 py-3">
-                    {row.uhpNp}
-                  </td>
 
+                  {/* CHANNEL */}
                   <td className="px-4 py-3">
-                    {row.ubiCabang}
-                  </td>
 
-                  <td className="px-4 py-3">
-                    {row.statusUhpNp}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold">
-                      {row.kategori}
+                    <span className="
+                    px-2
+                    py-1
+                    rounded-full
+                    bg-blue-50
+                    text-blue-600
+                    text-xs
+                    font-semibold
+                  ">
+                      {row.channel}
                     </span>
+
                   </td>
 
-                  <td className="px-4 py-3 text-center">
-                    {row.jan}
+
+                  {/* QTY */}
+                  <td className="px-4 py-3 text-right font-semibold text-gray-700">
+                    {formatRupiah(row.quantity)}
                   </td>
 
-                  <td className="px-4 py-3 text-center">
-                    {row.jun}
+
+                  {/* UNIT */}
+                  <td className="px-4 py-3 text-center text-gray-600">
+                    {row.salesUnit}
+                  </td>
+
+
+                  {/* UNIT PRICE */}
+                  <td className="px-4 py-3 text-right text-gray-600 whitespace-nowrap">
+                    Rp {formatRupiah(row.unitPrice)}
+                  </td>
+
+
+                  {/* DISCOUNT */}
+                  <td className="px-4 py-3 text-right text-orange-500 whitespace-nowrap">
+                    Rp {formatRupiah(row.totalDiscount)}
+                  </td>
+
+
+                  {/* TOTAL PENJUALAN */}
+                  <td className="px-4 py-3 text-right">
+
+                    <span className="font-bold text-blue-700 whitespace-nowrap">
+                      Rp {formatRupiah(row.totalPenjualan)}
+                    </span>
+
+                  </td>
+
+
+                  {/* TAX */}
+                  <td className="px-4 py-3 text-right text-gray-600 whitespace-nowrap">
+                    Rp {formatRupiah(row.taxAmount)}
+                  </td>
+
+
+                  {/* COGS */}
+                  <td className="px-4 py-3 text-right text-gray-600 whitespace-nowrap">
+                    Rp {formatRupiah(row.totalCogs)}
+                  </td>
+
+
+                  {/* SLED */}
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+
+                    <span className="text-xs text-gray-600">
+                      {row.sled}
+                    </span>
+
                   </td>
 
                 </tr>
+
               ))}
 
             </tbody>
 
+
+            {/* FOOTER */}
+            <tfoot>
+
+              <tr className="bg-blue-900 text-white">
+
+                <td
+                  colSpan={9}
+                  className="px-4 py-3 font-bold text-sm"
+                >
+                  Grand Total
+                </td>
+
+
+                <td className="px-4 py-3 text-right font-bold">
+                  {formatRupiah(
+                    data.reduce(
+                      (sum, row) =>
+                        sum + (row.quantity || 0),
+                      0
+                    )
+                  )}
+                </td>
+
+
+                <td></td>
+
+
+                <td className="text-nowrap px-4 py-3 text-right font-semibold">
+                  Rp {formatRupiah(
+                    data.reduce(
+                      (sum, row) =>
+                        sum + (row.unitPrice || 0),
+                      0
+                    )
+                  )}
+                </td>
+
+
+                <td className="text-nowrap px-4 py-3 text-right font-semibold text-orange-300">
+                  Rp {formatRupiah(
+                    data.reduce(
+                      (sum, row) =>
+                        sum + (row.totalDiscount || 0),
+                      0
+                    )
+                  )}
+                </td>
+
+
+                <td className="text-nowrap px-4 py-3 text-right font-bold">
+                  Rp {formatRupiah(
+                    data.reduce(
+                      (sum, row) =>
+                        sum + (row.totalPenjualan || 0),
+                      0
+                    )
+                  )}
+                </td>
+
+
+                <td className="text-nowrap px-4 py-3 text-right font-semibold">
+                  Rp {formatRupiah(
+                    data.reduce(
+                      (sum, row) =>
+                        sum + (row.taxAmount || 0),
+                      0
+                    )
+                  )}
+                </td>
+
+
+                <td className="text-nowrap px-4 py-3 text-right font-semibold">
+                  Rp {formatRupiah(
+                    data.reduce(
+                      (sum, row) =>
+                        sum + (row.totalCogs || 0),
+                      0
+                    )
+                  )}
+                </td>
+
+
+                <td></td>
+
+              </tr>
+
+            </tfoot>
+
           </table>
 
         </div>
+
       </div>
     );
   };
