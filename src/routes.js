@@ -231,10 +231,10 @@ const routes = [
     path: '/edit-master-data',
     component: AddEditMasterData,
   },
-  {
-    path: '/approval-pengajuan',
-    component: DataPengajuan,
-  },
+  // {
+  //   path: '/approval-pengajuan',
+  //   component: DataPengajuan,
+  // },
   {
     path: '/manajemen-anggaran',
     component: ManajemenAnggaran,
