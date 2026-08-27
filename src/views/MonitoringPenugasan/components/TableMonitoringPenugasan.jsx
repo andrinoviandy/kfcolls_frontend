@@ -912,10 +912,10 @@ const TableMonitoringPenugasan = ({
         currentPage -
         1
       ) *
-        perPage,
+      perPage,
 
       currentPage *
-        perPage
+      perPage
     );
 
 
@@ -980,7 +980,7 @@ const TableMonitoringPenugasan = ({
 
       const config =
         statusPenugasanConfig[
-          status
+        status
         ];
 
 
@@ -1034,7 +1034,7 @@ const TableMonitoringPenugasan = ({
 
       const config =
         statusPengantaranConfig[
-          status
+        status
         ];
 
 
@@ -1191,15 +1191,15 @@ const TableMonitoringPenugasan = ({
         currentPage -
         1
       ) *
-        perPage +
-        1
+      perPage +
+      1
       : 0;
 
 
   const endIndex =
     Math.min(
       currentPage *
-        perPage,
+      perPage,
       totalData
     );
 
@@ -1941,7 +1941,22 @@ const TableMonitoringPenugasan = ({
               >
 
                 <tr>
-
+                  <th
+                    className="
+                      px-4
+                      py-3
+                    "
+                  >
+                    Aksi
+                  </th>
+                  <th
+                    className="
+                      px-4
+                      py-3
+                    "
+                  >
+                    Pengantaran
+                  </th>
                   <th
                     className="
                       px-4
@@ -2048,24 +2063,6 @@ const TableMonitoringPenugasan = ({
                     Kolektor
                   </th>
 
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Pengantaran
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Aksi
-                  </th>
-
                 </tr>
 
               </thead>
@@ -2125,6 +2122,61 @@ const TableMonitoringPenugasan = ({
                           "
                         >
 
+                          {/* AKSI */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                            "
+                          >
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDetail(
+                                  item
+                                )
+                              }
+                              className="
+                                w-9
+                                h-9
+                                rounded-full
+                                bg-blue-50
+                                text-primary
+                                flex
+                                items-center
+                                justify-center
+                                hover:bg-primary
+                                hover:text-white
+                                transition
+                              "
+                              title="Detail"
+                            >
+
+                              <FaEye />
+
+                            </button>
+
+                          </td>
+
+                          {/* PENGANTARAN */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                            "
+                          >
+
+                            {
+                              renderStatusPengantaran(
+                                item.status_pengantaran
+                              )
+                            }
+
+                          </td>
+
                           {/* NO */}
 
                           <td
@@ -2141,9 +2193,9 @@ const TableMonitoringPenugasan = ({
                                 currentPage -
                                 1
                               ) *
-                                perPage +
-                                index +
-                                1
+                              perPage +
+                              index +
+                              1
                             }
 
                           </td>
@@ -2534,63 +2586,6 @@ const TableMonitoringPenugasan = ({
 
                           </td>
 
-
-                          {/* PENGANTARAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              renderStatusPengantaran(
-                                item.status_pengantaran
-                              )
-                            }
-
-                          </td>
-
-
-                          {/* AKSI */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openDetail(
-                                  item
-                                )
-                              }
-                              className="
-                                w-9
-                                h-9
-                                rounded-full
-                                bg-blue-50
-                                text-primary
-                                flex
-                                items-center
-                                justify-center
-                                hover:bg-primary
-                                hover:text-white
-                                transition
-                              "
-                              title="Detail"
-                            >
-
-                              <FaEye />
-
-                            </button>
-
-                          </td>
-
                         </tr>
 
                       )
@@ -2752,7 +2747,7 @@ const TableMonitoringPenugasan = ({
 
               {
                 totalPage >
-                  0 && (
+                0 && (
 
                   <ReactPaginate
                     breakLabel="..."

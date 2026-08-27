@@ -20,6 +20,9 @@ import {
   FaEnvelope,
   FaEye,
   FaFileAlt,
+  FaPaperPlane,
+  FaSpinner,
+  FaTimes,
 } from "react-icons/fa";
 
 import {
@@ -209,6 +212,12 @@ const dummyData = [
     media_email:
       true,
 
+    no_wa_customer:
+      "6281234567890",
+
+    email_customer:
+      "customer.medan@example.com",
+
     sales:
       "Andri Noviandy",
 
@@ -260,6 +269,12 @@ const dummyData = [
 
     media_email:
       true,
+
+    no_wa_customer:
+      "6281234567891",
+
+    email_customer:
+      "customer.maju@example.com",
 
     sales:
       "Budi Santoso",
@@ -313,6 +328,12 @@ const dummyData = [
     media_email:
       true,
 
+    no_wa_customer:
+      "6281234567892",
+
+    email_customer:
+      "customer.rusli@example.com",
+
     sales:
       "Citra Lestari",
 
@@ -364,6 +385,12 @@ const dummyData = [
 
     media_email:
       true,
+
+    no_wa_customer:
+      "6281234567893",
+
+    email_customer:
+      "customer.pasuruan@example.com",
 
     sales:
       "Dimas Pratama",
@@ -417,6 +444,12 @@ const dummyData = [
     media_email:
       true,
 
+    no_wa_customer:
+      "6281234567894",
+
+    email_customer:
+      "customer.hermina@example.com",
+
     sales:
       "Andri Noviandy",
 
@@ -468,6 +501,12 @@ const dummyData = [
 
     media_email:
       true,
+
+    no_wa_customer:
+      "6281234567895",
+
+    email_customer:
+      "customer.sehat@example.com",
 
     sales:
       "Budi Santoso",
@@ -521,6 +560,12 @@ const dummyData = [
     media_email:
       true,
 
+    no_wa_customer:
+      "6281234567896",
+
+    email_customer:
+      "customer.adam@example.com",
+
     sales:
       "Citra Lestari",
 
@@ -572,6 +617,12 @@ const dummyData = [
 
     media_email:
       true,
+
+    no_wa_customer:
+      "6281234567897",
+
+    email_customer:
+      "customer.karya@example.com",
 
     sales:
       "Dimas Pratama",
@@ -625,6 +676,12 @@ const dummyData = [
     media_email:
       true,
 
+    no_wa_customer:
+      "6281234567898",
+
+    email_customer:
+      "customer.bogor@example.com",
+
     sales:
       "Dimas Pratama",
 
@@ -676,6 +733,12 @@ const dummyData = [
 
     media_email:
       true,
+
+    no_wa_customer:
+      "6281234567899",
+
+    email_customer:
+      "customer.cibinong@example.com",
 
     sales:
       "Andri Noviandy",
@@ -755,6 +818,58 @@ const TableListKonfirmasiPiutang = ({
     setShowDetail,
   ] = useState(
     false
+  );
+
+
+  // ===================================================
+  // TAMBAHAN STATE KIRIM KONFIRMASI
+  // ===================================================
+
+  const [
+    showSendConfirmation,
+    setShowSendConfirmation,
+  ] = useState(
+    false
+  );
+
+
+  const [
+    sendData,
+    setSendData,
+  ] = useState(
+    null
+  );
+
+
+  const [
+    sendViaWhatsApp,
+    setSendViaWhatsApp,
+  ] = useState(
+    true
+  );
+
+
+  const [
+    sendViaEmail,
+    setSendViaEmail,
+  ] = useState(
+    true
+  );
+
+
+  const [
+    isSendingConfirmation,
+    setIsSendingConfirmation,
+  ] = useState(
+    false
+  );
+
+
+  const [
+    sendResult,
+    setSendResult,
+  ] = useState(
+    null
   );
 
 
@@ -963,7 +1078,7 @@ const TableListKonfirmasiPiutang = ({
 
       const config =
         statusConfig[
-          status
+        status
         ];
 
 
@@ -1049,6 +1164,212 @@ const TableListKonfirmasiPiutang = ({
 
 
   // ===================================================
+  // OPEN SEND CONFIRMATION
+  // ===================================================
+
+  const openSendConfirmation =
+    (
+      item
+    ) => {
+
+      setSendData(
+        item
+      );
+
+      setSendViaWhatsApp(
+        item.media_wa === true
+      );
+
+      setSendViaEmail(
+        item.media_email === true
+      );
+
+      setSendResult(
+        null
+      );
+
+      setShowSendConfirmation(
+        true
+      );
+
+    };
+
+
+  // ===================================================
+  // CLOSE SEND CONFIRMATION
+  // ===================================================
+
+  const closeSendConfirmation =
+    () => {
+
+      if (
+        isSendingConfirmation
+      ) {
+
+        return;
+
+      }
+
+      setShowSendConfirmation(
+        false
+      );
+
+      setSendData(
+        null
+      );
+
+      setSendResult(
+        null
+      );
+
+    };
+
+
+  // ===================================================
+  // SEND WHATSAPP
+  // ===================================================
+
+  const sendConfirmationWhatsApp =
+    async (
+      item
+    ) => {
+
+      console.log(
+        "Kirim konfirmasi WhatsApp:",
+        item
+      );
+
+
+      /*
+       * =================================================
+       * GANTI BAGIAN INI DENGAN API BACKEND ANDA
+       * =================================================
+       *
+       * Contoh:
+       *
+       * const response = await fetch(
+       *   "/api/piutang/kirim-konfirmasi-whatsapp",
+       *   {
+       *     method: "POST",
+       *     headers: {
+       *       "Content-Type": "application/json",
+       *     },
+       *     body: JSON.stringify({
+       *       id: item.id,
+       *       no_faktur: item.no_faktur,
+       *       no_billing: item.no_billing,
+       *       customer_id: item.customer_id,
+       *       nama_customer: item.nama_customer,
+       *       nomor_whatsapp: item.no_wa_customer,
+       *       nominal_tagihan: item.nominal_tagihan,
+       *     }),
+       *   }
+       * );
+       *
+       * if (!response.ok) {
+       *   throw new Error(
+       *     "Gagal mengirim WhatsApp"
+       *   );
+       * }
+       *
+       * return await response.json();
+       */
+
+
+      // SIMULASI API
+      await new Promise(
+        resolve =>
+          setTimeout(
+            resolve,
+            1000
+          )
+      );
+
+
+      return {
+        success:
+          true,
+
+        message:
+          "Konfirmasi berhasil dikirim melalui WhatsApp.",
+      };
+
+    };
+
+
+  // ===================================================
+  // SEND EMAIL
+  // ===================================================
+
+  const sendConfirmationEmail =
+    async (
+      item
+    ) => {
+
+      console.log(
+        "Kirim konfirmasi Email:",
+        item
+      );
+
+
+      /*
+       * =================================================
+       * GANTI BAGIAN INI DENGAN API BACKEND ANDA
+       * =================================================
+       *
+       * Contoh:
+       *
+       * const response = await fetch(
+       *   "/api/piutang/kirim-konfirmasi-email",
+       *   {
+       *     method: "POST",
+       *     headers: {
+       *       "Content-Type": "application/json",
+       *     },
+       *     body: JSON.stringify({
+       *       id: item.id,
+       *       no_faktur: item.no_faktur,
+       *       no_billing: item.no_billing,
+       *       customer_id: item.customer_id,
+       *       nama_customer: item.nama_customer,
+       *       email: item.email_customer,
+       *       nominal_tagihan: item.nominal_tagihan,
+       *     }),
+       *   }
+       * );
+       *
+       * if (!response.ok) {
+       *   throw new Error(
+       *     "Gagal mengirim Email"
+       *   );
+       * }
+       *
+       * return await response.json();
+       */
+
+
+      // SIMULASI API
+      await new Promise(
+        resolve =>
+          setTimeout(
+            resolve,
+            1000
+          )
+      );
+
+
+      return {
+        success:
+          true,
+
+        message:
+          "Konfirmasi berhasil dikirim melalui Email.",
+      };
+
+    };
+
+
+  // ===================================================
   // SEND CONFIRMATION
   // ===================================================
 
@@ -1061,6 +1382,350 @@ const TableListKonfirmasiPiutang = ({
         "Kirim konfirmasi piutang:",
         item
       );
+
+
+      openSendConfirmation(
+        item
+      );
+
+    };
+
+
+  // ===================================================
+  // PROCESS SEND CONFIRMATION
+  // ===================================================
+
+  const processSendConfirmation =
+    async () => {
+
+      if (
+        !sendData
+      ) {
+
+        return;
+
+      }
+
+
+      if (
+        !sendViaWhatsApp &&
+        !sendViaEmail
+      ) {
+
+        setSendResult({
+
+          type:
+            "error",
+
+          message:
+            "Silakan pilih minimal satu media pengiriman.",
+
+        });
+
+        return;
+
+      }
+
+
+      setIsSendingConfirmation(
+        true
+      );
+
+      setSendResult(
+        null
+      );
+
+
+      try {
+
+        const results =
+          [];
+
+
+        // =============================================
+        // WHATSAPP
+        // =============================================
+
+        if (
+          sendViaWhatsApp
+        ) {
+
+          if (
+            !sendData.no_wa_customer
+          ) {
+
+            throw new Error(
+              "Nomor WhatsApp customer belum tersedia."
+            );
+
+          }
+
+
+          const result =
+            await sendConfirmationWhatsApp(
+              sendData
+            );
+
+
+          results.push(
+            {
+              media:
+                "WhatsApp",
+
+              success:
+                result?.success !== false,
+
+              message:
+                result?.message ||
+                "Berhasil dikirim melalui WhatsApp.",
+            }
+          );
+
+        }
+
+
+        // =============================================
+        // EMAIL
+        // =============================================
+
+        if (
+          sendViaEmail
+        ) {
+
+          if (
+            !sendData.email_customer
+          ) {
+
+            throw new Error(
+              "Email customer belum tersedia."
+            );
+
+          }
+
+
+          const result =
+            await sendConfirmationEmail(
+              sendData
+            );
+
+
+          results.push(
+            {
+              media:
+                "Email",
+
+              success:
+                result?.success !== false,
+
+              message:
+                result?.message ||
+                "Berhasil dikirim melalui Email.",
+            }
+          );
+
+        }
+
+
+        // =============================================
+        // CEK HASIL
+        // =============================================
+
+        const failed =
+          results.filter(
+            item =>
+              !item.success
+          );
+
+
+        if (
+          failed.length > 0
+        ) {
+
+          throw new Error(
+            failed
+              .map(
+                item =>
+                  item.message
+              )
+              .join(
+                ", "
+              )
+          );
+
+        }
+
+
+        // =============================================
+        // TANGGAL KIRIM
+        // =============================================
+
+        const today =
+          new Date();
+
+
+        const tanggalKirim =
+          today
+            .toISOString()
+            .split(
+              "T"
+            )[0];
+
+
+        const batasKonfirmasi =
+          new Date(
+            today
+          );
+
+
+        batasKonfirmasi.setDate(
+          batasKonfirmasi.getDate() +
+          14
+        );
+
+
+        const batasKonfirmasiString =
+          batasKonfirmasi
+            .toISOString()
+            .split(
+              "T"
+            )[0];
+
+
+        // =============================================
+        // UPDATE DATA TABLE
+        // =============================================
+
+        setAllData(
+          prevData =>
+            prevData.map(
+              data => {
+
+                if (
+                  data.id !==
+                  sendData.id
+                ) {
+
+                  return data;
+
+                }
+
+
+                return {
+
+                  ...data,
+
+                  tanggal_kirim_konfirmasi:
+                    tanggalKirim,
+
+                  batas_konfirmasi:
+                    batasKonfirmasiString,
+
+                  media_wa:
+                    sendViaWhatsApp
+                      ? true
+                      : data.media_wa,
+
+                  media_email:
+                    sendViaEmail
+                      ? true
+                      : data.media_email,
+
+                  status:
+                    "MENUNGGU_KONFIRMASI",
+
+                };
+
+              }
+            )
+        );
+
+
+        // =============================================
+        // UPDATE SELECTED DATA
+        // =============================================
+
+        setSelectedData(
+          prev => {
+
+            if (
+              !prev ||
+              prev.id !==
+              sendData.id
+            ) {
+
+              return prev;
+
+            }
+
+
+            return {
+
+              ...prev,
+
+              tanggal_kirim_konfirmasi:
+                tanggalKirim,
+
+              batas_konfirmasi:
+                batasKonfirmasiString,
+
+              status:
+                "MENUNGGU_KONFIRMASI",
+
+            };
+
+          }
+        );
+
+
+        setSendResult({
+
+          type:
+            "success",
+
+          message:
+            `Konfirmasi berhasil dikirim melalui ${results
+              .map(
+                item =>
+                  item.media
+              )
+              .join(
+                " dan "
+              )
+            }. Batas konfirmasi sampai ${formatDate(
+              batasKonfirmasiString
+            )}.`,
+
+        });
+
+
+      } catch (
+      error
+      ) {
+
+        console.error(
+          "Error kirim konfirmasi:",
+          error
+        );
+
+
+        setSendResult({
+
+          type:
+            "error",
+
+          message:
+            error?.message ||
+            "Terjadi kesalahan saat mengirim konfirmasi.",
+
+        });
+
+      } finally {
+
+        setIsSendingConfirmation(
+          false
+        );
+
+      }
 
     };
 
@@ -1077,6 +1742,14 @@ const TableListKonfirmasiPiutang = ({
 
       icon:
         <FaEllipsisV />,
+    },
+
+    {
+      label:
+        "Status",
+
+      icon:
+        <FaInfoCircle />,
     },
 
     {
@@ -1149,15 +1822,7 @@ const TableListKonfirmasiPiutang = ({
 
       icon:
         <FaUser />,
-    },
-
-    {
-      label:
-        "Status",
-
-      icon:
-        <FaInfoCircle />,
-    },
+    }
 
   ];
 
@@ -1169,18 +1834,18 @@ const TableListKonfirmasiPiutang = ({
   const startIndex =
     totalData > 0
       ? (
-          currentPage -
-          1
-        ) *
-          perPage +
+        currentPage -
         1
+      ) *
+      perPage +
+      1
       : 0;
 
 
   const endIndex =
     Math.min(
       currentPage *
-        perPage,
+      perPage,
       totalData
     );
 
@@ -1693,7 +2358,7 @@ const TableListKonfirmasiPiutang = ({
         className={
           dimensionScreenW <
             768 &&
-          check
+            check
             ? "bringToBack"
             : ""
         }
@@ -1941,6 +2606,22 @@ const TableListKonfirmasiPiutang = ({
 
                             </td>
 
+                            {/* STATUS */}
+
+                            <td
+                              className="
+                                px-4
+                                py-3
+                              "
+                            >
+
+                              {
+                                renderStatus(
+                                  v.status
+                                )
+                              }
+
+                            </td>
 
                             {/* NO */}
 
@@ -1958,7 +2639,7 @@ const TableListKonfirmasiPiutang = ({
                                   currentPage -
                                   1
                                 ) *
-                                  perPage +
+                                perPage +
                                 i +
                                 1
                               }
@@ -2401,24 +3082,6 @@ const TableListKonfirmasiPiutang = ({
                                 </span>
 
                               </div>
-
-                            </td>
-
-
-                            {/* STATUS */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                              "
-                            >
-
-                              {
-                                renderStatus(
-                                  v.status
-                                )
-                              }
 
                             </td>
 
@@ -3483,7 +4146,7 @@ const TableListKonfirmasiPiutang = ({
 
                 {
                   selectedData.status ===
-                    "MENUNGGU_KONFIRMASI" &&
+                  "MENUNGGU_KONFIRMASI" &&
                   (
 
                     <button
@@ -3508,7 +4171,7 @@ const TableListKonfirmasiPiutang = ({
                       "
                     >
 
-                      <FaWhatsapp />
+                      <FaPaperPlane />
 
                       Kirim Ulang Konfirmasi
 
@@ -3540,6 +4203,865 @@ const TableListKonfirmasiPiutang = ({
                   Tutup
 
                 </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )
+
+      }
+
+
+      {/* ================================================= */}
+      {/* SEND CONFIRMATION MODAL */}
+      {/* ================================================= */}
+
+      {
+        showSendConfirmation &&
+        sendData && (
+
+          <div
+            className="
+    fixed
+    inset-0
+    z-[9999]
+    bg-black/50
+    flex
+    items-center
+    justify-center
+    p-4
+    overflow-hidden
+  "
+            onClick={closeSendConfirmation}
+          >
+
+            <div
+              className="
+      bg-white
+      rounded-2xl
+      shadow-2xl
+      w-full
+      max-w-lg
+      max-h-[calc(100vh-2rem)]
+      flex
+      flex-col
+      overflow-hidden
+    "
+              onClick={
+                e =>
+                  e.stopPropagation()
+              }
+            >
+
+              {/* ========================================= */}
+              {/* HEADER */}
+              {/* ========================================= */}
+
+              <div
+                className="
+        bg-primary
+        px-6
+        py-5
+        text-white
+        shrink-0
+      "
+              >
+
+                <div
+                  className="
+          flex
+          items-center
+          justify-between
+          gap-3
+        "
+                >
+
+                  <div
+                    className="
+            flex
+            items-center
+            gap-3
+          "
+                  >
+
+                    <div
+                      className="
+              w-11
+              h-11
+              rounded-xl
+              bg-white/15
+              flex
+              items-center
+              justify-center
+            "
+                    >
+
+                      <FaPaperPlane />
+
+                    </div>
+
+
+                    <div>
+
+                      <h3
+                        className="
+                text-lg
+                font-bold
+              "
+                      >
+                        Kirim Konfirmasi Piutang
+                      </h3>
+
+
+                      <p
+                        className="
+                text-xs
+                text-blue-100
+                mt-0.5
+              "
+                      >
+                        Pilih media pengiriman ke customer
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    disabled={
+                      isSendingConfirmation
+                    }
+                    onClick={
+                      closeSendConfirmation
+                    }
+                    className="
+            w-9
+            h-9
+            rounded-full
+            flex
+            items-center
+            justify-center
+            hover:bg-white/10
+            disabled:opacity-50
+            shrink-0
+          "
+                  >
+
+                    <FaTimes />
+
+                  </button>
+
+                </div>
+
+              </div>
+
+
+              {/* ========================================= */}
+              {/* BODY - SCROLL */}
+              {/* ========================================= */}
+
+              <div
+                className="
+        flex-1
+        min-h-0
+        overflow-y-auto
+        p-6
+        flex
+        flex-col
+        gap-5
+      "
+              >
+
+                {/* ======================================= */}
+                {/* CUSTOMER INFO */}
+                {/* ======================================= */}
+
+                <div
+                  className="
+          bg-gray-50
+          border
+          border-gray-200
+          rounded-xl
+          p-4
+        "
+                >
+
+                  <div
+                    className="
+            flex
+            items-start
+            gap-3
+          "
+                  >
+
+                    <div
+                      className="
+              w-10
+              h-10
+              rounded-lg
+              bg-blue-100
+              text-primary
+              flex
+              items-center
+              justify-center
+              shrink-0
+            "
+                    >
+
+                      <FaBuilding />
+
+                    </div>
+
+
+                    <div
+                      className="
+              min-w-0
+            "
+                    >
+
+                      <p
+                        className="
+                text-sm
+                font-bold
+                text-gray-800
+              "
+                      >
+                        {
+                          sendData.nama_customer
+                        }
+                      </p>
+
+
+                      <p
+                        className="
+                text-xs
+                text-gray-500
+                mt-1
+              "
+                      >
+                        {
+                          sendData.alamat
+                        }
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* ======================================= */}
+                {/* DETAIL TAGIHAN */}
+                {/* ======================================= */}
+
+                <div
+                  className="
+          grid
+          grid-cols-2
+          gap-3
+        "
+                >
+
+                  <div
+                    className="
+            border
+            border-blue-100
+            bg-blue-50
+            rounded-xl
+            p-3
+          "
+                  >
+
+                    <p
+                      className="
+              text-[11px]
+              text-gray-500
+            "
+                    >
+                      No. Faktur
+                    </p>
+
+
+                    <p
+                      className="
+              text-sm
+              font-bold
+              text-primary
+              mt-1
+            "
+                    >
+                      {
+                        sendData.no_faktur
+                      }
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    className="
+            border
+            border-orange-100
+            bg-orange-50
+            rounded-xl
+            p-3
+          "
+                  >
+
+                    <p
+                      className="
+              text-[11px]
+              text-gray-500
+            "
+                    >
+                      No. Billing
+                    </p>
+
+
+                    <p
+                      className="
+              text-sm
+              font-bold
+              text-gray-700
+              mt-1
+            "
+                    >
+                      {
+                        sendData.no_billing ||
+                        "-"
+                      }
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    className="
+            col-span-2
+            border
+            border-gray-200
+            bg-white
+            rounded-xl
+            p-3
+          "
+                  >
+
+                    <p
+                      className="
+              text-[11px]
+              text-gray-500
+            "
+                    >
+                      Nominal Piutang
+                    </p>
+
+
+                    <p
+                      className="
+              text-lg
+              font-bold
+              text-gray-800
+              mt-1
+            "
+                    >
+                      {
+                        formatRupiah(
+                          sendData.nominal_tagihan
+                        )
+                      }
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                {/* ======================================= */}
+                {/* MEDIA */}
+                {/* ======================================= */}
+
+                <div>
+
+                  <p
+                    className="
+            text-sm
+            font-bold
+            text-gray-700
+            mb-3
+          "
+                  >
+                    Kirim melalui
+                  </p>
+
+
+                  <div
+                    className="
+            flex
+            flex-col
+            gap-3
+          "
+                  >
+
+                    {/* WHATSAPP */}
+
+                    {
+                      sendData.media_wa && (
+
+                        <label
+                          className={`
+                  flex
+                  items-center
+                  justify-between
+                  gap-3
+                  border
+                  rounded-xl
+                  p-4
+                  cursor-pointer
+                  transition
+                  ${sendViaWhatsApp
+                              ? "border-green-300 bg-green-50"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
+                            }
+                `}
+                        >
+
+                          <div
+                            className="
+                    flex
+                    items-center
+                    gap-3
+                    min-w-0
+                  "
+                          >
+
+                            <div
+                              className="
+                      w-11
+                      h-11
+                      rounded-xl
+                      bg-green-100
+                      text-green-600
+                      flex
+                      items-center
+                      justify-center
+                      shrink-0
+                    "
+                            >
+
+                              <FaWhatsapp
+                                className="
+                        text-xl
+                      "
+                              />
+
+                            </div>
+
+
+                            <div
+                              className="
+                      min-w-0
+                    "
+                            >
+
+                              <p
+                                className="
+                        text-sm
+                        font-bold
+                        text-gray-800
+                      "
+                              >
+                                WhatsApp
+                              </p>
+
+
+                              <p
+                                className="
+                        text-xs
+                        text-gray-500
+                        truncate
+                      "
+                              >
+                                {
+                                  sendData.no_wa_customer ||
+                                  "Nomor belum tersedia"
+                                }
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          <input
+                            type="checkbox"
+                            className="
+                    checkbox
+                    checkbox-success
+                  "
+                            checked={
+                              sendViaWhatsApp
+                            }
+                            onChange={
+                              e =>
+                                setSendViaWhatsApp(
+                                  e.target.checked
+                                )
+                            }
+                            disabled={
+                              isSendingConfirmation
+                            }
+                          />
+
+                        </label>
+
+                      )
+                    }
+
+
+                    {/* EMAIL */}
+
+                    {
+                      sendData.media_email && (
+
+                        <label
+                          className={`
+                  flex
+                  items-center
+                  justify-between
+                  gap-3
+                  border
+                  rounded-xl
+                  p-4
+                  cursor-pointer
+                  transition
+                  ${sendViaEmail
+                              ? "border-blue-300 bg-blue-50"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
+                            }
+                `}
+                        >
+
+                          <div
+                            className="
+                    flex
+                    items-center
+                    gap-3
+                    min-w-0
+                  "
+                          >
+
+                            <div
+                              className="
+                      w-11
+                      h-11
+                      rounded-xl
+                      bg-blue-100
+                      text-blue-600
+                      flex
+                      items-center
+                      justify-center
+                      shrink-0
+                    "
+                            >
+
+                              <FaEnvelope
+                                className="
+                        text-xl
+                      "
+                              />
+
+                            </div>
+
+
+                            <div
+                              className="
+                      min-w-0
+                    "
+                            >
+
+                              <p
+                                className="
+                        text-sm
+                        font-bold
+                        text-gray-800
+                      "
+                              >
+                                Email
+                              </p>
+
+
+                              <p
+                                className="
+                        text-xs
+                        text-gray-500
+                        truncate
+                      "
+                              >
+                                {
+                                  sendData.email_customer ||
+                                  "Email belum tersedia"
+                                }
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          <input
+                            type="checkbox"
+                            className="
+                    checkbox
+                    checkbox-primary
+                  "
+                            checked={
+                              sendViaEmail
+                            }
+                            onChange={
+                              e =>
+                                setSendViaEmail(
+                                  e.target.checked
+                                )
+                            }
+                            disabled={
+                              isSendingConfirmation
+                            }
+                          />
+
+                        </label>
+
+                      )
+                    }
+
+                  </div>
+
+                </div>
+
+
+                {/* ======================================= */}
+                {/* INFO */}
+                {/* ======================================= */}
+
+                <div
+                  className="
+          flex
+          items-start
+          gap-3
+          bg-amber-50
+          border
+          border-amber-200
+          rounded-xl
+          p-3
+        "
+                >
+
+                  <FaInfoCircle
+                    className="
+            text-amber-500
+            mt-0.5
+            shrink-0
+          "
+                  />
+
+
+                  <p
+                    className="
+            text-xs
+            text-amber-700
+          "
+                  >
+                    Setelah konfirmasi berhasil dikirim,
+                    batas waktu customer untuk memberikan
+                    tanggapan akan dihitung selama 14 hari
+                    kalender sejak tanggal pengiriman.
+                  </p>
+
+                </div>
+
+
+                {/* ======================================= */}
+                {/* RESULT */}
+                {/* ======================================= */}
+
+                {
+                  sendResult && (
+
+                    <div
+                      className={`
+              rounded-xl
+              border
+              px-4
+              py-3
+              flex
+              items-start
+              gap-3
+              ${sendResult.type ===
+                          "success"
+                          ? "bg-green-50 border-green-200 text-green-700"
+                          : "bg-red-50 border-red-200 text-red-700"
+                        }
+            `}
+                    >
+
+                      {
+                        sendResult.type ===
+                          "success"
+                          ? (
+                            <FaCheckCircle
+                              className="
+                      mt-0.5
+                      shrink-0
+                    "
+                            />
+                          )
+                          : (
+                            <FaTimesCircle
+                              className="
+                      mt-0.5
+                      shrink-0
+                    "
+                            />
+                          )
+                      }
+
+
+                      <p
+                        className="
+                text-xs
+                font-medium
+              "
+                      >
+                        {
+                          sendResult.message
+                        }
+                      </p>
+
+                    </div>
+
+                  )
+                }
+
+              </div>
+
+
+              {/* ========================================= */}
+              {/* FOOTER */}
+              {/* ========================================= */}
+
+              <div
+                className="
+        border-t
+        bg-gray-50
+        px-6
+        py-4
+        flex
+        justify-end
+        gap-3
+        shrink-0
+      "
+              >
+
+                <button
+                  type="button"
+                  disabled={
+                    isSendingConfirmation
+                  }
+                  onClick={
+                    closeSendConfirmation
+                  }
+                  className="
+          px-5
+          py-2.5
+          rounded-full
+          border
+          border-gray-300
+          bg-white
+          text-gray-600
+          text-sm
+          font-semibold
+          hover:bg-gray-100
+          disabled:opacity-50
+        "
+                >
+
+                  {
+                    sendResult?.type ===
+                      "success"
+                      ? "Tutup"
+                      : "Batal"
+                  }
+
+                </button>
+
+
+                {
+                  sendResult?.type !==
+                  "success" && (
+
+                    <button
+                      type="button"
+                      onClick={
+                        processSendConfirmation
+                      }
+                      disabled={
+                        isSendingConfirmation
+                      }
+                      className="
+              px-6
+              py-2.5
+              rounded-full
+              bg-primary
+              text-white
+              text-sm
+              font-semibold
+              hover:opacity-90
+              disabled:opacity-60
+              inline-flex
+              items-center
+              gap-2
+            "
+                    >
+
+                      {
+                        isSendingConfirmation
+                          ? (
+
+                            <>
+
+                              <FaSpinner
+                                className="
+                        animate-spin
+                      "
+                              />
+
+                              Mengirim...
+
+                            </>
+
+                          )
+                          : (
+
+                            <>
+
+                              <FaPaperPlane />
+
+                              Kirim Konfirmasi
+
+                            </>
+
+                          )
+                      }
+
+                    </button>
+
+                  )
+                }
 
               </div>
 

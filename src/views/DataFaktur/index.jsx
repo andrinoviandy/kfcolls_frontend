@@ -193,11 +193,11 @@ const MasterFaktur = () => {
             <div className="flex flex-col gap-0">
 
               <h1 className="text-xl font-bold text-gray-800">
-                Data Faktur
+                Data Penjualan
               </h1>
 
               <p className="text-xs text-gray-400">
-                Kelola Data Faktur disini
+                Kelola Data Penjualan disini
               </p>
 
             </div>
@@ -238,7 +238,7 @@ const MasterFaktur = () => {
 
               <FaCloudUploadAlt />
 
-              Upload Faktur
+              Upload Penjualan
 
             </button>
 
@@ -264,7 +264,7 @@ const MasterFaktur = () => {
 
               <FaPlusCircle />
 
-              Tambah Faktur
+              Tambah Penjualan
 
             </button>
 

@@ -664,7 +664,7 @@ const ModalUploadFaktur = () => {
   return (
 
     <Modal
-      title="Upload Data Faktur"
+      title="Upload Data Penjualan"
       iconTitle={
         <IoCloudUploadOutline className="text-primary text-3xl" />
       }
@@ -767,7 +767,7 @@ const ModalUploadFaktur = () => {
                   text-blue-900
                 "
               >
-                Upload Data Faktur
+                Upload Data Penjualan
               </h2>
 
               <p
@@ -777,7 +777,7 @@ const ModalUploadFaktur = () => {
                   mt-1
                 "
               >
-                Import data faktur menggunakan file Excel.
+                Import data penjualan menggunakan file Excel.
               </p>
 
             </div>
