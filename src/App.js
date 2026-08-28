@@ -7,6 +7,7 @@ import ValidasiApproval from 'views/ValidasiApproval';
 import ValidasiTidakValid from 'views/ValidasiTidakValid';
 import VerifikasiDokumen from 'views/VerifikasiDokumen';
 import ProtectedRoute from 'containers/Layout/PageContent/ProtectedRoute';
+import KonfirmasiCustomer from 'views/KonfirmasiCustomer';
 
 const App = () => {
   return (
@@ -21,6 +22,7 @@ const App = () => {
         <Route path='/validasi-approval' element={<ValidasiApproval />} />
         <Route path='/validasi-tidak-valid' element={<ValidasiTidakValid />} />
         <Route path='/verifikasi-dokumen' element={<VerifikasiDokumen />} />
+        <Route path='/konfirmasi-customer' element={<KonfirmasiCustomer />} />
       </Routes>
     </Router>
   );

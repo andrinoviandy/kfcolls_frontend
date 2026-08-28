@@ -164,7 +164,7 @@ const KonfirmasiPiutang = () => {
                 text-gray-800
               "
             >
-              Konfirmasi Piutang
+              Kirim Konfirmasi Piutang
             </h1>
 
 

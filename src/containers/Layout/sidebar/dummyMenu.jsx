@@ -81,7 +81,7 @@ export const dummyMenu = [
     },
     {
         id: 9,
-        name: "Konfirmasi Piutang",
+        name: "Kirim Konf. Piutang",
         path: "/konfirmasi-piutang",
         icon: MdOutlineRequestQuote,
         // roles: [],
