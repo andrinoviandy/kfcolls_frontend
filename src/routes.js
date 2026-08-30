@@ -47,6 +47,8 @@ import MasterFaktur from 'views/DataFaktur'
 import MasterPelanggan from 'views/MasterPelanggan'
 import ManajemenUser from 'views/ManajemenUser'
 import KonfirmasiPiutang from 'views/KonfirmasiPiutang'
+import DataPenjualan from 'views/DataPenjualan'
+import DataPiutang from 'views/DataPiutang'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -66,6 +68,14 @@ const routes = [
   {
     path: '/data-faktur',
     component: MasterFaktur,
+  },
+  {
+    path: '/data-penjualan',
+    component: DataPenjualan,
+  },
+  {
+    path: '/data-piutang',
+    component: DataPiutang,
   },
   {
     path: '/daftar-tugas-harian',

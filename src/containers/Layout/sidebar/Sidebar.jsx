@@ -469,7 +469,7 @@ const Sidebar = () => {
                       mt-1
                     "
                   >
-                    Collection Faktur
+                    Collection System
                   </div>
 
 

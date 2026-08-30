@@ -1416,8 +1416,8 @@ export default function KonfirmasiCustomer() {
                     h-10
                     px-5
                     rounded-lg
-                    bg-blue-600
-                    hover:bg-blue-700
+                    bg-primary
+                    hover:bg-primary
                     disabled:bg-gray-300
                     disabled:cursor-not-allowed
                     text-white
@@ -1489,7 +1489,7 @@ export default function KonfirmasiCustomer() {
 
               <thead>
 
-                <tr className="bg-blue-700 text-white">
+                <tr className="bg-primary text-white">
 
                   <th className="px-4 py-4 text-center w-14">
 
@@ -1498,8 +1498,8 @@ export default function KonfirmasiCustomer() {
                       checked={isAllSelected}
                       onChange={handleCheckAll}
                       className="
-                        w-4
-                        h-4
+                        w-5
+                        h-5
                         rounded
                         border
                         border-white
@@ -1666,8 +1666,8 @@ export default function KonfirmasiCustomer() {
                                 )
                               }
                               className="
-                                w-4
-                                h-4
+                                w-5
+                                h-5
                                 rounded
                                 border
                                 border-gray-300
@@ -1692,7 +1692,7 @@ export default function KonfirmasiCustomer() {
 
                           {/* NO FAKTUR */}
 
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 text-nowrap">
 
                             <div className="flex items-center gap-3">
 
@@ -1723,7 +1723,7 @@ export default function KonfirmasiCustomer() {
 
                           {/* BILLING */}
 
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 text-nowrap">
 
                             <div className="flex items-center gap-3">
 
@@ -1752,7 +1752,7 @@ export default function KonfirmasiCustomer() {
 
                           {/* CUSTOMER */}
 
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 text-nowrap">
 
                             <div className="flex items-center gap-3">
 
@@ -1845,7 +1845,7 @@ export default function KonfirmasiCustomer() {
 
                           {/* TANGGAL */}
 
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 text-nowrap">
 
                             <div className="flex items-center gap-2">
 
@@ -1969,8 +1969,8 @@ export default function KonfirmasiCustomer() {
                   px-7
                   py-3
                   rounded-xl
-                  bg-blue-600
-                  hover:bg-blue-700
+                  bg-primary
+                  hover:bg-primary
                   disabled:bg-gray-300
                   text-white
                   font-bold
@@ -2075,7 +2075,7 @@ export default function KonfirmasiCustomer() {
                 shrink-0
                 ${
                   confirmationType === "approve"
-                    ? "bg-blue-600"
+                    ? "bg-primary"
                     : "bg-red-600"
                 }
               `}
