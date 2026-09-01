@@ -13,7 +13,6 @@ import {
   FaFileInvoiceDollar,
   FaCalendarAlt,
   FaUser,
-  FaBuilding,
   FaMoneyBillWave,
   FaClock,
   FaCheckCircle,
@@ -95,8 +94,16 @@ const TableDataPiutang = ({
 
 
   // ===================================================
+  // KONFIGURASI
+  // ===================================================
+
+  // Berapa hari sebelum jatuh tempo dianggap
+  // "Segera Jatuh Tempo"
+  const SOON_DUE_DAYS = 7;
+
+
+  // ===================================================
   // DUMMY DATA
-  // NANTI BISA DIGANTI DENGAN API
   // ===================================================
 
   const dummyData = [
@@ -112,7 +119,7 @@ const TableDataPiutang = ({
       total_piutang: 25000000,
       sudah_dibayar: 10000000,
       outstanding: 15000000,
-      aging: 0,
+      aging: 1,
       status: "OUTSTANDING",
     },
     {
@@ -127,7 +134,7 @@ const TableDataPiutang = ({
       total_piutang: 18000000,
       sudah_dibayar: 5000000,
       outstanding: 13000000,
-      aging: 16,
+      aging: 18,
       status: "OVERDUE",
     },
     {
@@ -157,7 +164,7 @@ const TableDataPiutang = ({
       total_piutang: 45000000,
       sudah_dibayar: 10000000,
       outstanding: 35000000,
-      aging: 51,
+      aging: 53,
       status: "OVERDUE",
     },
     {
@@ -187,7 +194,7 @@ const TableDataPiutang = ({
       total_piutang: 60000000,
       sudah_dibayar: 20000000,
       outstanding: 40000000,
-      aging: 91,
+      aging: 93,
       status: "OVERDUE",
     },
     {
@@ -217,7 +224,7 @@ const TableDataPiutang = ({
       total_piutang: 27500000,
       sudah_dibayar: 7500000,
       outstanding: 20000000,
-      aging: 30,
+      aging: 32,
       status: "OVERDUE",
     },
     {
@@ -247,7 +254,7 @@ const TableDataPiutang = ({
       total_piutang: 85000000,
       sudah_dibayar: 25000000,
       outstanding: 60000000,
-      aging: 121,
+      aging: 123,
       status: "OVERDUE",
     },
   ];
@@ -269,10 +276,6 @@ const TableDataPiutang = ({
     setLoading(true);
 
     try {
-
-      // =================================================
-      // SEMENTARA MENGGUNAKAN DUMMY DATA
-      // =================================================
 
       await new Promise(
         (resolve) =>
@@ -350,6 +353,240 @@ const TableDataPiutang = ({
 
 
   // ===================================================
+  // NORMALIZE DATE
+  // ===================================================
+
+  const normalizeDate = (
+    value
+  ) => {
+
+    if (!value) {
+      return null;
+    }
+
+    const date =
+      new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return null;
+    }
+
+    date.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    return date;
+
+  };
+
+
+  // ===================================================
+  // GET STATUS PIUTANG
+  // ===================================================
+
+  const getPiutangStatus = (
+    item
+  ) => {
+
+    const outstanding =
+      Number(
+        item?.outstanding || 0
+      );
+
+    // Kalau sudah tidak ada outstanding
+    // berarti Lunas
+    if (
+      outstanding <= 0
+    ) {
+
+      return "PAID";
+
+    }
+
+
+    const dueDate =
+      normalizeDate(
+        item?.jatuh_tempo
+      );
+
+    if (!dueDate) {
+
+      return "OUTSTANDING";
+
+    }
+
+
+    const today =
+      new Date();
+
+    today.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+
+    const diffTime =
+      dueDate.getTime() -
+      today.getTime();
+
+    const diffDays =
+      Math.ceil(
+        diffTime /
+        (
+          1000 *
+          60 *
+          60 *
+          24
+        )
+      );
+
+
+    // Sudah lewat jatuh tempo
+    if (
+      diffDays < 0
+    ) {
+
+      return "OVERDUE";
+
+    }
+
+
+    // Jatuh tempo hari ini
+    if (
+      diffDays === 0
+    ) {
+
+      return "OVERDUE";
+
+    }
+
+
+    // Segera jatuh tempo
+    if (
+      diffDays <=
+      SOON_DUE_DAYS
+    ) {
+
+      return "DUE_SOON";
+
+    }
+
+
+    // Belum jatuh tempo
+    return "NOT_DUE";
+
+  };
+
+
+  // ===================================================
+  // GET STATUS LABEL
+  // ===================================================
+
+  const getStatusLabel = (
+    item
+  ) => {
+
+    const status =
+      getPiutangStatus(
+        item
+      );
+
+
+    if (
+      status === "PAID"
+    ) {
+
+      return "Lunas";
+
+    }
+
+
+    if (
+      status === "NOT_DUE"
+    ) {
+
+      return "Outstanding / Belum Jatuh Tempo";
+
+    }
+
+
+    if (
+      status === "DUE_SOON"
+    ) {
+
+      return "Outstanding / Segera Jatuh Tempo";
+
+    }
+
+
+    if (
+      status === "OVERDUE"
+    ) {
+
+      return "Outstanding / Sudah Jatuh Tempo";
+
+    }
+
+
+    return "Outstanding";
+
+  };
+
+
+  // ===================================================
+  // GET DAYS TO DUE
+  // ===================================================
+
+  const getDaysToDue = (
+    item
+  ) => {
+
+    const dueDate =
+      normalizeDate(
+        item?.jatuh_tempo
+      );
+
+    if (!dueDate) {
+      return null;
+    }
+
+    const today =
+      new Date();
+
+    today.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    const diffTime =
+      dueDate.getTime() -
+      today.getTime();
+
+    return Math.ceil(
+      diffTime /
+      (
+        1000 *
+        60 *
+        60 *
+        24
+      )
+    );
+
+  };
+
+
+  // ===================================================
   // FILTER DATA
   // ===================================================
 
@@ -360,7 +597,9 @@ const TableDataPiutang = ({
     ];
 
 
+    // =================================================
     // SEARCH
+    // =================================================
 
     if (
       search &&
@@ -416,7 +655,9 @@ const TableDataPiutang = ({
     }
 
 
+    // =================================================
     // STATUS
+    // =================================================
 
     if (
       filterStatus !== "ALL"
@@ -425,14 +666,18 @@ const TableDataPiutang = ({
       result =
         result.filter(
           (item) =>
-            item.status ===
+            getPiutangStatus(
+              item
+            ) ===
             filterStatus
         );
 
     }
 
 
+    // =================================================
     // AGING
+    // =================================================
 
     if (
       filterAging !== "ALL"
@@ -447,49 +692,65 @@ const TableDataPiutang = ({
                 item.aging || 0
               );
 
+
             if (
               filterAging ===
               "CURRENT"
             ) {
+
               return aging === 0;
+
             }
+
 
             if (
               filterAging ===
               "1-30"
             ) {
+
               return (
                 aging >= 1 &&
                 aging <= 30
               );
+
             }
+
 
             if (
               filterAging ===
               "31-60"
             ) {
+
               return (
                 aging >= 31 &&
                 aging <= 60
               );
+
             }
+
 
             if (
               filterAging ===
               "61-90"
             ) {
+
               return (
                 aging >= 61 &&
                 aging <= 90
               );
+
             }
+
 
             if (
               filterAging ===
               "90+"
             ) {
+
               return aging > 90;
+
             }
+
 
             return true;
 
@@ -526,11 +787,15 @@ const TableDataPiutang = ({
     useMemo(() => {
 
       const start =
-        (currentPage - 1) *
+        (
+          currentPage -
+          1
+        ) *
         limit;
 
       const end =
-        start + limit;
+        start +
+        limit;
 
       return filteredData.slice(
         start,
@@ -573,41 +838,94 @@ const TableDataPiutang = ({
           item
         ) => {
 
-          result.totalPiutang +=
+          const totalPiutang =
             Number(
               item.total_piutang || 0
             );
 
-          result.sudahDibayar +=
+          const sudahDibayar =
             Number(
               item.sudah_dibayar || 0
             );
 
-          result.outstanding +=
+          const outstanding =
             Number(
               item.outstanding || 0
             );
 
+          const status =
+            getPiutangStatus(
+              item
+            );
+
+
+          // Total
+          result.totalPiutang +=
+            totalPiutang;
+
+
+          // Sudah dibayar
+          result.sudahDibayar +=
+            sudahDibayar;
+
+
+          // Outstanding
+          result.outstanding +=
+            outstanding;
+
+
+          // Jumlah data
+          result.totalData += 1;
+
+
+          // Lunas
           if (
-            item.status ===
-            "PAID"
+            status === "PAID"
           ) {
+
             result.paid += 1;
+
           }
 
+
+          // Belum jatuh tempo
           if (
-            item.status ===
-            "OUTSTANDING"
+            status === "NOT_DUE"
           ) {
-            result.outstandingData += 1;
+
+            result.notDue += 1;
+
+            result.notDueAmount +=
+              outstanding;
+
           }
 
+
+          // Segera jatuh tempo
           if (
-            item.status ===
-            "OVERDUE"
+            status === "DUE_SOON"
           ) {
+
+            result.dueSoon += 1;
+
+            result.dueSoonAmount +=
+              outstanding;
+
+          }
+
+
+          // Sudah jatuh tempo
+          if (
+            status === "OVERDUE"
+          ) {
+
             result.overdue += 1;
+
+            result.overdueAmount +=
+              outstanding;
+
           }
+
 
           return result;
 
@@ -616,9 +934,19 @@ const TableDataPiutang = ({
           totalPiutang: 0,
           sudahDibayar: 0,
           outstanding: 0,
+
+          totalData: 0,
+
           paid: 0,
-          outstandingData: 0,
+
+          notDue: 0,
+          notDueAmount: 0,
+
+          dueSoon: 0,
+          dueSoonAmount: 0,
+
           overdue: 0,
+          overdueAmount: 0,
         }
       );
 
@@ -723,8 +1051,18 @@ const TableDataPiutang = ({
   // ===================================================
 
   const renderStatus = (
-    status
+    item
   ) => {
+
+    const status =
+      getPiutangStatus(
+        item
+      );
+
+
+    // =================================================
+    // LUNAS
+    // =================================================
 
     if (
       status === "PAID"
@@ -737,12 +1075,13 @@ const TableDataPiutang = ({
             items-center
             gap-1.5
             px-3
-            py-1
+            py-1.5
             rounded-full
             text-xs
             font-semibold
             bg-green-100
             text-green-700
+            whitespace-nowrap
           "
         >
 
@@ -756,6 +1095,91 @@ const TableDataPiutang = ({
     }
 
 
+    // =================================================
+    // BELUM JATUH TEMPO
+    // =================================================
+
+    if (
+      status === "NOT_DUE"
+    ) {
+
+      return (
+        <span
+          className="
+            inline-flex
+            items-center
+            gap-1.5
+            px-3
+            py-1.5
+            rounded-full
+            text-xs
+            font-semibold
+            bg-blue-100
+            text-blue-700
+            whitespace-nowrap
+          "
+        >
+
+          <FaClock />
+
+          Outstanding / Belum Jatuh Tempo
+
+        </span>
+      );
+
+    }
+
+
+    // =================================================
+    // SEGERA JATUH TEMPO
+    // =================================================
+
+    if (
+      status === "DUE_SOON"
+    ) {
+
+      const days =
+        getDaysToDue(
+          item
+        );
+
+      return (
+        <span
+          className="
+            inline-flex
+            items-center
+            gap-1.5
+            px-3
+            py-1.5
+            rounded-full
+            text-xs
+            font-semibold
+            bg-yellow-100
+            text-yellow-700
+            whitespace-nowrap
+          "
+        >
+
+          <FaClock />
+
+          Outstanding / Segera Jatuh Tempo
+
+          {days !== null && (
+            <span>
+              ({days} Hari)
+            </span>
+          )}
+
+        </span>
+      );
+
+    }
+
+
+    // =================================================
+    // SUDAH JATUH TEMPO
+    // =================================================
+
     if (
       status === "OVERDUE"
     ) {
@@ -767,18 +1191,19 @@ const TableDataPiutang = ({
             items-center
             gap-1.5
             px-3
-            py-1
+            py-1.5
             rounded-full
             text-xs
             font-semibold
             bg-red-100
             text-red-700
+            whitespace-nowrap
           "
         >
 
           <FaExclamationCircle />
 
-          Overdue
+          Outstanding / Sudah Jatuh Tempo
 
         </span>
       );
@@ -793,16 +1218,14 @@ const TableDataPiutang = ({
           items-center
           gap-1.5
           px-3
-          py-1
+          py-1.5
           rounded-full
           text-xs
           font-semibold
-          bg-yellow-100
-          text-yellow-700
+          bg-gray-100
+          text-gray-600
         "
       >
-
-        <FaClock />
 
         Outstanding
 
@@ -824,6 +1247,7 @@ const TableDataPiutang = ({
       Number(
         aging || 0
       );
+
 
     if (
       value === 0
@@ -918,13 +1342,16 @@ const TableDataPiutang = ({
           grid
           grid-cols-1
           sm:grid-cols-2
-          lg:grid-cols-4
+          lg:grid-cols-3
+          xl:grid-cols-6
           gap-4
           mb-5
         "
       >
 
+        {/* ================================================= */}
         {/* TOTAL PIUTANG */}
+        {/* ================================================= */}
 
         <div
           className="
@@ -968,6 +1395,16 @@ const TableDataPiutang = ({
                 )}
               </p>
 
+              <p
+                className="
+                  text-[10px]
+                  text-blue-500
+                  mt-1
+                "
+              >
+                {summary.totalData} Data
+              </p>
+
             </div>
 
             <div
@@ -980,9 +1417,12 @@ const TableDataPiutang = ({
                 flex
                 items-center
                 justify-center
+                shrink-0
               "
             >
+
               <FaFileInvoiceDollar />
+
             </div>
 
           </div>
@@ -990,7 +1430,9 @@ const TableDataPiutang = ({
         </div>
 
 
+        {/* ================================================= */}
         {/* SUDAH DIBAYAR */}
+        {/* ================================================= */}
 
         <div
           className="
@@ -1034,6 +1476,16 @@ const TableDataPiutang = ({
                 )}
               </p>
 
+              <p
+                className="
+                  text-[10px]
+                  text-green-500
+                  mt-1
+                "
+              >
+                {summary.paid} Data Lunas
+              </p>
+
             </div>
 
             <div
@@ -1046,9 +1498,12 @@ const TableDataPiutang = ({
                 flex
                 items-center
                 justify-center
+                shrink-0
               "
             >
+
               <FaCheckCircle />
+
             </div>
 
           </div>
@@ -1056,13 +1511,15 @@ const TableDataPiutang = ({
         </div>
 
 
+        {/* ================================================= */}
         {/* OUTSTANDING */}
+        {/* ================================================= */}
 
         <div
           className="
-            bg-yellow-50
+            bg-purple-50
             border
-            border-yellow-100
+            border-purple-100
             rounded-xl
             p-4
           "
@@ -1100,6 +1557,178 @@ const TableDataPiutang = ({
                 )}
               </p>
 
+              <p
+                className="
+                  text-[10px]
+                  text-purple-500
+                  mt-1
+                "
+              >
+                Piutang Belum Lunas
+              </p>
+
+            </div>
+
+            <div
+              className="
+                w-10
+                h-10
+                rounded-xl
+                bg-purple-100
+                text-purple-600
+                flex
+                items-center
+                justify-center
+                shrink-0
+              "
+            >
+
+              <FaMoneyBillWave />
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* ================================================= */}
+        {/* BELUM JATUH TEMPO */}
+        {/* ================================================= */}
+
+        <div
+          className="
+            bg-blue-50
+            border
+            border-blue-100
+            rounded-xl
+            p-4
+          "
+        >
+
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+            "
+          >
+
+            <div>
+
+              <p
+                className="
+                  text-xs
+                  text-gray-500
+                  mb-1
+                "
+              >
+                Belum Jatuh Tempo
+              </p>
+
+              <p
+                className="
+                  text-lg
+                  font-bold
+                  text-gray-800
+                "
+              >
+                {formatCurrency(
+                  summary.notDueAmount
+                )}
+              </p>
+
+              <p
+                className="
+                  text-[10px]
+                  text-blue-500
+                  mt-1
+                "
+              >
+                {summary.notDue} Data
+              </p>
+
+            </div>
+
+            <div
+              className="
+                w-10
+                h-10
+                rounded-xl
+                bg-blue-100
+                text-blue-600
+                flex
+                items-center
+                justify-center
+                shrink-0
+              "
+            >
+
+              <FaClock />
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* ================================================= */}
+        {/* SEGERA JATUH TEMPO */}
+        {/* ================================================= */}
+
+        <div
+          className="
+            bg-yellow-50
+            border
+            border-yellow-100
+            rounded-xl
+            p-4
+          "
+        >
+
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+            "
+          >
+
+            <div>
+
+              <p
+                className="
+                  text-xs
+                  text-gray-500
+                  mb-1
+                "
+              >
+                Segera Jatuh Tempo
+              </p>
+
+              <p
+                className="
+                  text-lg
+                  font-bold
+                  text-gray-800
+                "
+              >
+                {formatCurrency(
+                  summary.dueSoonAmount
+                )}
+              </p>
+
+              <p
+                className="
+                  text-[10px]
+                  text-yellow-600
+                  mt-1
+                "
+              >
+                {summary.dueSoon} Data
+              </p>
+
             </div>
 
             <div
@@ -1112,9 +1741,12 @@ const TableDataPiutang = ({
                 flex
                 items-center
                 justify-center
+                shrink-0
               "
             >
-              <FaMoneyBillWave />
+
+              <FaClock />
+
             </div>
 
           </div>
@@ -1122,7 +1754,9 @@ const TableDataPiutang = ({
         </div>
 
 
-        {/* OVERDUE */}
+        {/* ================================================= */}
+        {/* SUDAH JATUH TEMPO */}
+        {/* ================================================= */}
 
         <div
           className="
@@ -1151,7 +1785,7 @@ const TableDataPiutang = ({
                   mb-1
                 "
               >
-                Overdue
+                Sudah Jatuh Tempo
               </p>
 
               <p
@@ -1161,9 +1795,19 @@ const TableDataPiutang = ({
                   text-gray-800
                 "
               >
-                {summary.overdue}
-                {" "}
-                Data
+                {formatCurrency(
+                  summary.overdueAmount
+                )}
+              </p>
+
+              <p
+                className="
+                  text-[10px]
+                  text-red-500
+                  mt-1
+                "
+              >
+                {summary.overdue} Data
               </p>
 
             </div>
@@ -1178,9 +1822,12 @@ const TableDataPiutang = ({
                 flex
                 items-center
                 justify-center
+                shrink-0
               "
             >
+
               <FaExclamationCircle />
+
             </div>
 
           </div>
@@ -1385,12 +2032,16 @@ const TableDataPiutang = ({
                   Lunas
                 </option>
 
-                <option value="OUTSTANDING">
-                  Outstanding
+                <option value="NOT_DUE">
+                  Outstanding / Belum Jatuh Tempo
+                </option>
+
+                <option value="DUE_SOON">
+                  Outstanding / Segera Jatuh Tempo
                 </option>
 
                 <option value="OVERDUE">
-                  Overdue
+                  Outstanding / Sudah Jatuh Tempo
                 </option>
 
               </select>
@@ -1622,7 +2273,7 @@ const TableDataPiutang = ({
               <tr>
 
                 <td
-                  colSpan="14"
+                  colSpan="13"
                   className="
                     text-center
                     py-10
@@ -1657,7 +2308,7 @@ const TableDataPiutang = ({
               <tr>
 
                 <td
-                  colSpan="14"
+                  colSpan="13"
                   className="
                     text-center
                     py-10
@@ -1714,6 +2365,11 @@ const TableDataPiutang = ({
                     index +
                     1;
 
+                  const piutangStatus =
+                    getPiutangStatus(
+                      item
+                    );
+
                   return (
 
                     <tr
@@ -1759,9 +2415,12 @@ const TableDataPiutang = ({
                               flex
                               items-center
                               justify-center
+                              shrink-0
                             "
                           >
+
                             <FaFileInvoiceDollar />
+
                           </div>
 
                           <div>
@@ -1920,19 +2579,81 @@ const TableDataPiutang = ({
 
                       <td>
 
-                        <span
+                        <div
                           className="
-                            text-xs
-                            text-gray-600
-                            whitespace-nowrap
+                            flex
+                            flex-col
+                            gap-1
                           "
                         >
-                          {
-                            formatDate(
-                              item.jatuh_tempo
-                            )
-                          }
-                        </span>
+
+                          <span
+                            className="
+                              text-xs
+                              text-gray-600
+                              whitespace-nowrap
+                            "
+                          >
+                            {
+                              formatDate(
+                                item.jatuh_tempo
+                              )
+                            }
+                          </span>
+
+
+                          {/* Keterangan jatuh tempo */}
+
+                          {piutangStatus ===
+                            "NOT_DUE" && (
+
+                            <span
+                              className="
+                                text-[10px]
+                                text-blue-500
+                                whitespace-nowrap
+                              "
+                            >
+                              Belum jatuh tempo
+                            </span>
+
+                          )}
+
+
+                          {piutangStatus ===
+                            "DUE_SOON" && (
+
+                            <span
+                              className="
+                                text-[10px]
+                                text-yellow-600
+                                font-semibold
+                                whitespace-nowrap
+                              "
+                            >
+                              Segera jatuh tempo
+                            </span>
+
+                          )}
+
+
+                          {piutangStatus ===
+                            "OVERDUE" && (
+
+                            <span
+                              className="
+                                text-[10px]
+                                text-red-500
+                                font-semibold
+                                whitespace-nowrap
+                              "
+                            >
+                              Sudah jatuh tempo
+                            </span>
+
+                          )}
+
+                        </div>
 
                       </td>
 
@@ -2049,7 +2770,7 @@ const TableDataPiutang = ({
 
                         {
                           renderStatus(
-                            item.status
+                            item
                           )
                         }
 
@@ -2214,7 +2935,7 @@ const TableDataPiutang = ({
             }
           </span>
 
-          {" "}-
+          {" "}-{" "}
 
           <span
             className="
@@ -2903,11 +3624,143 @@ const TableDataPiutang = ({
 
                   {
                     renderStatus(
-                      selectedData.status
+                      selectedData
                     )
                   }
 
                 </div>
+
+
+                {/* DETAIL JATUH TEMPO */}
+
+                {getPiutangStatus(
+                  selectedData
+                ) === "DUE_SOON" && (
+
+                  <div
+                    className="
+                      mt-4
+                      p-4
+                      rounded-xl
+                      bg-yellow-50
+                      border
+                      border-yellow-100
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        items-start
+                        gap-3
+                      "
+                    >
+
+                      <FaClock
+                        className="
+                          text-yellow-600
+                          mt-0.5
+                        "
+                      />
+
+                      <div>
+
+                        <p
+                          className="
+                            text-xs
+                            font-semibold
+                            text-yellow-700
+                          "
+                        >
+                          Perhatian
+                        </p>
+
+                        <p
+                          className="
+                            text-xs
+                            text-yellow-600
+                            mt-1
+                          "
+                        >
+                          Piutang ini akan jatuh tempo dalam{" "}
+                          <strong>
+                            {
+                              getDaysToDue(
+                                selectedData
+                              )
+                            } hari
+                          </strong>.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                )}
+
+
+                {getPiutangStatus(
+                  selectedData
+                ) === "OVERDUE" && (
+
+                  <div
+                    className="
+                      mt-4
+                      p-4
+                      rounded-xl
+                      bg-red-50
+                      border
+                      border-red-100
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        items-start
+                        gap-3
+                      "
+                    >
+
+                      <FaExclamationCircle
+                        className="
+                          text-red-600
+                          mt-0.5
+                        "
+                      />
+
+                      <div>
+
+                        <p
+                          className="
+                            text-xs
+                            font-semibold
+                            text-red-700
+                          "
+                        >
+                          Perhatian
+                        </p>
+
+                        <p
+                          className="
+                            text-xs
+                            text-red-600
+                            mt-1
+                          "
+                        >
+                          Piutang ini sudah melewati
+                          tanggal jatuh tempo.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                )}
 
               </div>
 

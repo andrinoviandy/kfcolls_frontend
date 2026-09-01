@@ -262,7 +262,7 @@ const DataPiutang = () => {
 
             {/* UPLOAD */}
 
-            <button
+            {/* <button
               type="button"
               onClick={
                 handleUpload
@@ -284,12 +284,12 @@ const DataPiutang = () => {
 
               Upload Piutang
 
-            </button>
+            </button> */}
 
 
             {/* TAMBAH */}
 
-            <button
+            {/* <button
               type="button"
               onClick={
                 handleAddPiutang
@@ -310,7 +310,7 @@ const DataPiutang = () => {
 
               Tambah Piutang
 
-            </button>
+            </button> */}
 
           </div>
 

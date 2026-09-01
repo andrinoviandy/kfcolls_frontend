@@ -6237,6 +6237,23 @@ const dummyData = [
 ];
 
 // =====================================================
+// DATA TAMBAHAN - TOP & TANGGAL JATUH TEMPO
+// =====================================================
+// TOP belum tersedia di data dummy sumber.
+// Untuk kebutuhan tampilan, setiap transaksi menggunakan TOP 30 hari.
+// Jika nanti TOP berasal dari API/Excel, cukup ganti nilai "TOP"
+// pada masing-masing item dan Tanggal Jatuh Tempo akan otomatis dihitung.
+const dummyDataWithTOP = dummyData.map((item) => ({
+  ...item,
+  TOP:
+    item["TOP"] !== undefined &&
+    item["TOP"] !== null &&
+    item["TOP"] !== ""
+      ? Number(item["TOP"])
+      : 30,
+}));
+
+// =====================================================
 // HELPER
 // =====================================================
 
@@ -6273,6 +6290,34 @@ const formatDate = (value) => {
     month: "short",
     year: "numeric",
   });
+};
+
+const addDaysToDate = (dateValue, days) => {
+  if (!dateValue) return null;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return null;
+
+  date.setDate(date.getDate() + Number(days || 0));
+
+  return date.toISOString().split("T")[0];
+};
+
+const getTanggalJatuhTempo = (item) => {
+  if (!item) return null;
+
+  return addDaysToDate(
+    item["Posting Date"],
+    item["TOP"]
+  );
+};
+
+const formatTOP = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  return `${Number(value)} Hari`;
 };
 
 const displayValue = (value) => {
@@ -6342,7 +6387,7 @@ const mainColumns = [
     key: "Sales Office",
     label: "Sales Office",
     icon: <FaBuilding />,
-    type: "number",
+    type: "plainNumber",
   },
   {
     key: "Desc. S.Office",
@@ -6356,10 +6401,22 @@ const mainColumns = [
     type: "date",
   },
   {
+    key: "TOP",
+    label: "TOP",
+    icon: <FaCalendarAlt />,
+    type: "top",
+  },
+  {
+    key: "Tanggal Jatuh Tempo",
+    label: "Tanggal Jatuh Tempo",
+    icon: <FaCalendarAlt />,
+    type: "dueDate",
+  },
+  {
     key: "Billing No",
     label: "Billing No",
     icon: <FaFileInvoiceDollar />,
-    type: "number",
+    type: "plainNumber",
   },
   {
     key: "Posting Status",
@@ -6376,7 +6433,7 @@ const mainColumns = [
     key: "Bill to party",
     label: "Bill to Party",
     icon: <FaBuilding />,
-    type: "number",
+    type: "plainNumber",
   },
   {
     key: "Name Bill to",
@@ -6392,7 +6449,7 @@ const mainColumns = [
     key: "Material",
     label: "Material",
     icon: <FaBox />,
-    type: "number",
+    type: "plainNumber",
   },
   {
     key: "Material Group 1",
@@ -6452,10 +6509,28 @@ const mainColumns = [
     type: "currency",
   },
   {
+    key: "Persentase COGS",
+    label: "Persentase COGS",
+    icon: <FaPercentage />,
+    type: "calculatedPercentCOGS",
+  },
+  {
+    key: "Margin",
+    label: "Margin",
+    icon: <FaMoneyBillWave />,
+    type: "calculatedMargin",
+  },
+  {
+    key: "Persentase Margin",
+    label: "Persentase Margin",
+    icon: <FaPercentage />,
+    type: "calculatedPercentMargin",
+  },
+  {
     key: "Principle",
     label: "Principle",
     icon: <FaBuilding />,
-    type: "number",
+    type: "plainNumber",
   },
   {
     key: "Name Principle",
@@ -6471,7 +6546,7 @@ const mainColumns = [
     key: "Salesman",
     label: "Salesman",
     icon: <FaUser />,
-    type: "number",
+    type: "plainNumber",
   },
   {
     key: "Name Salesman",
@@ -6487,7 +6562,7 @@ const mainColumns = [
     key: "Quotation Number",
     label: "Quotation Number",
     icon: <FaFileInvoiceDollar />,
-    type: "number",
+    type: "plainNumber",
   },
 ];
 
@@ -6500,10 +6575,12 @@ const detailGroups = [
     title: "Informasi Billing",
     fields: [
       ["No", "No", "number"],
-      ["Sales Office", "Sales Office", "number"],
+      ["Sales Office", "Sales Office", "plainNumber"],
       ["Desc. S.Office", "Desc. S.Office"],
       ["Posting Date", "Posting Date", "date"],
-      ["Billing No", "Billing No", "number"],
+      ["TOP", "TOP", "top"],
+      ["Tanggal Jatuh Tempo", "Tanggal Jatuh Tempo", "dueDate"],
+      ["Billing No", "Billing No", "plainNumber"],
       ["Posting Status", "Posting Status"],
       ["Bill.Cancel", "Bill.Cancel"],
     ],
@@ -6511,7 +6588,7 @@ const detailGroups = [
   {
     title: "Customer",
     fields: [
-      ["Bill to party", "Bill to party", "number"],
+      ["Bill to party", "Bill to party", "plainNumber"],
       ["Name Bill to", "Name Bill to"],
       ["Address", "Address"],
     ],
@@ -6519,7 +6596,7 @@ const detailGroups = [
   {
     title: "Material & Penjualan",
     fields: [
-      ["Material", "Material", "number"],
+      ["Material", "Material", "plainNumber"],
       ["Material Group 1", "Material Group 1", "number"],
       ["Desc Material Group 1", "Desc Material Group 1"],
       ["Text Material", "Text Material"],
@@ -6576,6 +6653,9 @@ const detailGroups = [
       ["Total Penjualan", "Total Penjualan", "currency"],
       ["Tax Amount", "Tax Amount", "currency"],
       ["Total COGS", "Total COGS", "currency"],
+      ["Persentase COGS", "Persentase COGS", "calculatedPercentCOGS"],
+      ["Margin", "Margin", "calculatedMargin"],
+      ["Persentase Margin", "Persentase Margin", "calculatedPercentMargin"],
       ["Unit Price Pembelian", "Unit Price Pembelian", "currency"],
       ["Bill Qty in SKU", "Bill Qty in SKU", "number"],
       ["UoM SKU", "UoM SKU"],
@@ -6587,7 +6667,7 @@ const detailGroups = [
       ["Code Pelayanan", "Code Pelayanan", "number"],
       ["Dec. Pelayanan", "Dec. Pelayanan"],
       ["Prod. Hierarchy3", "Prod. Hierarchy3"],
-      ["Principle", "Principle", "number"],
+      ["Principle", "Principle", "plainNumber"],
       ["Name Principle", "Name Principle"],
       ["Desc. Cust. Grp4", "Desc. Cust. Grp4"],
     ],
@@ -6595,19 +6675,58 @@ const detailGroups = [
   {
     title: "Sales & Referensi",
     fields: [
-      ["Salesman", "Salesman", "number"],
+      ["Salesman", "Salesman", "plainNumber"],
       ["Name Salesman", "Name Salesman"],
       ["PO Number", "PO Number"],
-      ["Quotation Number", "Quotation Number", "number"],
+      ["Quotation Number", "Quotation Number", "plainNumber"],
     ],
   },
 ];
 
 // =====================================================
+// CALCULATION - COGS & MARGIN
+// =====================================================
+
+const getCalculatedValue = (item, key) => {
+  const totalPenjualan = Number(item?.["Total Penjualan"] || 0);
+  const totalCOGS = Number(item?.["Total COGS"] || 0);
+
+  if (key === "Persentase COGS") {
+    return totalPenjualan !== 0
+      ? (totalCOGS / totalPenjualan) * 100
+      : 0;
+  }
+
+  if (key === "Margin") {
+    return totalPenjualan - totalCOGS;
+  }
+
+  if (key === "Persentase Margin") {
+    const margin = totalPenjualan - totalCOGS;
+    return totalPenjualan !== 0
+      ? (margin / totalPenjualan) * 100
+      : 0;
+  }
+
+  return 0;
+};
+
+const formatPercent = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "0%";
+  }
+
+  return `${new Intl.NumberFormat("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value))}%`;
+};
+
+// =====================================================
 // FORMAT DETAIL
 // =====================================================
 
-const formatFieldValue = (value, type) => {
+const formatFieldValue = (value, type, item = null) => {
   if (value === null || value === undefined || value === "") {
     return "-";
   }
@@ -6616,11 +6735,41 @@ const formatFieldValue = (value, type) => {
     return formatDate(value);
   }
 
+  if (type === "top") {
+    return formatTOP(value);
+  }
+
+  if (type === "dueDate") {
+    return formatDate(
+      item ? getTanggalJatuhTempo(item) : value
+    );
+  }
+
   if (type === "currency") {
     return formatRupiah(value);
   }
 
-  if (type === "number" || type === "percent") {
+  if (type === "plainNumber") {
+    return String(value);
+  }
+
+  if (type === "percent") {
+    return formatPercent(value);
+  }
+
+  if (type === "calculatedPercentCOGS") {
+    return formatPercent(getCalculatedValue(item, "Persentase COGS"));
+  }
+
+  if (type === "calculatedMargin") {
+    return formatRupiah(getCalculatedValue(item, "Margin"));
+  }
+
+  if (type === "calculatedPercentMargin") {
+    return formatPercent(getCalculatedValue(item, "Persentase Margin"));
+  }
+
+  if (type === "number") {
     return formatNumber(value);
   }
 
@@ -6638,13 +6787,16 @@ const TableMasterFaktur = ({
   reloadData,
   setReloadData,
 }) => {
-  const [tableData, setTableData] = useState(dummyData);
+  const [tableData, setTableData] = useState(dummyDataWithTOP);
 
   const [keyword, setKeyword] = useState("");
   const [filterSalesOffice, setFilterSalesOffice] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [filterCustomerGroup, setFilterCustomerGroup] = useState("ALL");
   const [filterPrinciple, setFilterPrinciple] = useState("ALL");
+
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -6764,6 +6916,27 @@ const TableMasterFaktur = ({
       );
     }
 
+    // FILTER TANGGAL POSTING DATE
+    if (filterStartDate) {
+      data = data.filter((item) => {
+        const postingDate = String(
+          item["Posting Date"] || ""
+        ).slice(0, 10);
+
+        return postingDate >= filterStartDate;
+      });
+    }
+
+    if (filterEndDate) {
+      data = data.filter((item) => {
+        const postingDate = String(
+          item["Posting Date"] || ""
+        ).slice(0, 10);
+
+        return postingDate <= filterEndDate;
+      });
+    }
+
     return data;
   }, [
     tableData,
@@ -6772,6 +6945,8 @@ const TableMasterFaktur = ({
     filterStatus,
     filterCustomerGroup,
     filterPrinciple,
+    filterStartDate,
+    filterEndDate,
   ]);
 
   // ===================================================
@@ -6794,46 +6969,49 @@ const TableMasterFaktur = ({
   // ===================================================
 
   const summaryData = useMemo(() => {
-    const total = tableData.length;
+    const total = filteredData.length;
 
-    const totalPenjualan = tableData.reduce(
+    const totalPenjualan = filteredData.reduce(
       (sum, item) =>
         sum + Number(item["Total Penjualan"] || 0),
       0
     );
 
-    const totalTax = tableData.reduce(
+    const totalTax = filteredData.reduce(
       (sum, item) =>
         sum + Number(item["Tax Amount"] || 0),
       0
     );
 
-    const totalCOGS = tableData.reduce(
+    const totalCOGS = filteredData.reduce(
       (sum, item) =>
         sum + Number(item["Total COGS"] || 0),
       0
     );
 
-    const totalDiscount = tableData.reduce(
+    const totalMargin =
+      totalPenjualan - totalCOGS;
+
+    const totalDiscount = filteredData.reduce(
       (sum, item) =>
         sum + Number(item["Total Discount"] || 0),
       0
     );
 
-    const totalQuantity = tableData.reduce(
+    const totalQuantity = filteredData.reduce(
       (sum, item) =>
         sum + Number(item["Quantity"] || 0),
       0
     );
 
     const totalBilling = new Set(
-      tableData
+      filteredData
         .map((item) => item["Billing No"])
         .filter(Boolean)
     ).size;
 
     const totalCustomer = new Set(
-      tableData
+      filteredData
         .map((item) => item["Bill to party"])
         .filter(Boolean)
     ).size;
@@ -6846,9 +7024,10 @@ const TableMasterFaktur = ({
       totalPenjualan,
       totalTax,
       totalCOGS,
+      totalMargin,
       totalDiscount,
     };
-  }, [tableData]);
+  }, [filteredData]);
 
   // ===================================================
   // RESET PAGE
@@ -6862,6 +7041,8 @@ const TableMasterFaktur = ({
     filterStatus,
     filterCustomerGroup,
     filterPrinciple,
+    filterStartDate,
+    filterEndDate,
     perPage,
   ]);
 
@@ -6893,7 +7074,7 @@ const TableMasterFaktur = ({
 
   useEffect(() => {
     if (reloadData) {
-      setTableData(dummyData);
+      setTableData(dummyDataWithTOP);
 
       if (setReloadData) {
         setReloadData(false);
@@ -6911,6 +7092,8 @@ const TableMasterFaktur = ({
     setFilterStatus("ALL");
     setFilterCustomerGroup("ALL");
     setFilterPrinciple("ALL");
+    setFilterStartDate("");
+    setFilterEndDate("");
     setCurrentPage(1);
   };
 
@@ -7182,6 +7365,59 @@ const TableMasterFaktur = ({
                 </option>
               ))}
           </select>
+
+          <div
+            className="
+              flex
+              items-center
+              gap-2
+              bg-white
+              border
+              border-gray-200
+              rounded-full
+              px-3
+              h-8
+              shadow-sm
+            "
+          >
+            <FaCalendarAlt className="text-primary text-sm" />
+
+            <input
+              type="date"
+              value={filterStartDate}
+              max={filterEndDate || undefined}
+              onChange={(e) =>
+                setFilterStartDate(e.target.value)
+              }
+              className="
+                text-sm
+                bg-transparent
+                outline-none
+                text-gray-600
+                w-[125px]
+              "
+              title="Tanggal mulai"
+            />
+
+            <span className="text-gray-300">-</span>
+
+            <input
+              type="date"
+              value={filterEndDate}
+              min={filterStartDate || undefined}
+              onChange={(e) =>
+                setFilterEndDate(e.target.value)
+              }
+              className="
+                text-sm
+                bg-transparent
+                outline-none
+                text-gray-600
+                w-[125px]
+              "
+              title="Tanggal akhir"
+            />
+          </div>
         </div>
       </div>
 
@@ -7194,7 +7430,7 @@ const TableMasterFaktur = ({
           grid
           grid-cols-1
           sm:grid-cols-2
-          lg:grid-cols-4
+          lg:grid-cols-5
           gap-4
         "
       >
@@ -7342,6 +7578,44 @@ const TableMasterFaktur = ({
               "
             >
               <FaWarehouse className="text-orange-600" />
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="
+            rounded-2xl
+            bg-emerald-50
+            border
+            border-emerald-100
+            p-4
+          "
+        >
+          <div className="flex justify-between">
+            <div>
+              <p className="text-sm text-emerald-700">
+                Total Margin
+              </p>
+
+              <p className="text-xl font-bold text-emerald-900">
+                {formatRupiah(
+                  summaryData.totalMargin
+                )}
+              </p>
+            </div>
+
+            <div
+              className="
+                w-11
+                h-11
+                rounded-xl
+                bg-emerald-100
+                flex
+                items-center
+                justify-center
+              "
+            >
+              <FaChartLine className="text-emerald-600" />
             </div>
           </div>
         </div>
@@ -7636,7 +7910,15 @@ const TableMasterFaktur = ({
                       </td>
 
                       {mainColumns.map((column) => {
-                        const value = item[column.key];
+                        const value = [
+                          "Persentase COGS",
+                          "Margin",
+                          "Persentase Margin",
+                        ].includes(column.key)
+                          ? getCalculatedValue(item, column.key)
+                          : column.key === "Tanggal Jatuh Tempo"
+                          ? getTanggalJatuhTempo(item)
+                          : item[column.key];
 
                         return (
                           <td
@@ -7654,7 +7936,29 @@ const TableMasterFaktur = ({
                                 <FaCalendarAlt className="text-primary" />
                                 {formatDate(value)}
                               </div>
+                            ) : column.type === "top" ? (
+                              <span className="font-semibold text-gray-700">
+                                {formatTOP(value)}
+                              </span>
+                            ) : column.type === "dueDate" ? (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <FaCalendarAlt className="text-primary" />
+                                {formatDate(value)}
+                              </div>
                             ) : column.type === "currency" ? (
+                              <span className="font-bold text-gray-700">
+                                {formatRupiah(value)}
+                              </span>
+                            ) : column.type === "plainNumber" ? (
+                              <span className="text-gray-700">
+                                {String(value)}
+                              </span>
+                            ) : column.type === "calculatedPercentCOGS" ||
+                              column.type === "calculatedPercentMargin" ? (
+                              <span className="font-bold text-gray-700">
+                                {formatPercent(value)}
+                              </span>
+                            ) : column.type === "calculatedMargin" ? (
                               <span className="font-bold text-gray-700">
                                 {formatRupiah(value)}
                               </span>
@@ -8002,8 +8306,11 @@ const TableMasterFaktur = ({
                             "
                           >
                             {formatFieldValue(
-                              selectedData[key],
-                              type
+                              key === "Tanggal Jatuh Tempo"
+                                ? getTanggalJatuhTempo(selectedData)
+                                : selectedData[key],
+                              type,
+                              selectedData
                             )}
                           </p>
                         </div>
