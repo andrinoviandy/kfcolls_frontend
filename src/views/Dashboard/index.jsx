@@ -4,6 +4,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  LabelList,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -45,6 +46,10 @@ const principalOptions = [
   'PHAPROS, PT',
   'AMAROX PHARMA GLOBAL, PT',
   'SANBE',
+  'NOVARTIS',
+  'PFIZER',
+  'ROCHE',
+  'ABBOTT',
 ];
 
 const cabangOptions = [
@@ -842,6 +847,74 @@ const dummyData = [
     outstanding: 700000000,
     aging: 3,
   },
+
+  {
+    id: 46,
+    tanggal: '2026-06-30',
+    jatuhTempo: '2026-05-10',
+    principal: 'NOVARTIS',
+    cabang: 'KFTD Jakarta 1',
+    customerGroup: 'RS Swasta',
+    customer: 'RS Harapan Kita',
+    channel: 'RS Swasta',
+    invoice: 260,
+    sales: 2800000000,
+    piutang: 1350000000,
+    collection: 450000000,
+    outstanding: 900000000,
+    aging: 51,
+  },
+
+  {
+    id: 47,
+    tanggal: '2026-06-30',
+    jatuhTempo: '2026-04-20',
+    principal: 'PFIZER',
+    cabang: 'KFTD Bandung',
+    customerGroup: 'RS Pemerintah',
+    customer: 'RSUD Kota Bandung',
+    channel: 'RS Pemerintah',
+    invoice: 240,
+    sales: 2600000000,
+    piutang: 1250000000,
+    collection: 350000000,
+    outstanding: 900000000,
+    aging: 71,
+  },
+
+  {
+    id: 48,
+    tanggal: '2026-06-30',
+    jatuhTempo: '2026-03-15',
+    principal: 'ROCHE',
+    cabang: 'KFTD Surabaya',
+    customerGroup: 'RS Swasta',
+    customer: 'RS Siloam Surabaya',
+    channel: 'RS Swasta',
+    invoice: 210,
+    sales: 2300000000,
+    piutang: 1100000000,
+    collection: 300000000,
+    outstanding: 800000000,
+    aging: 107,
+  },
+
+  {
+    id: 49,
+    tanggal: '2026-06-30',
+    jatuhTempo: '2026-02-15',
+    principal: 'ABBOTT',
+    cabang: 'KFTD Medan',
+    customerGroup: 'Apotek',
+    customer: 'Apotek Sehat Bersama',
+    channel: 'Apotek',
+    invoice: 190,
+    sales: 2100000000,
+    piutang: 980000000,
+    collection: 280000000,
+    outstanding: 700000000,
+    aging: 135,
+  },
 ];
 
 
@@ -937,6 +1010,182 @@ const produkData = [
     taxAmount: 1925000,
     totalCogs: 14500000,
     sled: '15/12/2029',
+  },
+
+  {
+    id: 5,
+    tanggal: '2026-06-30',
+    salesOffice: '1030',
+    descSalesOffice: 'KFTD Surabaya',
+    billingNo: '2809361545',
+    material: '13078421',
+    namaProduk: 'ACTRAPID PENFILL',
+    principal: 'BIOFARMA',
+    customer: 'RS Swasta Surabaya',
+    customerGroup: 'RS Swasta',
+    channel: 'RS Swasta',
+    quantity: 18,
+    salesUnit: 'PEN',
+    unitPrice: 185000,
+    totalDiscount: 92500,
+    totalPenjualan: 3330000,
+    taxAmount: 366300,
+    totalCogs: 2620000,
+    sled: '12/01/2029',
+  },
+
+  {
+    id: 6,
+    tanggal: '2026-06-30',
+    salesOffice: '1040',
+    descSalesOffice: 'KFTD Semarang',
+    billingNo: '2809361546',
+    material: '11003456',
+    namaProduk: 'PRIMOLUT N TABLET',
+    principal: 'KIMIA FARMA',
+    customer: 'Puskesmas Semarang Barat',
+    customerGroup: 'Puskesmas',
+    channel: 'Puskesmas',
+    quantity: 30,
+    salesUnit: 'BOX',
+    unitPrice: 72500,
+    totalDiscount: 36250,
+    totalPenjualan: 2175000,
+    taxAmount: 239250,
+    totalCogs: 1600000,
+    sled: '22/08/2028',
+  },
+
+  {
+    id: 7,
+    tanggal: '2026-06-30',
+    salesOffice: '1050',
+    descSalesOffice: 'KFTD Medan',
+    billingNo: '2809361547',
+    material: '11004567',
+    namaProduk: 'SIMVASTATIN 20 MG',
+    principal: 'PHAPROS, PT',
+    customer: 'RS Columbia Medan',
+    customerGroup: 'RS Swasta',
+    channel: 'RS Swasta',
+    quantity: 45,
+    salesUnit: 'BOX',
+    unitPrice: 42000,
+    totalDiscount: 63000,
+    totalPenjualan: 1890000,
+    taxAmount: 207900,
+    totalCogs: 1417500,
+    sled: '18/11/2028',
+  },
+
+  {
+    id: 8,
+    tanggal: '2026-06-30',
+    salesOffice: '1060',
+    descSalesOffice: 'KFTD Denpasar',
+    billingNo: '2809361548',
+    material: '12005678',
+    namaProduk: 'PROTECAL SOLUTION',
+    principal: 'SANBE',
+    customer: 'Apotek Dewata Farma',
+    customerGroup: 'Apotek',
+    channel: 'Apotek',
+    quantity: 24,
+    salesUnit: 'BOTOL',
+    unitPrice: 68000,
+    totalDiscount: 81600,
+    totalPenjualan: 1632000,
+    taxAmount: 179520,
+    totalCogs: 1224000,
+    sled: '09/02/2029',
+  },
+
+  {
+    id: 9,
+    tanggal: '2026-06-30',
+    salesOffice: '1070',
+    descSalesOffice: 'KFTD Makassar',
+    billingNo: '2809361549',
+    material: '13006789',
+    namaProduk: 'VAKSIN INFLUENZA',
+    principal: 'BIOFARMA',
+    customer: 'Dinas Kesehatan Makassar',
+    customerGroup: 'Dinkes',
+    channel: 'Dinkes',
+    quantity: 60,
+    salesUnit: 'VIAL',
+    unitPrice: 275000,
+    totalDiscount: 825000,
+    totalPenjualan: 15750000,
+    taxAmount: 1732500,
+    totalCogs: 12900000,
+    sled: '30/06/2029',
+  },
+
+  {
+    id: 10,
+    tanggal: '2026-06-30',
+    salesOffice: '1080',
+    descSalesOffice: 'KFTD Palembang',
+    billingNo: '2809361550',
+    material: '11007890',
+    namaProduk: 'AMOXICILLIN 500 MG',
+    principal: 'KIMIA FARMA',
+    customer: 'PBF Sumatera Selatan',
+    customerGroup: 'PBF',
+    channel: 'PBF',
+    quantity: 80,
+    salesUnit: 'BOX',
+    unitPrice: 56000,
+    totalDiscount: 112000,
+    totalPenjualan: 4480000,
+    taxAmount: 492800,
+    totalCogs: 3360000,
+    sled: '14/03/2028',
+  },
+
+  {
+    id: 11,
+    tanggal: '2026-06-30',
+    salesOffice: '1010',
+    descSalesOffice: 'KFTD Jakarta 1',
+    billingNo: '2809361551',
+    material: '12008901',
+    namaProduk: 'PARACETAMOL INFUS',
+    principal: 'BIOFARMA',
+    customer: 'RSUP Persahabatan',
+    customerGroup: 'RS Pemerintah',
+    channel: 'RS Pemerintah',
+    quantity: 36,
+    salesUnit: 'BOTOL',
+    unitPrice: 92000,
+    totalDiscount: 165600,
+    totalPenjualan: 3312000,
+    taxAmount: 364320,
+    totalCogs: 2484000,
+    sled: '20/07/2029',
+  },
+
+  {
+    id: 12,
+    tanggal: '2026-06-30',
+    salesOffice: '1020',
+    descSalesOffice: 'KFTD Bandung',
+    billingNo: '2809361552',
+    material: '11009012',
+    namaProduk: 'CETIRIZINE 10 MG',
+    principal: 'KIMIA FARMA',
+    customer: 'RS Hermina Bandung',
+    customerGroup: 'RS Swasta',
+    channel: 'RS Swasta',
+    quantity: 40,
+    salesUnit: 'BOX',
+    unitPrice: 38500,
+    totalDiscount: 77000,
+    totalPenjualan: 1540000,
+    taxAmount: 169400,
+    totalCogs: 1155000,
+    sled: '11/09/2028',
   },
 ];
 
@@ -1074,6 +1323,7 @@ const Dashboard = () => {
     principal: 'Semua Principal',
     channel: 'Semua Channel',
     customer: 'Semua Customer',
+    produk: 'Semua Produk',
     tanggal: '2026-06-30',
   };
 
@@ -1152,6 +1402,15 @@ const Dashboard = () => {
   }, [filter.channel]);
 
 
+  const productOptions = useMemo(() => (
+    [...new Set(
+      produkData
+        .map((item) => item.namaProduk)
+        .filter(Boolean)
+    )].sort()
+  ), []);
+
+
   /* =======================================================
      HANDLE FILTER
   ======================================================= */
@@ -1208,6 +1467,7 @@ const Dashboard = () => {
       principal: 'Semua Principal',
       channel: 'Semua Channel',
       customer: 'Semua Customer',
+      produk: 'Semua Produk',
       tanggal: '2026-06-30',
     };
 
@@ -1257,6 +1517,30 @@ const Dashboard = () => {
         appliedFilter.customer;
 
 
+      const selectedProduct =
+        produkData.find(
+          (product) =>
+            product.namaProduk ===
+            appliedFilter.produk
+        );
+
+
+      const productMatch =
+        appliedFilter.produk ===
+        'Semua Produk' ||
+        (
+          selectedProduct &&
+          item.cabang ===
+            selectedProduct.descSalesOffice &&
+          item.principal ===
+            selectedProduct.principal &&
+          item.customer ===
+            selectedProduct.customer &&
+          item.channel ===
+            selectedProduct.channel
+        );
+
+
       const tanggalMatch =
         !appliedFilter.tanggal ||
         item.tanggal ===
@@ -1268,6 +1552,7 @@ const Dashboard = () => {
         principalMatch &&
         channelMatch &&
         customerMatch &&
+        productMatch &&
         tanggalMatch
       );
 
@@ -1611,6 +1896,31 @@ const Dashboard = () => {
       filteredData,
       currentCollectionConfig.field,
     ]);
+
+
+  const topPiutangPrincipalData = useMemo(() => {
+    const grouped = {};
+
+    filteredData.forEach((item) => {
+      if (!item.principal) {
+        return;
+      }
+
+      grouped[item.principal] =
+        (grouped[item.principal] || 0) + item.outstanding;
+    });
+
+    const data = Object.entries(grouped)
+      .map(([name, value]) => ({ name, value }))
+      .sort((first, second) => second.value - first.value);
+
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+
+    return data.map((item) => ({
+      ...item,
+      percentage: total > 0 ? (item.value / total) * 100 : 0,
+    }));
+  }, [filteredData]);
 
 
   /* =======================================================
@@ -2793,6 +3103,91 @@ const Dashboard = () => {
   };
 
 
+  const DetailPiutangTable = ({
+    data,
+  }) => (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <FaMoneyBillWave />
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-800">Detail Piutang</h3>
+          <p className="text-xs text-gray-400">Detail piutang per produk berdasarkan aging</p>
+        </div>
+      </div>
+
+      <div className="h-[400px] overflow-auto">
+        <table className="w-full min-w-[1250px] text-xs">
+          <thead>
+            <tr className="bg-gray-50 text-gray-500">
+              <th className="px-4 py-3 text-center">No</th>
+              <th className="px-4 py-3 text-left">Nama Produk</th>
+              <th className="px-4 py-3 text-left">Cabang</th>
+              <th className="px-4 py-3 text-left">Principal</th>
+              <th className="px-4 py-3 text-left">Channel</th>
+              <th className="px-4 py-3 text-left">Customer</th>
+              {agingLabels.map((label) => (
+                <th key={label} className="px-3 py-3 text-right whitespace-nowrap">
+                  {label}
+                </th>
+              ))}
+              <th className="px-4 py-3 text-right">Total</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={agingLabels.length + 8} className="px-4 py-12 text-center text-gray-400">
+                  Tidak ada data piutang produk
+                </td>
+              </tr>
+            ) : (
+              data.map((row, index) => {
+                const total = row.aging.reduce((sum, value) => sum + value, 0);
+
+                return (
+                  <tr key={row.id} className="border-t border-gray-100 hover:bg-blue-50/30 transition">
+                    <td className="px-4 py-3 text-center text-gray-400">{index + 1}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-700">{row.namaProduk}</td>
+                    <td className="px-4 py-3 text-gray-600">{row.descSalesOffice}</td>
+                    <td className="px-4 py-3 text-gray-600">{row.principal}</td>
+                    <td className="px-4 py-3 text-gray-600">{row.channel}</td>
+                    <td className="px-4 py-3 text-gray-600">{row.customer}</td>
+                    {row.aging.map((value, agingIndex) => (
+                      <td key={agingIndex} className="px-3 py-3 text-right text-gray-600 whitespace-nowrap">
+                        {formatRupiah(value)}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3 text-right font-bold text-blue-700 whitespace-nowrap">
+                      {formatRupiah(total)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+
+          <tfoot>
+            <tr className="bg-blue-900 text-white">
+              <td colSpan={6} className="px-4 py-3 font-bold text-xs">Grand Total</td>
+              {agingLabels.map((_, agingIndex) => (
+                <td key={agingIndex} className="px-3 py-3 text-right font-semibold whitespace-nowrap">
+                  {formatRupiah(data.reduce((sum, row) => sum + (row.aging[agingIndex] || 0), 0))}
+                </td>
+              ))}
+              <td className="px-4 py-3 text-right font-bold whitespace-nowrap">
+                {formatRupiah(data.reduce((grand, row) => grand + row.aging.reduce((sum, value) => sum + value, 0), 0))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+
+
   /* =======================================================
      FILTERED PRODUCT
   ======================================================= */
@@ -2831,6 +3226,13 @@ const Dashboard = () => {
             appliedFilter.customer;
 
 
+          const productMatch =
+            appliedFilter.produk ===
+            'Semua Produk' ||
+            item.namaProduk ===
+            appliedFilter.produk;
+
+
           const tanggalMatch =
             !appliedFilter.tanggal ||
             item.tanggal ===
@@ -2842,6 +3244,7 @@ const Dashboard = () => {
             cabangMatch &&
             channelMatch &&
             customerMatch &&
+            productMatch &&
             tanggalMatch
           );
 
@@ -2849,6 +3252,25 @@ const Dashboard = () => {
       );
 
     }, [appliedFilter]);
+
+  const filteredPiutangProdukData = useMemo(() => (
+    filteredProdukData.map((product) => {
+      const matchingPiutang = dummyData.filter((item) => (
+        item.cabang === product.descSalesOffice &&
+        item.principal === product.principal &&
+        item.customer === product.customer
+      ));
+
+      return {
+        ...product,
+        aging: agingLabels.map((label) => (
+          matchingPiutang
+            .filter((item) => getAgingCategory(item.aging) === label)
+            .reduce((sum, item) => sum + item.outstanding, 0)
+        )),
+      };
+    })
+  ), [filteredProdukData]);
 
 
   /* =======================================================
@@ -3128,7 +3550,7 @@ const Dashboard = () => {
             grid
             grid-cols-1
             md:grid-cols-2
-            xl:grid-cols-5
+            xl:grid-cols-6
             gap-4
           ">
 
@@ -3412,6 +3834,67 @@ const Dashboard = () => {
             </div>
 
 
+            {/* PRODUK */}
+
+            <div>
+
+              <label className="
+                block
+                text-xs
+                font-semibold
+                text-gray-600
+                mb-1.5
+              ">
+                Produk
+              </label>
+
+
+              <select
+                value={filter.produk}
+                onChange={(e) =>
+                  handleFilterChange(
+                    'produk',
+                    e.target.value
+                  )
+                }
+                className="
+                  w-full
+                  h-10
+                  px-3
+                  rounded-xl
+                  border
+                  border-gray-200
+                  bg-white
+                  text-sm
+                  text-gray-700
+                  outline-none
+                  focus:border-blue-400
+                  focus:ring-2
+                  focus:ring-blue-100
+                "
+              >
+
+                <option value="Semua Produk">
+                  Semua Produk
+                </option>
+
+
+                {productOptions.map((item) => (
+
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item}
+                  </option>
+
+                ))}
+
+              </select>
+
+            </div>
+
+
             {/* TANGGAL */}
 
             <div>
@@ -3537,6 +4020,21 @@ const Dashboard = () => {
               px-2.5
               py-1
               rounded-full
+              bg-cyan-50
+              text-cyan-600
+              text-[10px]
+              font-semibold
+              max-w-[250px]
+              truncate
+            ">
+              {filter.produk}
+            </span>
+
+
+            <span className="
+              px-2.5
+              py-1
+              rounded-full
               bg-gray-100
               text-gray-600
               text-[10px]
@@ -3617,6 +4115,11 @@ const Dashboard = () => {
 
           </div>
 
+        </div>
+
+
+        <div className="mb-5">
+          <DetailPiutangTable data={filteredPiutangProdukData} />
         </div>
 
 
@@ -4522,7 +5025,15 @@ const Dashboard = () => {
                             0,
                             0,
                           ]}
-                        />
+                        >
+                          <LabelList
+                            dataKey="piutang"
+                            position="top"
+                            formatter={formatShortRupiah}
+                            fontSize={9}
+                            fill="#2563eb"
+                          />
+                        </Bar>
 
 
                         <Bar
@@ -4536,7 +5047,15 @@ const Dashboard = () => {
                             0,
                             0,
                           ]}
-                        />
+                        >
+                          <LabelList
+                            dataKey="collection"
+                            position="top"
+                            formatter={formatShortRupiah}
+                            fontSize={9}
+                            fill="#2563eb"
+                          />
+                        </Bar>
 
 
                         <Bar
@@ -4550,7 +5069,15 @@ const Dashboard = () => {
                             0,
                             0,
                           ]}
-                        />
+                        >
+                          <LabelList
+                            dataKey="saldo"
+                            position="top"
+                            formatter={formatShortRupiah}
+                            fontSize={9}
+                            fill="#f97316"
+                          />
+                        </Bar>
 
                       </BarChart>
 
@@ -4566,55 +5093,52 @@ const Dashboard = () => {
               {/* CHANNEL */}
 
               <div className="
-                bg-white
-                rounded-2xl
-                border
-                border-gray-100
-                shadow-sm
-                p-5
-                xl:col-span-1
-              ">
+  bg-white
+  rounded-2xl
+  border
+  border-gray-100
+  shadow-sm
+  p-5
+  xl:col-span-1
+">
 
                 <div className="
-                  flex
-                  items-center
-                  gap-2
-                  mb-1
-                ">
+    flex
+    items-center
+    gap-2
+    mb-1
+  ">
 
                   <div className="
-                    w-8
-                    h-8
-                    rounded-lg
-                    bg-orange-50
-                    text-orange-500
-                    flex
-                    items-center
-                    justify-center
-                  ">
+      w-8
+      h-8
+      rounded-lg
+      bg-orange-50
+      text-orange-500
+      flex
+      items-center
+      justify-center
+    ">
                     <FaHospital size={13} />
                   </div>
 
-
                   <h2 className="
-                    text-sm
-                    font-bold
-                    text-gray-800
-                  ">
+      text-sm
+      font-bold
+      text-gray-800
+    ">
                     Outstanding per Channel
                   </h2>
 
                 </div>
 
-
                 <p className="
-                  text-[11px]
-                  text-gray-400
-                  mb-2
-                ">
+    text-[11px]
+    text-gray-400
+    mb-2
+  ">
                   Komposisi saldo berdasarkan kelompok customer
                 </p>
-
 
                 <div className="h-[300px]">
 
@@ -4626,9 +5150,7 @@ const Dashboard = () => {
                     <PieChart>
 
                       <Pie
-                        data={
-                          customerGroupChartData
-                        }
+                        data={customerGroupChartData}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
@@ -4636,6 +5158,57 @@ const Dashboard = () => {
                         innerRadius={65}
                         outerRadius={100}
                         paddingAngle={2}
+
+                        /*
+                         * LABEL PERSENTASE DI PIE
+                         */
+                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+
+                          const RADIAN = Math.PI / 180;
+
+                          const radius =
+                            innerRadius +
+                            (outerRadius - innerRadius) * 0.55;
+
+                          const x =
+                            cx +
+                            radius *
+                            Math.cos(-midAngle * RADIAN);
+
+                          const y =
+                            cy +
+                            radius *
+                            Math.sin(-midAngle * RADIAN);
+
+                          return (
+                            <g>
+                              {/* Background label */}
+                              <rect
+                                x={x - 18}
+                                y={y - 9}
+                                width={36}
+                                height={18}
+                                rx={6}
+                                fill="rgba(0,0,0,0.45)"
+                              />
+
+                              {/* Persentase */}
+                              <text
+                                x={x}
+                                y={y}
+                                fill="#ffffff"
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={9}
+                                fontWeight={700}
+                              >
+                                {`${(percent * 100).toFixed(1)}%`}
+                              </text>
+                            </g>
+                          );
+                        }}
+
+                        labelLine={false}
                       >
 
                         {customerGroupChartData.map(
@@ -4656,19 +5229,59 @@ const Dashboard = () => {
 
                       </Pie>
 
-
                       <Tooltip
                         content={
                           <CustomTooltip />
                         }
                       />
 
-
                       <Legend
                         verticalAlign="bottom"
                         iconType="circle"
+
                         wrapperStyle={{
-                          fontSize: '10px',
+                          fontSize: "10px",
+                          paddingTop: "5px",
+                        }}
+
+                        /*
+                         * LEGEND + PERSENTASE
+                         */
+                        formatter={(value, entry) => {
+
+                          const total =
+                            customerGroupChartData.reduce(
+                              (sum, item) =>
+                                sum + Number(item.value || 0),
+                              0
+                            );
+
+                          const currentValue =
+                            Number(entry?.payload?.value || 0);
+
+                          const percentage =
+                            total > 0
+                              ? (
+                                (currentValue / total) *
+                                100
+                              ).toFixed(1)
+                              : "0.0";
+
+                          return (
+                            <span className="
+                text-[10px]
+                text-gray-600
+                font-medium
+              ">
+                              {value}{" "}
+                              <span className="
+                  text-gray-400
+                  font-semibold
+                ">
+                                ({percentage}%)
+                              </span>
+                            </span>
+                          );
                         }}
                       />
 
@@ -4688,63 +5301,68 @@ const Dashboard = () => {
             ================================================= */}
 
             <div className="
-              bg-white
-              rounded-2xl
-              border
-              border-gray-100
-              shadow-sm
-              p-5
+              grid
+              grid-cols-1
+              xl:grid-cols-2
+              gap-5
               mb-5
             ">
 
+            <div className="
+  bg-white
+  rounded-2xl
+  border
+  border-gray-100
+  shadow-sm
+  p-5
+">
+
               <div className="
-                flex
-                flex-col
-                md:flex-row
-                md:items-start
-                md:justify-between
-                gap-3
-                mb-1
-              ">
+    flex
+    flex-col
+    md:flex-row
+    md:items-start
+    md:justify-between
+    gap-3
+    mb-1
+  ">
 
                 <div className="
-                  flex
-                  items-start
-                  gap-2
-                ">
+      flex
+      items-start
+      gap-2
+    ">
 
                   <div className="
-                    w-8
-                    h-8
-                    rounded-lg
-                    bg-emerald-50
-                    text-emerald-600
-                    flex
-                    items-center
-                    justify-center
-                    shrink-0
-                  ">
+        w-8
+        h-8
+        rounded-lg
+        bg-emerald-50
+        text-emerald-600
+        flex
+        items-center
+        justify-center
+        shrink-0
+      ">
                     {currentCollectionConfig.icon}
                   </div>
-
 
                   <div>
 
                     <h2 className="
-                      text-sm
-                      font-bold
-                      text-gray-800
-                    ">
+          text-sm
+          font-bold
+          text-gray-800
+        ">
                       Collection by{' '}
                       {currentCollectionConfig.label}
                     </h2>
 
-
                     <p className="
-                      text-[11px]
-                      text-gray-400
-                      mt-1
-                    ">
+          text-[11px]
+          text-gray-400
+          mt-1
+        ">
                       Total collection berdasarkan{' '}
                       {currentCollectionConfig.label.toLowerCase()}
                     </p>
@@ -4753,25 +5371,23 @@ const Dashboard = () => {
 
                 </div>
 
-
                 {/* DROPDOWN */}
 
                 <div className="
-                  flex
-                  items-center
-                  gap-2
-                  shrink-0
-                ">
+      flex
+      items-center
+      gap-2
+      shrink-0
+    ">
 
                   <span className="
-                    text-[10px]
-                    font-semibold
-                    text-gray-400
-                    whitespace-nowrap
-                  ">
+        text-[10px]
+        font-semibold
+        text-gray-400
+        whitespace-nowrap
+      ">
                     Tampilkan per
                   </span>
-
 
                   <select
                     value={
@@ -4783,24 +5399,24 @@ const Dashboard = () => {
                       )
                     }
                     className="
-                      h-9
-                      min-w-[145px]
-                      px-3
-                      pr-8
-                      rounded-xl
-                      border
-                      border-gray-200
-                      bg-white
-                      text-xs
-                      font-semibold
-                      text-gray-700
-                      outline-none
-                      cursor-pointer
-                      focus:border-emerald-400
-                      focus:ring-2
-                      focus:ring-emerald-100
-                      transition
-                    "
+          h-9
+          min-w-[145px]
+          px-3
+          pr-8
+          rounded-xl
+          border
+          border-gray-200
+          bg-white
+          text-xs
+          font-semibold
+          text-gray-700
+          outline-none
+          cursor-pointer
+          focus:border-emerald-400
+          focus:ring-2
+          focus:ring-emerald-100
+          transition
+        "
                   >
 
                     <option value="principal">
@@ -4821,22 +5437,21 @@ const Dashboard = () => {
 
               </div>
 
-
               {/* COLLECTION CHART */}
 
               <div className="
-  w-full
-  overflow-x-auto
-  mt-2
-">
+    w-full
+    overflow-x-auto
+    mt-2
+  ">
 
                 <div
                   style={{
                     width: `${Math.max(
-                      collectionChartData.length * 130,
-                      800
+                      collectionChartData.length * 80,
+                      500
                     )}px`,
-                    height: "300px",
+                    height: "400px",
                   }}
                 >
 
@@ -4853,10 +5468,10 @@ const Dashboard = () => {
                         left: 10,
                         bottom:
                           collectionDimension === "customer"
-                            ? 70
-                            : 45,
+                            ? 40.
+                            : 40,
                       }}
-                      barCategoryGap={25}
+                      barCategoryGap={0}
                     >
 
                       <CartesianGrid
@@ -4900,24 +5515,33 @@ const Dashboard = () => {
                       <Bar
                         dataKey="collection"
                         name="Collection"
-                        barSize={45}
+                        barSize={38}
+
                         radius={[6, 6, 0, 0]}
                       >
+
+                        <LabelList
+                          dataKey="collection"
+                          position="top"
+                          formatter={formatShortRupiah}
+                          fontSize={9}
+                          fill="#374151"
+                        />
 
                         {collectionChartData.map(
                           (entry, index) => {
 
                             const colors = [
-                              "#3B82F6", // Blue
-                              "#F59E0B", // Amber
-                              "#EF4444", // Red
-                              "#8B5CF6", // Violet
-                              "#EC4899", // Pink
-                              "#06B6D4", // Cyan
-                              "#F97316", // Orange
-                              "#6366F1", // Indigo
-                              "#A855F7", // Purple
-                              "#E11D48", // Rose
+                              "#3B82F6",
+                              "#F59E0B",
+                              "#EF4444",
+                              "#8B5CF6",
+                              "#EC4899",
+                              "#06B6D4",
+                              "#F97316",
+                              "#6366F1",
+                              "#A855F7",
+                              "#E11D48",
                             ];
 
                             return (
@@ -4930,6 +5554,7 @@ const Dashboard = () => {
                                 }
                               />
                             );
+
                           }
                         )}
 
@@ -4946,6 +5571,95 @@ const Dashboard = () => {
             </div>
 
 
+            {/* TOP PIUTANG BY PRINCIPAL */}
+
+            <div className="
+              bg-white
+              rounded-2xl
+              border
+              border-gray-100
+              shadow-sm
+              p-5
+            ">
+
+              <div className="flex items-center gap-2 mb-1">
+                <div className="
+                  w-8
+                  h-8
+                  rounded-lg
+                  bg-blue-50
+                  text-blue-600
+                  flex
+                  items-center
+                  justify-center
+                ">
+                  <FaFileInvoiceDollar size={13} />
+                </div>
+
+                <h2 className="text-sm font-bold text-gray-800">
+                  Top Piutang by Principal
+                </h2>
+              </div>
+
+              <p className="text-[11px] text-gray-400 mb-3">
+                Saldo piutang seluruh principal, diurutkan dari terbesar
+              </p>
+
+              <div className="h-[300px] overflow-y-auto pr-2 space-y-2">
+                {topPiutangPrincipalData.map((item, index) => (
+                  <div
+                    key={item.name}
+                    className="rounded-xl border border-gray-100 p-3 hover:shadow-sm transition"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="
+                          w-7
+                          h-7
+                          rounded-lg
+                          bg-blue-50
+                          text-blue-600
+                          flex
+                          items-center
+                          justify-center
+                          shrink-0
+                          text-[10px]
+                          font-bold
+                        ">
+                          {index + 1}
+                        </div>
+
+                        <span className="text-xs font-semibold text-gray-700 truncate">
+                          {item.name}
+                        </span>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-bold text-gray-800 whitespace-nowrap">
+                          {formatShortRupiah(item.value)}
+                        </p>
+                        <p className="text-[10px] font-semibold text-blue-600">
+                          {item.percentage.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+
+            </div>
+
+
+            {false && (<>
             {/* =================================================
                 TABLE TABS
             ================================================= */}
@@ -5228,6 +5942,8 @@ const Dashboard = () => {
                 />
 
               )}
+
+            </>)}
 
           </>
 

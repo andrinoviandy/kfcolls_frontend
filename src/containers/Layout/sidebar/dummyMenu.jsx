@@ -11,6 +11,7 @@ import {
     FaFileInvoice,
     FaUserCog,
     FaUsersCog,
+    FaExchangeAlt,
 } from "react-icons/fa";
 import { MdOutlineRequestQuote } from "react-icons/md";
 
@@ -41,6 +42,14 @@ export const dummyMenu = [
     },
     {
         id: 3,
+        name: "Tukar Faktur",
+        path: "/tukar-faktur",
+        icon: FaExchangeAlt,
+        // roles: [],
+        submenu: [],
+    },
+    {
+        id: 3,
         name: "Penugasan Faktur",
         path: "/penugasan-faktur",
         icon: FaUserCheck,
@@ -52,6 +61,14 @@ export const dummyMenu = [
         name: "Daftar Tugas Harian",
         path: "/daftar-tugas-harian",
         icon: FaClipboardList,
+        // roles: [],
+        submenu: [],
+    },
+    {
+        id: 4,
+        name: "Report Sales",
+        path: "/report-sales",
+        icon: FaChartBar,
         // roles: [],
         submenu: [],
     },

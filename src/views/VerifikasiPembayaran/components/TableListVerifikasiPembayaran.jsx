@@ -127,7 +127,14 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran faktur melalui giro.",
 
+    document_number:
+      "",
+
+    clearing_document:
+      "",
+
   },
+
 
   {
     id: 2,
@@ -172,7 +179,14 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran melalui transfer bank.",
 
+    document_number:
+      "",
+
+    clearing_document:
+      "",
+
   },
+
 
   {
     id: 3,
@@ -220,7 +234,14 @@ const dummyData = [
     keterangan_verifikasi:
       "Bukti pembayaran sesuai.",
 
+    document_number:
+      "5000123456",
+
+    clearing_document:
+      "1800009876",
+
   },
+
 
   {
     id: 4,
@@ -268,7 +289,14 @@ const dummyData = [
     keterangan_verifikasi:
       "Bukti pembayaran tidak sesuai dengan nominal faktur.",
 
+    document_number:
+      "5000123457",
+
+    clearing_document:
+      "1800009877",
+
   },
+
 
   {
     id: 5,
@@ -313,7 +341,14 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran invoice bulan Agustus.",
 
+    document_number:
+      "",
+
+    clearing_document:
+      "",
+
   },
+
 
   {
     id: 6,
@@ -358,7 +393,14 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran tunai oleh collector.",
 
+    document_number:
+      "",
+
+    clearing_document:
+      "",
+
   },
+
 
   {
     id: 7,
@@ -406,7 +448,14 @@ const dummyData = [
     keterangan_verifikasi:
       "Pembayaran telah diverifikasi.",
 
+    document_number:
+      "5000123458",
+
+    clearing_document:
+      "1800009878",
+
   },
+
 
   {
     id: 8,
@@ -451,7 +500,14 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran menggunakan giro.",
 
+    document_number:
+      "",
+
+    clearing_document:
+      "",
+
   },
+
 
   {
     id: 9,
@@ -499,7 +555,14 @@ const dummyData = [
     keterangan_verifikasi:
       "Dokumen pembayaran valid.",
 
+    document_number:
+      "5000123459",
+
+    clearing_document:
+      "1800009879",
+
   },
+
 
   {
     id: 10,
@@ -543,6 +606,12 @@ const dummyData = [
 
     keterangan_pembayaran:
       "Transfer pembayaran faktur.",
+
+    document_number:
+      "",
+
+    clearing_document:
+      "",
 
   },
 
@@ -702,6 +771,14 @@ const TableVerifikasiPembayaran = ({
 
   const [verificationAction, setVerificationAction] =
     useState(null);
+
+
+  /*
+   * Menyimpan Document Number &
+   * Clearing Document untuk masing-masing billing
+   */
+  const [verificationBillingData, setVerificationBillingData] =
+    useState([]);
 
 
   // ===================================================
@@ -1002,9 +1079,44 @@ const TableVerifikasiPembayaran = ({
     }
 
 
+    const selectedItems =
+      Array.isArray(selected)
+        ? selected
+        : [
+            selected,
+          ];
+
+
     setSelectedData(
       selected
     );
+
+
+    /*
+     * Buat data input untuk setiap billing
+     */
+    setVerificationBillingData(
+      selectedItems.map(
+        item => ({
+
+          id:
+            item.id,
+
+          no_faktur:
+            item.no_faktur,
+
+          document_number:
+            item.document_number ||
+            "",
+
+          clearing_document:
+            item.clearing_document ||
+            "",
+
+        })
+      )
+    );
+
 
     setVerificationDescription(
       ""
@@ -1043,6 +1155,37 @@ const TableVerifikasiPembayaran = ({
       null
     );
 
+    setVerificationBillingData(
+      []
+    );
+
+  };
+
+
+  // ===================================================
+  // HANDLE BILLING DOCUMENT CHANGE
+  // ===================================================
+
+  const handleVerificationBillingChange = (
+    id,
+    field,
+    value
+  ) => {
+
+    setVerificationBillingData(
+      prev =>
+        prev.map(
+          item =>
+            item.id === id
+              ? {
+                  ...item,
+                  [field]:
+                    value,
+                }
+              : item
+        )
+    );
+
   };
 
 
@@ -1060,8 +1203,8 @@ const TableVerifikasiPembayaran = ({
       )
         ? selectedData
         : [
-          selectedData,
-        ];
+            selectedData,
+          ];
 
 
     const ids =
@@ -1070,7 +1213,7 @@ const TableVerifikasiPembayaran = ({
           item =>
             item &&
             item.status ===
-            "MENUNGGU_VERIFIKASI"
+              "MENUNGGU_VERIFIKASI"
         )
         .map(
           item =>
@@ -1087,39 +1230,104 @@ const TableVerifikasiPembayaran = ({
     }
 
 
+    /*
+     * Ambil data document masing-masing billing
+     */
+    const billingDocumentData =
+      verificationBillingData.filter(
+        item =>
+          ids.includes(
+            item.id
+          )
+      );
+
+
+    /*
+     * Pastikan semua billing mempunyai
+     * Document Number dan Clearing Document
+     */
+    const invalidBilling =
+      billingDocumentData.find(
+        item =>
+          !item.document_number?.trim() ||
+          !item.clearing_document?.trim()
+      );
+
+
+    if (
+      invalidBilling
+    ) {
+
+      alert(
+        `Document Number dan Clearing Document wajib diisi untuk billing ${invalidBilling.no_faktur}.`
+      );
+
+      return;
+
+    }
+
+
     const newStatus =
       action === "TERIMA"
         ? "PEMBAYARAN_DITERIMA"
         : "PEMBAYARAN_DITOLAK";
 
 
+    /*
+     * Update setiap billing
+     * dengan document masing-masing
+     */
     setAllData(
       prev =>
         prev.map(
-          item =>
+          item => {
 
-            ids.includes(
-              item.id
-            )
+            if (
+              !ids.includes(
+                item.id
+              )
+            ) {
 
-              ? {
+              return item;
 
-                ...item,
+            }
 
-                status:
-                  newStatus,
 
-                tanggal_verifikasi:
-                  new Date()
-                    .toISOString(),
+            const billingDocument =
+              verificationBillingData.find(
+                doc =>
+                  doc.id ===
+                  item.id
+              );
 
-                keterangan_verifikasi:
-                  verificationDescription,
 
-              }
+            return {
 
-              : item
+              ...item,
 
+              status:
+                newStatus,
+
+              tanggal_verifikasi:
+                new Date()
+                  .toISOString(),
+
+              keterangan_verifikasi:
+                verificationDescription,
+
+              document_number:
+                billingDocument
+                  ?.document_number ||
+                "",
+
+              clearing_document:
+                billingDocument
+                  ?.clearing_document ||
+                "",
+
+            };
+
+          }
         )
     );
 
@@ -1184,7 +1392,9 @@ const TableVerifikasiPembayaran = ({
 
         <Icon />
 
-        {config.label}
+        {
+          config.label
+        }
 
       </span>
 
@@ -1241,7 +1451,11 @@ const TableVerifikasiPembayaran = ({
             text-gray-700
           "
         >
-          {config.label}
+
+          {
+            config.label
+          }
+
         </span>
 
       </div>
@@ -1348,11 +1562,11 @@ const TableVerifikasiPembayaran = ({
   const startIndex =
     totalData > 0
       ? (
-        currentPage -
-        1
-      ) *
-        perPage +
-        1
+          currentPage -
+          1
+        ) *
+          perPage +
+          1
       : 0;
 
 
@@ -1374,7 +1588,9 @@ const TableVerifikasiPembayaran = ({
     )
       ? selectedData
       : selectedData
-        ? [selectedData]
+        ? [
+            selectedData,
+          ]
         : [];
 
 
@@ -1584,9 +1800,11 @@ const TableVerifikasiPembayaran = ({
                   text-blue-900
                 "
               >
+
                 {
                   summaryData.total
                 }
+
               </p>
 
             </div>
@@ -1654,9 +1872,11 @@ const TableVerifikasiPembayaran = ({
                   text-amber-900
                 "
               >
+
                 {
                   summaryData.menunggu_verifikasi
                 }
+
               </p>
 
             </div>
@@ -1724,9 +1944,11 @@ const TableVerifikasiPembayaran = ({
                   text-green-900
                 "
               >
+
                 {
                   summaryData.pembayaran_diterima
                 }
+
               </p>
 
             </div>
@@ -1794,9 +2016,11 @@ const TableVerifikasiPembayaran = ({
                   text-red-900
                 "
               >
+
                 {
                   summaryData.pembayaran_ditolak
                 }
+
               </p>
 
             </div>
@@ -1961,7 +2185,7 @@ const TableVerifikasiPembayaran = ({
         className={
           dimensionScreenW <
             768 &&
-            check
+          check
             ? "bringToBack"
             : ""
         }
@@ -2251,9 +2475,11 @@ const TableVerifikasiPembayaran = ({
                                     text-primary
                                   "
                                 >
+
                                   {
                                     v.no_faktur
                                   }
+
                                 </span>
 
                                 <p
@@ -2262,9 +2488,11 @@ const TableVerifikasiPembayaran = ({
                                     text-gray-400
                                   "
                                 >
+
                                   ID: {
                                     v.customer_id
                                   }
+
                                 </p>
 
                               </div>
@@ -2318,9 +2546,11 @@ const TableVerifikasiPembayaran = ({
                                     text-gray-700
                                   "
                                 >
+
                                   {
                                     v.nama_customer
                                   }
+
                                 </p>
 
                                 <p
@@ -2329,9 +2559,11 @@ const TableVerifikasiPembayaran = ({
                                     text-gray-400
                                   "
                                 >
+
                                   {
                                     v.alamat
                                   }
+
                                 </p>
 
                               </div>
@@ -2387,9 +2619,11 @@ const TableVerifikasiPembayaran = ({
                                   text-gray-700
                                 "
                               >
+
                                 {
                                   v.nama_penagih
                                 }
+
                               </span>
 
                             </div>
@@ -2413,11 +2647,13 @@ const TableVerifikasiPembayaran = ({
                                 text-gray-700
                               "
                             >
+
                               {
                                 formatRupiah(
                                   v.nominal_tagihan
                                 )
                               }
+
                             </span>
 
                           </td>
@@ -2643,9 +2879,11 @@ const TableVerifikasiPembayaran = ({
                       font-semibold
                     "
                   >
+
                     {
                       startIndex
                     }
+
                   </span>
 
                   {" "}to{" "}
@@ -2655,9 +2893,11 @@ const TableVerifikasiPembayaran = ({
                       font-semibold
                     "
                   >
+
                     {
                       endIndex
                     }
+
                   </span>
 
                   {" "}of{" "}
@@ -2667,9 +2907,11 @@ const TableVerifikasiPembayaran = ({
                       font-semibold
                     "
                   >
+
                     {
                       totalData
                     }
+
                   </span>
 
                   {" "}entries
@@ -2940,7 +3182,9 @@ const TableVerifikasiPembayaran = ({
                           text-lg
                         "
                       >
+
                         Verifikasi Pembayaran
+
                       </h3>
 
 
@@ -2954,6 +3198,7 @@ const TableVerifikasiPembayaran = ({
                         {
                           verificationItems.length
                         }{" "}
+
                         pembayaran dipilih
 
                       </p>
@@ -3041,11 +3286,13 @@ const TableVerifikasiPembayaran = ({
                           text-blue-900
                         "
                       >
+
                         {
                           formatRupiah(
                             totalVerification
                           )
                         }
+
                       </p>
 
                     </div>
@@ -3066,6 +3313,7 @@ const TableVerifikasiPembayaran = ({
                       {
                         verificationItems.length
                       }{" "}
+
                       faktur
 
                     </div>
@@ -3189,9 +3437,11 @@ const TableVerifikasiPembayaran = ({
                                       text-primary
                                     "
                                   >
+
                                     {
                                       item.no_faktur
                                     }
+
                                   </p>
 
                                   <p
@@ -3201,9 +3451,11 @@ const TableVerifikasiPembayaran = ({
                                       mt-1
                                     "
                                   >
+
                                     {
                                       item.nama_customer
                                     }
+
                                   </p>
 
                                 </div>
@@ -3236,11 +3488,13 @@ const TableVerifikasiPembayaran = ({
                                     text-primary
                                   "
                                 >
+
                                   {
                                     formatRupiah(
                                       item.nominal_tagihan
                                     )
                                   }
+
                                 </p>
 
                               </div>
@@ -3264,6 +3518,8 @@ const TableVerifikasiPembayaran = ({
                               "
                             >
 
+                              {/* TANGGAL */}
+
                               <div>
 
                                 <p
@@ -3283,15 +3539,19 @@ const TableVerifikasiPembayaran = ({
                                     text-gray-700
                                   "
                                 >
+
                                   {
                                     formatDate(
                                       item.tanggal_pembayaran
                                     )
                                   }
+
                                 </p>
 
                               </div>
 
+
+                              {/* METODE */}
 
                               <div>
 
@@ -3313,6 +3573,8 @@ const TableVerifikasiPembayaran = ({
 
                               </div>
 
+
+                              {/* BUKTI */}
 
                               <div>
 
@@ -3353,6 +3615,8 @@ const TableVerifikasiPembayaran = ({
                               </div>
 
 
+                              {/* SALES */}
+
                               <div>
 
                                 <p
@@ -3372,10 +3636,243 @@ const TableVerifikasiPembayaran = ({
                                     text-gray-700
                                   "
                                 >
+
                                   {
                                     item.sales
                                   }
+
                                 </p>
+
+                              </div>
+
+                            </div>
+
+
+                            {/* ================================================= */}
+                            {/* DOCUMENT NUMBER & CLEARING DOCUMENT */}
+                            {/* ================================================= */}
+
+                            <div
+                              className="
+                                mt-4
+                                pt-4
+                                border-t
+                                border-gray-200
+                                grid
+                                grid-cols-1
+                                lg:grid-cols-2
+                                gap-4
+                              "
+                            >
+
+                              {/* DOCUMENT NUMBER */}
+
+                              <div>
+
+                                <label
+                                  className="
+                                    block
+                                    text-xs
+                                    font-semibold
+                                    text-gray-600
+                                    mb-2
+                                  "
+                                >
+
+                                  Document Number
+
+                                  {
+                                    item.status ===
+                                      "MENUNGGU_VERIFIKASI" && (
+
+                                      <span
+                                        className="
+                                          text-red-500
+                                          ml-1
+                                        "
+                                      >
+                                        *
+                                      </span>
+
+                                    )
+                                  }
+
+                                </label>
+
+
+                                {
+                                  item.status ===
+                                    "MENUNGGU_VERIFIKASI"
+                                    ? (
+
+                                      <input
+                                        type="text"
+                                        className="
+                                          input
+                                          input-bordered
+                                          input-sm
+                                          w-full
+                                          bg-white
+                                          rounded-xl
+                                          border-gray-200
+                                          focus:border-primary
+                                          focus:outline-none
+                                        "
+                                        placeholder="
+                                          Masukkan Document Number
+                                        "
+                                        value={
+                                          verificationBillingData.find(
+                                            data =>
+                                              data.id ===
+                                              item.id
+                                          )?.document_number ||
+                                          ""
+                                        }
+                                        onChange={
+                                          e =>
+                                            handleVerificationBillingChange(
+                                              item.id,
+                                              "document_number",
+                                              e.target.value
+                                            )
+                                        }
+                                      />
+
+                                    )
+                                    : (
+
+                                      <div
+                                        className="
+                                          min-h-[36px]
+                                          flex
+                                          items-center
+                                          px-3
+                                          rounded-xl
+                                          bg-white
+                                          border
+                                          border-gray-200
+                                          text-sm
+                                          font-semibold
+                                          text-gray-700
+                                        "
+                                      >
+
+                                        {
+                                          item.document_number ||
+                                          "-"
+                                        }
+
+                                      </div>
+
+                                    )
+                                }
+
+                              </div>
+
+
+                              {/* CLEARING DOCUMENT */}
+
+                              <div>
+
+                                <label
+                                  className="
+                                    block
+                                    text-xs
+                                    font-semibold
+                                    text-gray-600
+                                    mb-2
+                                  "
+                                >
+
+                                  Clearing Document
+
+                                  {
+                                    item.status ===
+                                      "MENUNGGU_VERIFIKASI" && (
+
+                                      <span
+                                        className="
+                                          text-red-500
+                                          ml-1
+                                        "
+                                      >
+                                        *
+                                      </span>
+
+                                    )
+                                  }
+
+                                </label>
+
+
+                                {
+                                  item.status ===
+                                    "MENUNGGU_VERIFIKASI"
+                                    ? (
+
+                                      <input
+                                        type="text"
+                                        className="
+                                          input
+                                          input-bordered
+                                          input-sm
+                                          w-full
+                                          bg-white
+                                          rounded-xl
+                                          border-gray-200
+                                          focus:border-primary
+                                          focus:outline-none
+                                        "
+                                        placeholder="
+                                          Masukkan Clearing Document
+                                        "
+                                        value={
+                                          verificationBillingData.find(
+                                            data =>
+                                              data.id ===
+                                              item.id
+                                          )?.clearing_document ||
+                                          ""
+                                        }
+                                        onChange={
+                                          e =>
+                                            handleVerificationBillingChange(
+                                              item.id,
+                                              "clearing_document",
+                                              e.target.value
+                                            )
+                                        }
+                                      />
+
+                                    )
+                                    : (
+
+                                      <div
+                                        className="
+                                          min-h-[36px]
+                                          flex
+                                          items-center
+                                          px-3
+                                          rounded-xl
+                                          bg-white
+                                          border
+                                          border-gray-200
+                                          text-sm
+                                          font-semibold
+                                          text-gray-700
+                                        "
+                                      >
+
+                                        {
+                                          item.clearing_document ||
+                                          "-"
+                                        }
+
+                                      </div>
+
+                                    )
+                                }
 
                               </div>
 
@@ -3414,9 +3911,56 @@ const TableVerifikasiPembayaran = ({
                                       text-gray-600
                                     "
                                   >
+
                                     {
                                       item.keterangan_pembayaran
                                     }
+
+                                  </p>
+
+                                </div>
+
+                              )
+                            }
+
+
+                            {/* KETERANGAN VERIFIKASI */}
+
+                            {
+                              item.keterangan_verifikasi && (
+
+                                <div
+                                  className="
+                                    mt-3
+                                    bg-blue-50
+                                    rounded-xl
+                                    p-3
+                                    border
+                                    border-blue-100
+                                  "
+                                >
+
+                                  <p
+                                    className="
+                                      text-xs
+                                      text-blue-500
+                                      mb-1
+                                    "
+                                  >
+                                    Keterangan Verifikasi
+                                  </p>
+
+                                  <p
+                                    className="
+                                      text-sm
+                                      text-blue-800
+                                    "
+                                  >
+
+                                    {
+                                      item.keterangan_verifikasi
+                                    }
+
                                   </p>
 
                                 </div>
@@ -3546,7 +4090,9 @@ const TableVerifikasiPembayaran = ({
                             text-amber-800
                           "
                         >
+
                           Pembayaran telah diverifikasi
+
                         </p>
 
                         <p
@@ -3556,9 +4102,11 @@ const TableVerifikasiPembayaran = ({
                             mt-1
                           "
                         >
+
                           Data pembayaran yang sudah
                           diterima atau ditolak hanya
                           dapat dilihat detailnya.
+
                         </p>
 
                       </div>

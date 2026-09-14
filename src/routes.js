@@ -49,6 +49,8 @@ import ManajemenUser from 'views/ManajemenUser'
 import KonfirmasiPiutang from 'views/KonfirmasiPiutang'
 import DataPenjualan from 'views/DataPenjualan'
 import DataPiutang from 'views/DataPiutang'
+import TukarFaktur from 'views/TukarFaktur'
+import ReportSales from 'views/ReportSales'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -84,6 +86,14 @@ const routes = [
   {
     path: '/riwayat-pengantaran',
     component: RiwayatPengantaran,
+  },
+  {
+    path: '/tukar-faktur',
+    component: TukarFaktur,
+  },
+  {
+    path: '/report-sales',
+    component: ReportSales,
   },
   {
     path: '/bayar-faktur',
