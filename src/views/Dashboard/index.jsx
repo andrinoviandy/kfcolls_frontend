@@ -32,6 +32,9 @@ import {
   FaArrowUp,
   FaArrowDown,
   FaCalendarAlt,
+  FaChartLine,
+  FaWarehouse,
+  FaClipboardList,
 } from 'react-icons/fa';
 
 
@@ -1531,13 +1534,13 @@ const Dashboard = () => {
         (
           selectedProduct &&
           item.cabang ===
-            selectedProduct.descSalesOffice &&
+          selectedProduct.descSalesOffice &&
           item.principal ===
-            selectedProduct.principal &&
+          selectedProduct.principal &&
           item.customer ===
-            selectedProduct.customer &&
+          selectedProduct.customer &&
           item.channel ===
-            selectedProduct.channel
+          selectedProduct.channel
         );
 
 
@@ -3122,11 +3125,11 @@ const Dashboard = () => {
           <thead>
             <tr className="bg-gray-50 text-gray-500">
               <th className="px-4 py-3 text-center">No</th>
-              <th className="px-4 py-3 text-left">Nama Produk</th>
               <th className="px-4 py-3 text-left">Cabang</th>
               <th className="px-4 py-3 text-left">Principal</th>
-              <th className="px-4 py-3 text-left">Channel</th>
+              <th className="px-4 py-3 text-left">Nama Produk</th>
               <th className="px-4 py-3 text-left">Customer</th>
+              <th className="px-4 py-3 text-left">Channel</th>
               {agingLabels.map((label) => (
                 <th key={label} className="px-3 py-3 text-right whitespace-nowrap">
                   {label}
@@ -3150,11 +3153,11 @@ const Dashboard = () => {
                 return (
                   <tr key={row.id} className="border-t border-gray-100 hover:bg-blue-50/30 transition">
                     <td className="px-4 py-3 text-center text-gray-400">{index + 1}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-700">{row.namaProduk}</td>
                     <td className="px-4 py-3 text-gray-600">{row.descSalesOffice}</td>
                     <td className="px-4 py-3 text-gray-600">{row.principal}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.channel}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-700">{row.namaProduk}</td>
                     <td className="px-4 py-3 text-gray-600">{row.customer}</td>
+                    <td className="px-4 py-3 text-gray-600">{row.channel}</td>
                     {row.aging.map((value, agingIndex) => (
                       <td key={agingIndex} className="px-3 py-3 text-right text-gray-600 whitespace-nowrap">
                         {formatRupiah(value)}
@@ -3271,6 +3274,41 @@ const Dashboard = () => {
       };
     })
   ), [filteredProdukData]);
+
+
+  /* =======================================================
+     SUMMARY DATA FROM DETAIL PIUTANG
+     ======================================================= */
+
+  const summaryData = useMemo(() => {
+    const total = filteredPiutangProdukData.length;
+
+    const totalBilling = new Set(
+      filteredPiutangProdukData
+        .map((item) => item.billingNo)
+        .filter(Boolean)
+    ).size;
+
+    const totalPenjualan = filteredPiutangProdukData.reduce(
+      (sum, item) => sum + (Number(item.totalPenjualan) || 0),
+      0
+    );
+
+    const totalCOGS = filteredPiutangProdukData.reduce(
+      (sum, item) => sum + (Number(item.totalCogs) || 0),
+      0
+    );
+
+    const totalMargin = totalPenjualan - totalCOGS;
+
+    return {
+      total,
+      totalBilling,
+      totalPenjualan,
+      totalCOGS,
+      totalMargin,
+    };
+  }, [filteredPiutangProdukData]);
 
 
   /* =======================================================
@@ -4117,7 +4155,202 @@ const Dashboard = () => {
 
         </div>
 
+        <div
+          className="
+                  grid
+                  grid-cols-1
+                  sm:grid-cols-2
+                  lg:grid-cols-5
+                  gap-4
+                  mb-5
+                "
+        >
+          <div
+            className="
+                    rounded-2xl
+                    bg-blue-50
+                    border
+                    border-blue-100
+                    p-4
+                  "
+          >
+            <div className="flex justify-between">
+              <div>
+                <p className="text-sm text-blue-700">
+                  Total Transaksi
+                </p>
 
+                <p className="text-2xl font-bold text-blue-900">
+                  {summaryData.total}
+                </p>
+              </div>
+
+              <div
+                className="
+                        w-11
+                        h-11
+                        rounded-xl
+                        bg-blue-100
+                        flex
+                        items-center
+                        justify-center
+                      "
+              >
+                <FaClipboardList className="text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="
+                    rounded-2xl
+                    bg-green-50
+                    border
+                    border-green-100
+                    p-4
+                  "
+          >
+            <div className="flex justify-between">
+              <div>
+                <p className="text-sm text-green-700">
+                  Total Billing
+                </p>
+
+                <p className="text-2xl font-bold text-green-900">
+                  {summaryData.totalBilling}
+                </p>
+              </div>
+
+              <div
+                className="
+                        w-11
+                        h-11
+                        rounded-xl
+                        bg-green-100
+                        flex
+                        items-center
+                        justify-center
+                      "
+              >
+                <FaFileInvoiceDollar className="text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="
+                    rounded-2xl
+                    bg-purple-50
+                    border
+                    border-purple-100
+                    p-4
+                  "
+          >
+            <div className="flex justify-between">
+              <div>
+                <p className="text-sm text-purple-700">
+                  Total Penjualan
+                </p>
+
+                <p className="text-xl font-bold text-purple-900">
+                  {formatRupiah(
+                    summaryData.totalPenjualan
+                  )}
+                </p>
+              </div>
+
+              <div
+                className="
+                        w-11
+                        h-11
+                        rounded-xl
+                        bg-purple-100
+                        flex
+                        items-center
+                        justify-center
+                      "
+              >
+                <FaMoneyBillWave className="text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="
+                    rounded-2xl
+                    bg-orange-50
+                    border
+                    border-orange-100
+                    p-4
+                  "
+          >
+            <div className="flex justify-between">
+              <div>
+                <p className="text-sm text-orange-700">
+                  Total COGS
+                </p>
+
+                <p className="text-xl font-bold text-orange-900">
+                  {formatRupiah(
+                    summaryData.totalCOGS
+                  )}
+                </p>
+              </div>
+
+              <div
+                className="
+                        w-11
+                        h-11
+                        rounded-xl
+                        bg-orange-100
+                        flex
+                        items-center
+                        justify-center
+                      "
+              >
+                <FaWarehouse className="text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="
+                    rounded-2xl
+                    bg-emerald-50
+                    border
+                    border-emerald-100
+                    p-4
+                  "
+          >
+            <div className="flex justify-between">
+              <div>
+                <p className="text-sm text-emerald-700">
+                  Total Margin
+                </p>
+
+                <p className="text-xl font-bold text-emerald-900">
+                  {formatRupiah(
+                    summaryData.totalMargin
+                  )}
+                </p>
+              </div>
+
+              <div
+                className="
+                        w-11
+                        h-11
+                        rounded-xl
+                        bg-emerald-100
+                        flex
+                        items-center
+                        justify-center
+                      "
+              >
+                <FaChartLine className="text-emerald-600" />
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="mb-5">
           <DetailPiutangTable data={filteredPiutangProdukData} />
         </div>
@@ -5308,7 +5541,7 @@ const Dashboard = () => {
               mb-5
             ">
 
-            <div className="
+              <div className="
   bg-white
   rounded-2xl
   border
@@ -5317,7 +5550,7 @@ const Dashboard = () => {
   p-5
 ">
 
-              <div className="
+                <div className="
     flex
     flex-col
     md:flex-row
@@ -5327,13 +5560,13 @@ const Dashboard = () => {
     mb-1
   ">
 
-                <div className="
+                  <div className="
       flex
       items-start
       gap-2
     ">
 
-                  <div className="
+                    <div className="
         w-8
         h-8
         rounded-lg
@@ -5344,61 +5577,61 @@ const Dashboard = () => {
         justify-center
         shrink-0
       ">
-                    {currentCollectionConfig.icon}
-                  </div>
+                      {currentCollectionConfig.icon}
+                    </div>
 
-                  <div>
+                    <div>
 
-                    <h2 className="
+                      <h2 className="
           text-sm
           font-bold
           text-gray-800
         ">
-                      Collection by{' '}
-                      {currentCollectionConfig.label}
-                    </h2>
+                        Collection by{' '}
+                        {currentCollectionConfig.label}
+                      </h2>
 
-                    <p className="
+                      <p className="
           text-[11px]
           text-gray-400
           mt-1
         ">
-                      Total collection berdasarkan{' '}
-                      {currentCollectionConfig.label.toLowerCase()}
-                    </p>
+                        Total collection berdasarkan{' '}
+                        {currentCollectionConfig.label.toLowerCase()}
+                      </p>
+
+                    </div>
 
                   </div>
 
-                </div>
+                  {/* DROPDOWN */}
 
-                {/* DROPDOWN */}
-
-                <div className="
+                  <div className="
       flex
       items-center
       gap-2
       shrink-0
     ">
 
-                  <span className="
+                    <span className="
         text-[10px]
         font-semibold
         text-gray-400
         whitespace-nowrap
       ">
-                    Tampilkan per
-                  </span>
+                      Tampilkan per
+                    </span>
 
-                  <select
-                    value={
-                      collectionDimension
-                    }
-                    onChange={(e) =>
-                      setCollectionDimension(
-                        e.target.value
-                      )
-                    }
-                    className="
+                    <select
+                      value={
+                        collectionDimension
+                      }
+                      onChange={(e) =>
+                        setCollectionDimension(
+                          e.target.value
+                        )
+                      }
+                      className="
           h-9
           min-w-[145px]
           px-3
@@ -5417,163 +5650,163 @@ const Dashboard = () => {
           focus:ring-emerald-100
           transition
         "
-                  >
+                    >
 
-                    <option value="principal">
-                      Per Principal
-                    </option>
+                      <option value="principal">
+                        Per Principal
+                      </option>
 
-                    <option value="channel">
-                      Per Channel
-                    </option>
+                      <option value="channel">
+                        Per Channel
+                      </option>
 
-                    <option value="customer">
-                      Per Customer
-                    </option>
+                      <option value="customer">
+                        Per Customer
+                      </option>
 
-                  </select>
+                    </select>
+
+                  </div>
 
                 </div>
 
-              </div>
+                {/* COLLECTION CHART */}
 
-              {/* COLLECTION CHART */}
-
-              <div className="
+                <div className="
     w-full
     overflow-x-auto
     mt-2
   ">
 
-                <div
-                  style={{
-                    width: `${Math.max(
-                      collectionChartData.length * 80,
-                      500
-                    )}px`,
-                    height: "400px",
-                  }}
-                >
-
-                  <ResponsiveContainer
-                    width="100%"
-                    height="100%"
+                  <div
+                    style={{
+                      width: `${Math.max(
+                        collectionChartData.length * 80,
+                        500
+                      )}px`,
+                      height: "400px",
+                    }}
                   >
 
-                    <BarChart
-                      data={collectionChartData}
-                      margin={{
-                        top: 15,
-                        right: 20,
-                        left: 10,
-                        bottom:
-                          collectionDimension === "customer"
-                            ? 40.
-                            : 40,
-                      }}
-                      barCategoryGap={0}
+                    <ResponsiveContainer
+                      width="100%"
+                      height="100%"
                     >
 
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#eef1f6"
-                      />
-
-                      <XAxis
-                        dataKey="name"
-                        tick={{
-                          fontSize: 9,
-                          fill: "#6b7280",
+                      <BarChart
+                        data={collectionChartData}
+                        margin={{
+                          top: 15,
+                          right: 20,
+                          left: 10,
+                          bottom:
+                            collectionDimension === "customer"
+                              ? 40.
+                              : 40,
                         }}
-                        interval={0}
-                        angle={
-                          collectionDimension === "customer"
-                            ? -35
-                            : -20
-                        }
-                        textAnchor="end"
-                        height={
-                          collectionDimension === "customer"
-                            ? 85
-                            : 60
-                        }
-                      />
-
-                      <YAxis
-                        tick={{
-                          fontSize: 9,
-                          fill: "#9ca3af",
-                        }}
-                        tickFormatter={formatShortRupiah}
-                      />
-
-                      <Tooltip
-                        content={<CustomTooltip />}
-                      />
-
-                      <Bar
-                        dataKey="collection"
-                        name="Collection"
-                        barSize={38}
-
-                        radius={[6, 6, 0, 0]}
+                        barCategoryGap={0}
                       >
 
-                        <LabelList
-                          dataKey="collection"
-                          position="top"
-                          formatter={formatShortRupiah}
-                          fontSize={9}
-                          fill="#374151"
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="#eef1f6"
                         />
 
-                        {collectionChartData.map(
-                          (entry, index) => {
-
-                            const colors = [
-                              "#3B82F6",
-                              "#F59E0B",
-                              "#EF4444",
-                              "#8B5CF6",
-                              "#EC4899",
-                              "#06B6D4",
-                              "#F97316",
-                              "#6366F1",
-                              "#A855F7",
-                              "#E11D48",
-                            ];
-
-                            return (
-                              <Cell
-                                key={`collection-cell-${index}`}
-                                fill={
-                                  colors[
-                                  index % colors.length
-                                  ]
-                                }
-                              />
-                            );
-
+                        <XAxis
+                          dataKey="name"
+                          tick={{
+                            fontSize: 9,
+                            fill: "#6b7280",
+                          }}
+                          interval={0}
+                          angle={
+                            collectionDimension === "customer"
+                              ? -35
+                              : -20
                           }
-                        )}
+                          textAnchor="end"
+                          height={
+                            collectionDimension === "customer"
+                              ? 85
+                              : 60
+                          }
+                        />
 
-                      </Bar>
+                        <YAxis
+                          tick={{
+                            fontSize: 9,
+                            fill: "#9ca3af",
+                          }}
+                          tickFormatter={formatShortRupiah}
+                        />
 
-                    </BarChart>
+                        <Tooltip
+                          content={<CustomTooltip />}
+                        />
 
-                  </ResponsiveContainer>
+                        <Bar
+                          dataKey="collection"
+                          name="Collection"
+                          barSize={38}
+
+                          radius={[6, 6, 0, 0]}
+                        >
+
+                          <LabelList
+                            dataKey="collection"
+                            position="top"
+                            formatter={formatShortRupiah}
+                            fontSize={9}
+                            fill="#374151"
+                          />
+
+                          {collectionChartData.map(
+                            (entry, index) => {
+
+                              const colors = [
+                                "#3B82F6",
+                                "#F59E0B",
+                                "#EF4444",
+                                "#8B5CF6",
+                                "#EC4899",
+                                "#06B6D4",
+                                "#F97316",
+                                "#6366F1",
+                                "#A855F7",
+                                "#E11D48",
+                              ];
+
+                              return (
+                                <Cell
+                                  key={`collection-cell-${index}`}
+                                  fill={
+                                    colors[
+                                    index % colors.length
+                                    ]
+                                  }
+                                />
+                              );
+
+                            }
+                          )}
+
+                        </Bar>
+
+                      </BarChart>
+
+                    </ResponsiveContainer>
+
+                  </div>
 
                 </div>
 
               </div>
 
-            </div>
 
+              {/* TOP PIUTANG BY PRINCIPAL */}
 
-            {/* TOP PIUTANG BY PRINCIPAL */}
-
-            <div className="
+              <div className="
               bg-white
               rounded-2xl
               border
@@ -5582,8 +5815,8 @@ const Dashboard = () => {
               p-5
             ">
 
-              <div className="flex items-center gap-2 mb-1">
-                <div className="
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="
                   w-8
                   h-8
                   rounded-lg
@@ -5593,27 +5826,27 @@ const Dashboard = () => {
                   items-center
                   justify-center
                 ">
-                  <FaFileInvoiceDollar size={13} />
+                    <FaFileInvoiceDollar size={13} />
+                  </div>
+
+                  <h2 className="text-sm font-bold text-gray-800">
+                    Top Piutang by Principal
+                  </h2>
                 </div>
 
-                <h2 className="text-sm font-bold text-gray-800">
-                  Top Piutang by Principal
-                </h2>
-              </div>
+                <p className="text-[11px] text-gray-400 mb-3">
+                  Saldo piutang seluruh principal, diurutkan dari terbesar
+                </p>
 
-              <p className="text-[11px] text-gray-400 mb-3">
-                Saldo piutang seluruh principal, diurutkan dari terbesar
-              </p>
-
-              <div className="h-[300px] overflow-y-auto pr-2 space-y-2">
-                {topPiutangPrincipalData.map((item, index) => (
-                  <div
-                    key={item.name}
-                    className="rounded-xl border border-gray-100 p-3 hover:shadow-sm transition"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="
+                <div className="h-[300px] overflow-y-auto pr-2 space-y-2">
+                  {topPiutangPrincipalData.map((item, index) => (
+                    <div
+                      key={item.name}
+                      className="rounded-xl border border-gray-100 p-3 hover:shadow-sm transition"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="
                           w-7
                           h-7
                           rounded-lg
@@ -5626,45 +5859,45 @@ const Dashboard = () => {
                           text-[10px]
                           font-bold
                         ">
-                          {index + 1}
+                            {index + 1}
+                          </div>
+
+                          <span className="text-xs font-semibold text-gray-700 truncate">
+                            {item.name}
+                          </span>
                         </div>
 
-                        <span className="text-xs font-semibold text-gray-700 truncate">
-                          {item.name}
-                        </span>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-bold text-gray-800 whitespace-nowrap">
+                            {formatShortRupiah(item.value)}
+                          </p>
+                          <p className="text-[10px] font-semibold text-blue-600">
+                            {item.percentage.toFixed(1)}%
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-bold text-gray-800 whitespace-nowrap">
-                          {formatShortRupiah(item.value)}
-                        </p>
-                        <p className="text-[10px] font-semibold text-blue-600">
-                          {item.percentage.toFixed(1)}%
-                        </p>
+                      <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                          style={{ width: `${item.percentage}%` }}
+                        />
                       </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
               </div>
-
-            </div>
 
             </div>
 
 
             {false && (<>
-            {/* =================================================
+              {/* =================================================
                 TABLE TABS
             ================================================= */}
 
-            <div className="
+              <div className="
               bg-white
               rounded-2xl
               border
@@ -5674,22 +5907,22 @@ const Dashboard = () => {
               mb-4
             ">
 
-              <div className="
+                <div className="
                 grid
                 grid-cols-2
                 md:grid-cols-5
                 gap-2
               ">
 
-                {/* PER PRINCIPAL */}
+                  {/* PER PRINCIPAL */}
 
-                <button
-                  onClick={() =>
-                    setActiveTable(
-                      'principal'
-                    )
-                  }
-                  className={`
+                  <button
+                    onClick={() =>
+                      setActiveTable(
+                        'principal'
+                      )
+                    }
+                    className={`
                     flex
                     items-center
                     justify-center
@@ -5700,29 +5933,29 @@ const Dashboard = () => {
                     font-bold
                     transition
                     ${activeTable ===
-                      'principal'
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                      : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
-                    }
+                        'principal'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                        : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
+                      }
                   `}
-                >
+                  >
 
-                  <FaBuilding size={12} />
+                    <FaBuilding size={12} />
 
-                  Per Principal
+                    Per Principal
 
-                </button>
+                  </button>
 
 
-                {/* PER CABANG */}
+                  {/* PER CABANG */}
 
-                <button
-                  onClick={() =>
-                    setActiveTable(
-                      'cabang'
-                    )
-                  }
-                  className={`
+                  <button
+                    onClick={() =>
+                      setActiveTable(
+                        'cabang'
+                      )
+                    }
+                    className={`
                     flex
                     items-center
                     justify-center
@@ -5733,29 +5966,29 @@ const Dashboard = () => {
                     font-bold
                     transition
                     ${activeTable ===
-                      'cabang'
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                      : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
-                    }
+                        'cabang'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                        : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
+                      }
                   `}
-                >
+                  >
 
-                  <FaBuilding size={12} />
+                    <FaBuilding size={12} />
 
-                  Per Cabang
+                    Per Cabang
 
-                </button>
+                  </button>
 
 
-                {/* PER CHANNEL */}
+                  {/* PER CHANNEL */}
 
-                <button
-                  onClick={() =>
-                    setActiveTable(
-                      'channel'
-                    )
-                  }
-                  className={`
+                  <button
+                    onClick={() =>
+                      setActiveTable(
+                        'channel'
+                      )
+                    }
+                    className={`
                     flex
                     items-center
                     justify-center
@@ -5766,29 +5999,29 @@ const Dashboard = () => {
                     font-bold
                     transition
                     ${activeTable ===
-                      'channel'
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                      : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
-                    }
+                        'channel'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                        : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
+                      }
                   `}
-                >
+                  >
 
-                  <FaHospital size={12} />
+                    <FaHospital size={12} />
 
-                  Per Channel
+                    Per Channel
 
-                </button>
+                  </button>
 
 
-                {/* PER CUSTOMER */}
+                  {/* PER CUSTOMER */}
 
-                <button
-                  onClick={() =>
-                    setActiveTable(
-                      'customer'
-                    )
-                  }
-                  className={`
+                  <button
+                    onClick={() =>
+                      setActiveTable(
+                        'customer'
+                      )
+                    }
+                    className={`
                     flex
                     items-center
                     justify-center
@@ -5799,29 +6032,29 @@ const Dashboard = () => {
                     font-bold
                     transition
                     ${activeTable ===
-                      'customer'
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                      : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
-                    }
+                        'customer'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                        : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
+                      }
                   `}
-                >
+                  >
 
-                  <FaUsers size={12} />
+                    <FaUsers size={12} />
 
-                  Per Customer
+                    Per Customer
 
-                </button>
+                  </button>
 
 
-                {/* PER PRODUK */}
+                  {/* PER PRODUK */}
 
-                <button
-                  onClick={() =>
-                    setActiveTable(
-                      'produk'
-                    )
-                  }
-                  className={`
+                  <button
+                    onClick={() =>
+                      setActiveTable(
+                        'produk'
+                      )
+                    }
+                    className={`
                     flex
                     items-center
                     justify-center
@@ -5832,116 +6065,116 @@ const Dashboard = () => {
                     font-bold
                     transition
                     ${activeTable ===
-                      'produk'
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                      : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
-                    }
+                        'produk'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                        : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
+                      }
                   `}
-                >
+                  >
 
-                  <FaBoxOpen size={12} />
+                    <FaBoxOpen size={12} />
 
-                  Per Produk
+                    Per Produk
 
-                </button>
+                  </button>
+
+                </div>
 
               </div>
 
-            </div>
 
-
-            {/* =================================================
+              {/* =================================================
                 DETAIL TABLE
             ================================================= */}
 
-            {activeTable ===
-              'principal' && (
+              {activeTable ===
+                'principal' && (
 
-                <AgingTable
-                  title="Per Principal"
-                  icon={
-                    <FaBuilding
-                      size={15}
-                    />
-                  }
-                  data={buildAgingData(
-                    filteredData,
-                    'principal'
-                  )}
-                />
+                  <AgingTable
+                    title="Per Principal"
+                    icon={
+                      <FaBuilding
+                        size={15}
+                      />
+                    }
+                    data={buildAgingData(
+                      filteredData,
+                      'principal'
+                    )}
+                  />
 
-              )}
-
-
-            {activeTable ===
-              'cabang' && (
-
-                <AgingTable
-                  title="Per Cabang"
-                  icon={
-                    <FaBuilding
-                      size={15}
-                    />
-                  }
-                  data={buildAgingData(
-                    filteredData,
-                    'cabang'
-                  )}
-                />
-
-              )}
+                )}
 
 
-            {activeTable ===
-              'channel' && (
+              {activeTable ===
+                'cabang' && (
 
-                <AgingTable
-                  title="Per Channel"
-                  icon={
-                    <FaHospital
-                      size={15}
-                    />
-                  }
-                  data={buildAgingData(
-                    filteredData,
-                    'channel'
-                  )}
-                />
+                  <AgingTable
+                    title="Per Cabang"
+                    icon={
+                      <FaBuilding
+                        size={15}
+                      />
+                    }
+                    data={buildAgingData(
+                      filteredData,
+                      'cabang'
+                    )}
+                  />
 
-              )}
-
-
-            {activeTable ===
-              'customer' && (
-
-                <AgingTable
-                  title="Per Customer"
-                  icon={
-                    <FaUsers
-                      size={15}
-                    />
-                  }
-                  data={buildAgingData(
-                    filteredData,
-                    'customer'
-                  )}
-                />
-
-              )}
+                )}
 
 
-            {/* PER PRODUK */}
+              {activeTable ===
+                'channel' && (
 
-            {activeTable ===
-              'produk' && (
+                  <AgingTable
+                    title="Per Channel"
+                    icon={
+                      <FaHospital
+                        size={15}
+                      />
+                    }
+                    data={buildAgingData(
+                      filteredData,
+                      'channel'
+                    )}
+                  />
 
-                <ProdukTable
-                  data={
-                    filteredProdukData
-                  }
-                />
+                )}
 
-              )}
+
+              {activeTable ===
+                'customer' && (
+
+                  <AgingTable
+                    title="Per Customer"
+                    icon={
+                      <FaUsers
+                        size={15}
+                      />
+                    }
+                    data={buildAgingData(
+                      filteredData,
+                      'customer'
+                    )}
+                  />
+
+                )}
+
+
+              {/* PER PRODUK */}
+
+              {activeTable ===
+                'produk' && (
+
+                  <ProdukTable
+                    data={
+                      filteredProdukData
+                    }
+                  />
+
+                )}
 
             </>)}
 

@@ -18,6 +18,7 @@ import {
   FaTimes,
   FaClipboardList,
   FaFileAlt,
+  FaCheck,
 } from "react-icons/fa";
 
 import {
@@ -308,11 +309,6 @@ const TableTukarFaktur = ({
   ] = useState(false);
 
   const [
-    selectedFile,
-    setSelectedFile,
-  ] = useState(null);
-
-  const [
     isSubmitting,
     setIsSubmitting,
   ] = useState(false);
@@ -321,6 +317,17 @@ const TableTukarFaktur = ({
     showDocumentModal,
     setShowDocumentModal,
   ] = useState(false);
+
+
+  const [
+    selectedIds,
+    setSelectedIds,
+  ] = useState([]);
+
+  const [
+    bulkFiles,
+    setBulkFiles,
+  ] = useState({});
 
 
   // ===================================================
@@ -476,13 +483,90 @@ const TableTukarFaktur = ({
       faktur
     );
 
-    setSelectedFile(
-      null
-    );
+    setSelectedIds([
+      faktur.id,
+    ]);
+
+    setBulkFiles({});
 
     setShowTukarModal(
       true
     );
+  };
+
+
+  // ===================================================
+  // SELECTION TUKAR FAKTUR
+  // ===================================================
+
+  const selectableData = useMemo(
+    () => filteredData.filter(
+      item => item.status === "BELUM_DITUKAR"
+    ),
+    [filteredData]
+  );
+
+  const selectedFakturList = useMemo(
+    () => allData.filter(
+      item => selectedIds.includes(item.id) &&
+        item.status === "BELUM_DITUKAR"
+    ),
+    [allData, selectedIds]
+  );
+
+  const toggleSelectFaktur = (
+    faktur
+  ) => {
+    if (faktur.status !== "BELUM_DITUKAR") {
+      return;
+    }
+
+    setSelectedIds(
+      prev => prev.includes(faktur.id)
+        ? prev.filter(id => id !== faktur.id)
+        : [...prev, faktur.id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const selectableIds = selectableData.map(
+      item => item.id
+    );
+
+    const allSelected = selectableIds.length > 0 &&
+      selectableIds.every(id => selectedIds.includes(id));
+
+    if (allSelected) {
+      setSelectedIds(
+        prev => prev.filter(id => !selectableIds.includes(id))
+      );
+    } else {
+      setSelectedIds(
+        prev => Array.from(new Set([
+          ...prev,
+          ...selectableIds,
+        ]))
+      );
+    }
+  };
+
+  const openBulkTukarFaktur = () => {
+    const fakturTerpilih = allData.filter(
+      item => selectedIds.includes(item.id) &&
+        item.status === "BELUM_DITUKAR"
+    );
+
+    if (fakturTerpilih.length === 0) {
+      alert("Silakan pilih minimal satu faktur yang belum ditukar.");
+      return;
+    }
+
+    setSelectedFaktur(
+      fakturTerpilih[0]
+    );
+
+    setBulkFiles({});
+    setShowTukarModal(true);
   };
 
 
@@ -496,17 +580,10 @@ const TableTukarFaktur = ({
       return;
     }
 
-    setSelectedFaktur(
-      null
-    );
-
-    setSelectedFile(
-      null
-    );
-
-    setShowTukarModal(
-      false
-    );
+    setSelectedFaktur(null);
+    
+    setBulkFiles({});
+    setShowTukarModal(false);
   };
 
 
@@ -548,8 +625,9 @@ const TableTukarFaktur = ({
   // FILE CHANGE
   // ===================================================
 
-  const handleFileChange = (
-    e
+  const handleBulkFileChange = (
+    e,
+    fakturId
   ) => {
 
     const file =
@@ -559,9 +637,7 @@ const TableTukarFaktur = ({
       return;
     }
 
-
     // MAX 25 MB
-
     const maxSize =
       25 *
       1024 *
@@ -571,23 +647,18 @@ const TableTukarFaktur = ({
       file.size >
       maxSize
     ) {
-
       alert(
         "Ukuran dokumen maksimal 25 MB."
       );
-
       e.target.value = "";
-
-      setSelectedFile(
-        null
-      );
-
       return;
     }
 
-
-    setSelectedFile(
-      file
+    setBulkFiles(
+      prev => ({
+        ...prev,
+        [fakturId]: file,
+      })
     );
   };
 
@@ -599,115 +670,81 @@ const TableTukarFaktur = ({
   const handleTukarFaktur =
     async () => {
 
-      if (
-        !selectedFaktur
-      ) {
+      const fakturTerpilih = allData.filter(
+        item => selectedIds.includes(item.id) &&
+          item.status === "BELUM_DITUKAR"
+      );
+
+      if (fakturTerpilih.length === 0) {
+        alert("Silakan pilih minimal satu faktur yang belum ditukar.");
         return;
       }
 
+      const belumUpload = fakturTerpilih.filter(
+        faktur => !bulkFiles[faktur.id]
+      );
 
-      if (
-        !selectedFile
-      ) {
-
+      if (belumUpload.length > 0) {
         alert(
-          "Silakan upload dokumen faktur pengganti terlebih dahulu."
+          `Silakan upload dokumen faktur pengganti untuk ${belumUpload.length} faktur yang dipilih.`
         );
-
         return;
       }
-
 
       try {
+        setIsSubmitting(true);
 
-        setIsSubmitting(
-          true
-        );
+        const berhasilIds = [];
 
+        for (const faktur of fakturTerpilih) {
+          const file = bulkFiles[faktur.id];
 
-        // =============================================
-        // CALLBACK KE PARENT
-        // =============================================
+          if (typeof onTukarFaktur === "function") {
+            await onTukarFaktur({
+              faktur,
+              file,
+            });
+          }
 
-        if (
-          typeof onTukarFaktur ===
-          "function"
-        ) {
-
-          await onTukarFaktur(
-            {
-              faktur:
-                selectedFaktur,
-
-              file:
-                selectedFile,
-            }
-          );
+          berhasilIds.push(faktur.id);
         }
 
-
-        // =============================================
-        // UPDATE LOCAL DATA
-        // =============================================
+        const tanggalTukar = new Date().toISOString();
 
         setAllData(
-          prev =>
-            prev.map(
-              item => {
-
-                if (
-                  item.id !==
-                  selectedFaktur.id
-                ) {
-                  return item;
-                }
-
-                return {
+          prev => prev.map(
+            item => berhasilIds.includes(item.id)
+              ? {
                   ...item,
-
-                  status:
-                    "SUDAH_DITUKAR",
-
-                  dokumen_tukar:
-                    selectedFile,
-
-                  nama_dokumen_tukar:
-                    selectedFile.name,
-
-                  tanggal_tukar:
-                    new Date()
-                      .toISOString(),
-                };
-              }
-            )
+                  status: "SUDAH_DITUKAR",
+                  dokumen_tukar: bulkFiles[item.id],
+                  nama_dokumen_tukar: bulkFiles[item.id]?.name,
+                  tanggal_tukar: tanggalTukar,
+                }
+              : item
+          )
         );
 
+        setSelectedIds([]);
 
         alert(
-          "Faktur berhasil ditukar."
+          `${berhasilIds.length} faktur berhasil ditukar.`
         );
-
 
         closeTukarFaktur();
 
-      } catch (
-      error
-      ) {
-
+      } catch (error) {
         console.error(
           "Gagal tukar faktur:",
           error
         );
 
         alert(
-          "Gagal melakukan tukar faktur."
+          "Gagal melakukan proses Tukar Faktur. Silakan periksa kembali dokumen yang dipilih."
         );
 
       } finally {
-
-        setIsSubmitting(
-          false
-        );
+        setIsSubmitting(false);
       }
     };
 
@@ -773,14 +810,11 @@ const TableTukarFaktur = ({
     ) => {
 
       const sudahDitukar =
-        faktur.status ===
-        "SUDAH_DITUKAR";
-
+        faktur.status === "SUDAH_DITUKAR";
 
       if (
         sudahDitukar
       ) {
-
         return (
           <button
             type="button"
@@ -808,48 +842,80 @@ const TableTukarFaktur = ({
               whitespace-nowrap
             "
           >
-
             <FaEye />
-
             Lihat Dokumen
-
           </button>
         );
       }
 
+      const checked = selectedIds.includes(faktur.id);
 
       return (
-        <button
-          type="button"
-          onClick={() =>
-            openTukarFaktur(
-              faktur
-            )
-          }
-          className="
-            inline-flex
-            items-center
-            justify-center
-            gap-2
-            px-4
-            py-2
-            rounded-full
-            bg-primary
-            text-white
-            text-xs
-            font-semibold
-            hover:opacity-90
-            transition
-            shadow-sm
-            whitespace-nowrap
-          "
-        >
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <label
+            className={`
+              flex
+              items-center
+              justify-center
+              w-9
+              h-9
+              rounded-full
+              border
+              cursor-pointer
+              transition
+              ${
+                checked
+                  ? "bg-blue-50 border-primary text-primary"
+                  : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
+              }
+            `}
+            title={checked ? "Batalkan pilihan" : "Pilih faktur"}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={checked}
+              onChange={() =>
+                toggleSelectFaktur(faktur)
+              }
+            />
 
-          <FaExchangeAlt />
+            {checked ? (
+              <FaCheck />
+            ) : (
+              <span className="w-4 h-4 rounded border border-current" />
+            )}
+          </label>
 
-          Tukar Faktur
-
-        </button>
+          <button
+            type="button"
+            onClick={() =>
+              openTukarFaktur(
+                faktur
+              )
+            }
+            className="
+              inline-flex
+              items-center
+              justify-center
+              gap-2
+              px-4
+              py-2
+              rounded-full
+              bg-primary
+              text-white
+              text-xs
+              font-semibold
+              hover:opacity-90
+              transition
+              shadow-sm
+              whitespace-nowrap
+            "
+          >
+            <FaExchangeAlt />
+            Tukar Faktur
+          </button>
+        </div>
       );
     };
 
@@ -1284,6 +1350,85 @@ const TableTukarFaktur = ({
 
 
       {/* ================================================= */}
+      {/* BULK ACTION */}
+      {/* ================================================= */}
+
+      <div
+        className="
+          flex
+          flex-col
+          sm:flex-row
+          items-stretch
+          sm:items-center
+          justify-between
+          gap-3
+          rounded-2xl
+          border
+          border-blue-100
+          bg-blue-50/70
+          px-4
+          py-3
+        "
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="
+              flex
+              items-center
+              justify-center
+              w-10
+              h-10
+              rounded-xl
+              bg-blue-100
+              text-primary
+            "
+          >
+            <FaClipboardList />
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-gray-700">
+              Pilih Faktur untuk Tukar Faktur
+            </p>
+            <p className="text-xs text-gray-500">
+              {selectedIds.length > 0
+                ? `${selectedIds.length} faktur dipilih`
+                : "Anda dapat memilih lebih dari satu faktur sekaligus."}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={openBulkTukarFaktur}
+          disabled={selectedIds.length === 0}
+          className="
+            inline-flex
+            items-center
+            justify-center
+            gap-2
+            px-5
+            py-2.5
+            rounded-full
+            bg-primary
+            text-white
+            text-sm
+            font-semibold
+            shadow-sm
+            hover:opacity-90
+            transition
+            disabled:bg-gray-300
+            disabled:cursor-not-allowed
+            whitespace-nowrap
+          "
+        >
+          <FaExchangeAlt />
+          Tukar {selectedIds.length > 0 ? `${selectedIds.length} Faktur` : "Faktur"}
+        </button>
+      </div>
+
+
+      {/* ================================================= */}
       {/* TABLE */}
       {/* ================================================= */}
 
@@ -1354,26 +1499,28 @@ const TableTukarFaktur = ({
                           "
                         >
 
-                          <div
-                            className="
-                              flex
-                              items-center
-                              gap-2
-                              font-semibold
-                            "
-                          >
-
-                            <span>
-                              {
-                                h.icon
-                              }
-                            </span>
-
-                            {
-                              h.label
-                            }
-
-                          </div>
+                          {i === 0 ? (
+                            <div className="flex items-center gap-2 font-semibold">
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm border-white/70 bg-white/10 checked:bg-white checked:text-primary"
+                                checked={
+                                  selectableData.length > 0 &&
+                                  selectableData.every(item => selectedIds.includes(item.id))
+                                }
+                                onChange={toggleSelectAll}
+                                disabled={selectableData.length === 0}
+                                title="Pilih semua faktur yang belum ditukar"
+                              />
+                              <span>{h.icon}</span>
+                              {h.label}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 font-semibold">
+                              <span>{h.icon}</span>
+                              {h.label}
+                            </div>
+                          )}
 
                         </th>
 
@@ -1988,7 +2135,7 @@ const TableTukarFaktur = ({
 
       {
         showTukarModal &&
-        selectedFaktur && (
+        selectedFakturList.length > 0 && (
 
           <div
             className="
@@ -2003,9 +2150,7 @@ const TableTukarFaktur = ({
               p-3
               sm:p-5
             "
-            onClick={
-              closeTukarFaktur
-            }
+            onClick={closeTukarFaktur}
           >
 
             <div
@@ -2014,22 +2159,16 @@ const TableTukarFaktur = ({
                 rounded-2xl
                 shadow-2xl
                 w-full
-                max-w-xl
+                max-w-3xl
                 max-h-[90vh]
                 flex
                 flex-col
                 overflow-hidden
               "
-              onClick={
-                e =>
-                  e.stopPropagation()
-              }
+              onClick={e => e.stopPropagation()}
             >
 
-              {/* ========================================= */}
               {/* HEADER */}
-              {/* ========================================= */}
-
               <div
                 className="
                   bg-primary
@@ -2040,25 +2179,8 @@ const TableTukarFaktur = ({
                   shrink-0
                 "
               >
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-3
-                  "
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      min-w-0
-                    "
-                  >
-
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="
                         w-10
@@ -2071,50 +2193,23 @@ const TableTukarFaktur = ({
                         justify-center
                       "
                     >
-
                       <FaExchangeAlt />
-
                     </div>
 
-
-                    <div
-                      className="
-                        min-w-0
-                      "
-                    >
-
-                      <h3
-                        className="
-                          font-bold
-                          text-lg
-                          truncate
-                        "
-                      >
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-lg truncate">
                         Tukar Faktur
                       </h3>
-
-                      <p
-                        className="
-                          text-xs
-                          text-blue-100
-                        "
-                      >
-                        Upload dokumen faktur pengganti
+                      <p className="text-xs text-blue-100">
+                        Proses {selectedFakturList.length} faktur sekaligus
                       </p>
-
                     </div>
-
                   </div>
-
 
                   <button
                     type="button"
-                    onClick={
-                      closeTukarFaktur
-                    }
-                    disabled={
-                      isSubmitting
-                    }
+                    onClick={closeTukarFaktur}
+                    disabled={isSubmitting}
                     className="
                       w-9
                       h-9
@@ -2127,20 +2222,12 @@ const TableTukarFaktur = ({
                       transition
                     "
                   >
-
                     <FaTimes />
-
                   </button>
-
                 </div>
-
               </div>
 
-
-              {/* ========================================= */}
               {/* BODY */}
-              {/* ========================================= */}
-
               <div
                 className="
                   p-4
@@ -2151,474 +2238,205 @@ const TableTukarFaktur = ({
                   min-h-0
                 "
               >
+                <div className="flex flex-col gap-4">
 
-                <div
-                  className="
-                    flex
-                    flex-col
-                    gap-5
-                  "
-                >
-
-                  {/* ===================================== */}
-                  {/* INFORMASI FAKTUR */}
-                  {/* ===================================== */}
-
-                  <div>
-
-                    <p
-                      className="
-                        text-sm
-                        font-semibold
-                        text-gray-700
-                        mb-3
-                      "
-                    >
-                      Informasi Faktur
-                    </p>
-
-
-                    <div
-                      className="
-                        grid
-                        grid-cols-1
-                        sm:grid-cols-2
-                        gap-3
-                      "
-                    >
-
-                      {/* NO FAKTUR */}
-
-                      <div
-                        className="
-                          rounded-xl
-                          bg-blue-50
-                          border
-                          border-blue-100
-                          p-4
-                        "
-                      >
-
-                        <p
-                          className="
-                            text-xs
-                            text-gray-500
-                            mb-1
-                          "
-                        >
-                          No. Faktur
-                        </p>
-
-                        <p
-                          className="
-                            font-bold
-                            text-primary
-                          "
-                        >
-                          {
-                            selectedFaktur.no_faktur
-                          }
-                        </p>
-
-                      </div>
-
-
-                      {/* NOMINAL */}
-
-                      <div
-                        className="
-                          rounded-xl
-                          bg-orange-50
-                          border
-                          border-orange-100
-                          p-4
-                        "
-                      >
-
-                        <p
-                          className="
-                            text-xs
-                            text-gray-500
-                            mb-1
-                          "
-                        >
-                          Nominal
-                        </p>
-
-                        <p
-                          className="
-                            font-bold
-                            text-orange-700
-                          "
-                        >
-                          {
-                            formatCurrency(
-                              selectedFaktur.nominal
-                            )
-                          }
-                        </p>
-
-                      </div>
-
-
-                      {/* CUSTOMER */}
-
-                      <div
-                        className="
-                          rounded-xl
-                          bg-gray-50
-                          border
-                          border-gray-200
-                          p-4
-                        "
-                      >
-
-                        <p
-                          className="
-                            text-xs
-                            text-gray-500
-                            mb-1
-                          "
-                        >
-                          Customer
-                        </p>
-
-                        <p
-                          className="
-                            font-semibold
-                            text-gray-700
-                          "
-                        >
-                          {
-                            selectedFaktur.nama_customer
-                          }
-                        </p>
-
-                      </div>
-
-
-                      {/* JATUH TEMPO */}
-
-                      <div
-                        className="
-                          rounded-xl
-                          bg-gray-50
-                          border
-                          border-gray-200
-                          p-4
-                        "
-                      >
-
-                        <p
-                          className="
-                            text-xs
-                            text-gray-500
-                            mb-1
-                          "
-                        >
-                          Jatuh Tempo
-                        </p>
-
-                        <p
-                          className="
-                            font-semibold
-                            text-gray-700
-                          "
-                        >
-                          {
-                            formatDate(
-                              selectedFaktur.jatuh_tempo
-                            )
-                          }
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-
-                  {/* ===================================== */}
-                  {/* ALAMAT */}
-                  {/* ===================================== */}
-
+                  {/* SUMMARY SELECTION */}
                   <div
                     className="
                       rounded-xl
-                      bg-slate-50
+                      bg-blue-50
                       border
-                      border-gray-200
+                      border-blue-100
                       p-4
                     "
                   >
-
-                    <div
-                      className="
-                        flex
-                        items-start
-                        gap-3
-                      "
-                    >
-
-                      <FaMapMarkerAlt
-                        className="
-                          text-orange-500
-                          mt-1
-                          shrink-0
-                        "
-                      />
-
-                      <div>
-
-                        <p
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div
                           className="
-                            text-xs
-                            text-gray-500
-                            mb-1
+                            w-10
+                            h-10
+                            rounded-xl
+                            bg-blue-100
+                            text-primary
+                            flex
+                            items-center
+                            justify-center
                           "
                         >
-                          Alamat Customer
-                        </p>
-
-                        <p
-                          className="
-                            text-sm
-                            text-gray-700
-                          "
-                        >
-                          {
-                            selectedFaktur.alamat
-                          }
-                        </p>
-
+                          <FaClipboardList />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-blue-900">
+                            {selectedFakturList.length} Faktur Dipilih
+                          </p>
+                          <p className="text-xs text-blue-700 mt-0.5">
+                            Setiap faktur wajib memiliki dokumen pengganti.
+                          </p>
+                        </div>
                       </div>
 
+                      <span className="text-sm font-bold text-primary whitespace-nowrap">
+                        {formatCurrency(
+                          selectedFakturList.reduce(
+                            (sum, item) => sum + Number(item.nominal || 0),
+                            0
+                          )
+                        )}
+                      </span>
                     </div>
-
                   </div>
 
-
-                  {/* ===================================== */}
-                  {/* UPLOAD DOKUMEN */}
-                  {/* ===================================== */}
-
+                  {/* LIST FAKTUR */}
                   <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-3">
+                      Daftar Faktur
+                    </p>
 
-                    <label
-                      className="
-                        block
-                        text-sm
-                        font-semibold
-                        text-gray-700
-                        mb-2
-                      "
-                    >
-                      Dokumen Faktur Pengganti
-                    </label>
+                    <div className="flex flex-col gap-3">
+                      {selectedFakturList.map((faktur, index) => {
+                        const file = bulkFiles[faktur.id];
 
+                        return (
+                          <div
+                            key={faktur.id}
+                            className="
+                              rounded-xl
+                              border
+                              border-gray-200
+                              bg-white
+                              shadow-sm
+                              p-4
+                            "
+                          >
+                            <div className="flex flex-col gap-4">
+                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                <div className="flex items-start gap-3 min-w-0">
+                                  <div
+                                    className="
+                                      w-10
+                                      h-10
+                                      shrink-0
+                                      rounded-xl
+                                      bg-blue-50
+                                      text-primary
+                                      flex
+                                      items-center
+                                      justify-center
+                                      font-bold
+                                      text-sm
+                                    "
+                                  >
+                                    {index + 1}
+                                  </div>
 
-                    <label
-                      className="
-                        relative
-                        flex
-                        flex-col
-                        items-center
-                        justify-center
-                        w-full
-                        min-h-[180px]
-                        rounded-2xl
-                        border-2
-                        border-dashed
-                        border-blue-200
-                        bg-blue-50/50
-                        hover:bg-blue-50
-                        hover:border-primary
-                        transition
-                        cursor-pointer
-                        p-5
-                      "
-                    >
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-primary break-all">
+                                      {faktur.no_faktur}
+                                    </p>
+                                    <p className="text-sm font-semibold text-gray-700 mt-0.5">
+                                      {faktur.nama_customer}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Jatuh Tempo: {formatDate(faktur.jatuh_tempo)}
+                                    </p>
+                                  </div>
+                                </div>
 
-                      <input
-                        type="file"
-                        className="
-                          hidden
-                        "
-                        accept="
-                          .pdf,
-                          .jpg,
-                          .jpeg,
-                          .png
-                        "
-                        onChange={
-                          handleFileChange
-                        }
-                      />
+                                <div className="text-left sm:text-right shrink-0">
+                                  <p className="text-xs text-gray-500">
+                                    Nominal
+                                  </p>
+                                  <p className="font-bold text-orange-700">
+                                    {formatCurrency(faktur.nominal)}
+                                  </p>
+                                </div>
+                              </div>
 
-
-                      {
-                        selectedFile ? (
-
-                          <>
-
-                            <div
-                              className="
-                                w-14
-                                h-14
-                                rounded-2xl
-                                bg-green-100
-                                text-green-600
-                                flex
-                                items-center
-                                justify-center
-                                mb-3
-                              "
-                            >
-
-                              <FaFileAlt
+                              <label
                                 className="
-                                  text-2xl
+                                  relative
+                                  flex
+                                  items-center
+                                  gap-3
+                                  w-full
+                                  rounded-xl
+                                  border-2
+                                  border-dashed
+                                  border-blue-200
+                                  bg-blue-50/50
+                                  hover:bg-blue-50
+                                  hover:border-primary
+                                  transition
+                                  cursor-pointer
+                                  p-4
                                 "
-                              />
+                              >
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  onChange={e =>
+                                    handleBulkFileChange(
+                                      e,
+                                      faktur.id
+                                    )
+                                  }
+                                />
 
+                                <div
+                                  className={`
+                                    w-11
+                                    h-11
+                                    shrink-0
+                                    rounded-xl
+                                    flex
+                                    items-center
+                                    justify-center
+                                    ${
+                                      file
+                                        ? "bg-green-100 text-green-600"
+                                        : "bg-blue-100 text-primary"
+                                    }
+                                  `}
+                                >
+                                  {file ? (
+                                    <FaCheck />
+                                  ) : (
+                                    <FaUpload />
+                                  )}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  {file ? (
+                                    <>
+                                      <p className="text-sm font-semibold text-gray-700 break-all">
+                                        {file.name}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-0.5">
+                                        {(file.size / 1024 / 1024).toFixed(2)} MB • Klik untuk mengganti
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="text-sm font-semibold text-gray-700">
+                                        Upload Dokumen Faktur Pengganti
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-0.5">
+                                        PDF, JPG, JPEG, PNG • Maks. 25 MB
+                                      </p>
+                                    </>
+                                  )}
+                                </div>
+                              </label>
                             </div>
-
-
-                            <p
-                              className="
-                                text-sm
-                                font-semibold
-                                text-gray-700
-                                text-center
-                                break-all
-                              "
-                            >
-                              {
-                                selectedFile.name
-                              }
-                            </p>
-
-
-                            <p
-                              className="
-                                text-xs
-                                text-gray-400
-                                mt-1
-                              "
-                            >
-                              {
-                                (
-                                  selectedFile.size /
-                                  1024 /
-                                  1024
-                                ).toFixed(2)
-                              }{" "}
-                              MB
-                            </p>
-
-
-                            <span
-                              className="
-                                inline-flex
-                                items-center
-                                gap-2
-                                mt-3
-                                px-3
-                                py-1.5
-                                rounded-full
-                                bg-white
-                                border
-                                border-gray-200
-                                text-xs
-                                font-semibold
-                                text-primary
-                              "
-                            >
-
-                              <FaUpload />
-
-                              Ganti Dokumen
-
-                            </span>
-
-                          </>
-
-                        ) : (
-
-                          <>
-
-                            <div
-                              className="
-                                w-14
-                                h-14
-                                rounded-2xl
-                                bg-blue-100
-                                text-primary
-                                flex
-                                items-center
-                                justify-center
-                                mb-3
-                              "
-                            >
-
-                              <FaUpload
-                                className="
-                                  text-xl
-                                "
-                              />
-
-                            </div>
-
-
-                            <p
-                              className="
-                                text-sm
-                                font-semibold
-                                text-gray-700
-                              "
-                            >
-                              Upload Dokumen Faktur
-                            </p>
-
-
-                            <p
-                              className="
-                                text-xs
-                                text-gray-400
-                                mt-1
-                                text-center
-                              "
-                            >
-                              Klik untuk memilih dokumen
-                            </p>
-
-
-                            <p
-                              className="
-                                text-[11px]
-                                text-gray-400
-                                mt-2
-                                text-center
-                              "
-                            >
-                              PDF, JPG, JPEG, PNG • Maks. 25 MB
-                            </p>
-
-                          </>
-
-                        )
-                      }
-
-                    </label>
-
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-
-                  {/* ===================================== */}
                   {/* INFO */}
-                  {/* ===================================== */}
-
                   <div
                     className="
                       rounded-xl
@@ -2628,64 +2446,23 @@ const TableTukarFaktur = ({
                       p-4
                     "
                   >
-
-                    <div
-                      className="
-                        flex
-                        items-start
-                        gap-3
-                      "
-                    >
-
-                      <FaFileInvoiceDollar
-                        className="
-                          text-amber-600
-                          mt-0.5
-                          shrink-0
-                        "
-                      />
-
+                    <div className="flex items-start gap-3">
+                      <FaFileInvoiceDollar className="text-amber-600 mt-0.5 shrink-0" />
                       <div>
-
-                        <p
-                          className="
-                            text-sm
-                            font-semibold
-                            text-amber-800
-                          "
-                        >
+                        <p className="text-sm font-semibold text-amber-800">
                           Perhatian
                         </p>
-
-                        <p
-                          className="
-                            text-xs
-                            text-amber-700
-                            mt-1
-                            leading-relaxed
-                          "
-                        >
-                          Pastikan dokumen yang diupload
-                          merupakan dokumen faktur pengganti
-                          yang benar sebelum melakukan proses
-                          Tukar Faktur.
+                        <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                          Pastikan setiap dokumen yang diupload sesuai dengan nomor faktur yang dipilih sebelum melakukan proses Tukar Faktur.
                         </p>
-
                       </div>
-
                     </div>
-
                   </div>
 
                 </div>
-
               </div>
 
-
-              {/* ========================================= */}
               {/* FOOTER */}
-              {/* ========================================= */}
-
               <div
                 className="
                   border-t
@@ -2696,109 +2473,87 @@ const TableTukarFaktur = ({
                   flex
                   flex-col-reverse
                   sm:flex-row
-                  justify-end
-                  gap-2
+                  justify-between
+                  gap-3
                   shrink-0
                 "
               >
+                <div className="flex items-center text-xs text-gray-500">
+                  {Object.keys(bulkFiles).length} / {selectedFakturList.length} dokumen siap diproses
+                </div>
 
-                <button
-                  type="button"
-                  onClick={
-                    closeTukarFaktur
-                  }
-                  disabled={
-                    isSubmitting
-                  }
-                  className="
-                    w-full
-                    sm:w-auto
-                    px-5
-                    py-2.5
-                    rounded-full
-                    border
-                    border-gray-300
-                    bg-white
-                    text-gray-600
-                    text-sm
-                    font-semibold
-                    hover:bg-gray-100
-                    transition
-                    disabled:opacity-50
-                    disabled:cursor-not-allowed
-                  "
-                >
-                  Batal
-                </button>
+                <div className="flex flex-col-reverse sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={closeTukarFaktur}
+                    disabled={isSubmitting}
+                    className="
+                      w-full
+                      sm:w-auto
+                      px-5
+                      py-2.5
+                      rounded-full
+                      border
+                      border-gray-300
+                      bg-white
+                      text-gray-600
+                      text-sm
+                      font-semibold
+                      hover:bg-gray-100
+                      transition
+                      disabled:opacity-50
+                      disabled:cursor-not-allowed
+                    "
+                  >
+                    Batal
+                  </button>
 
-
-                <button
-                  type="button"
-                  disabled={
-                    !selectedFile ||
-                    isSubmitting
-                  }
-                  onClick={
-                    handleTukarFaktur
-                  }
-                  className="
-                    w-full
-                    sm:w-auto
-                    px-6
-                    py-2.5
-                    rounded-full
-                    bg-primary
-                    text-white
-                    text-sm
-                    font-semibold
-                    hover:opacity-90
-                    shadow-md
-                    disabled:bg-gray-300
-                    disabled:cursor-not-allowed
-                    inline-flex
-                    items-center
-                    justify-center
-                    gap-2
-                    transition
-                  "
-                >
-
-                  {
-                    isSubmitting ? (
-
+                  <button
+                    type="button"
+                    disabled={
+                      isSubmitting ||
+                      selectedFakturList.length === 0 ||
+                      selectedFakturList.some(item => !bulkFiles[item.id])
+                    }
+                    onClick={handleTukarFaktur}
+                    className="
+                      w-full
+                      sm:w-auto
+                      px-6
+                      py-2.5
+                      rounded-full
+                      bg-primary
+                      text-white
+                      text-sm
+                      font-semibold
+                      hover:opacity-90
+                      shadow-md
+                      disabled:bg-gray-300
+                      disabled:cursor-not-allowed
+                      inline-flex
+                      items-center
+                      justify-center
+                      gap-2
+                      transition
+                    "
+                  >
+                    {isSubmitting ? (
                       <>
-                        <span
-                          className="
-                            loading
-                            loading-spinner
-                            loading-xs
-                          "
-                        />
-
+                        <span className="loading loading-spinner loading-xs" />
                         Memproses...
-
                       </>
-
                     ) : (
-
                       <>
                         <FaExchangeAlt />
-
-                        Tukar Faktur
-
+                        Tukar {selectedFakturList.length} Faktur
                       </>
-
-                    )
-                  }
-
-                </button>
-
+                    )}
+                  </button>
+                </div>
               </div>
 
             </div>
-
           </div>
-
         )
       }
 

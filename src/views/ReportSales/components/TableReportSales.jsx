@@ -769,25 +769,25 @@ const TableReportSales = ({
       icon: <FaHashtag />,
     },
 
-    {
-      label: "Tanggal",
-      icon: <FaCalendarAlt />,
-    },
+    // {
+    //   label: "Tanggal",
+    //   icon: <FaCalendarAlt />,
+    // },
 
     // {
     //   label: "No. Transaksi",
     //   icon: <FaClipboardList />,
     // },
 
-    {
-      label: "Customer",
-      icon: <FaBuilding />,
-    },
+    // {
+    //   label: "Customer",
+    //   icon: <FaBuilding />,
+    // },
 
-    {
-      label: "Principal",
-      icon: <FaChartLine />,
-    },
+    // {
+    //   label: "Principal",
+    //   icon: <FaChartLine />,
+    // },
 
     {
       label: "Sales",
@@ -805,19 +805,19 @@ const TableReportSales = ({
     },
 
     {
-      label: "Pencairan",
-      icon: <FaMoneyBillWave />,
-    },
-
-    {
       label: "Net Sales",
       icon: <FaChartLine />,
     },
 
     {
-      label: "Status",
-      icon: <FaClipboardList />,
+      label: "Pencairan",
+      icon: <FaMoneyBillWave />,
     },
+
+    // {
+    //   label: "Status",
+    //   icon: <FaClipboardList />,
+    // },
 
   ];
 
@@ -1882,7 +1882,7 @@ const TableReportSales = ({
 
                             {/* TANGGAL */}
 
-                            <td
+                            {/* <td
                               className="
                                 px-4
                                 py-3
@@ -1914,7 +1914,7 @@ const TableReportSales = ({
 
                               </div>
 
-                            </td>
+                            </td> */}
 
 
                             {/* NO TRANSAKSI */}
@@ -1974,7 +1974,7 @@ const TableReportSales = ({
 
                             {/* CUSTOMER */}
 
-                            <td
+                            {/* <td
                               className="
                                 px-4
                                 py-3
@@ -2022,12 +2022,12 @@ const TableReportSales = ({
 
                               </div>
 
-                            </td>
+                            </td> */}
 
 
                             {/* PRINCIPAL */}
 
-                            <td
+                            {/* <td
                               className="
                                 px-4
                                 py-3
@@ -2053,7 +2053,7 @@ const TableReportSales = ({
                                 }
                               </span>
 
-                            </td>
+                            </td> */}
 
 
                             {/* SALES */}
@@ -2147,6 +2147,30 @@ const TableReportSales = ({
 
                             </td>
 
+                            {/* NET SALES */}
+
+                            <td
+                              className="
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
+                            >
+
+                              <span
+                                className="
+                                  font-bold
+                                  text-indigo-700
+                                "
+                              >
+                                {
+                                  formatCurrency(
+                                    netSales
+                                  )
+                                }
+                              </span>
+
+                            </td>
 
                             {/* PENCAIRAN */}
 
@@ -2174,35 +2198,9 @@ const TableReportSales = ({
                             </td>
 
 
-                            {/* NET SALES */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <span
-                                className="
-                                  font-bold
-                                  text-indigo-700
-                                "
-                              >
-                                {
-                                  formatCurrency(
-                                    netSales
-                                  )
-                                }
-                              </span>
-
-                            </td>
-
-
                             {/* STATUS */}
 
-                            <td
+                            {/* <td
                               className="
                                 px-4
                                 py-3
@@ -2215,7 +2213,7 @@ const TableReportSales = ({
                                 )
                               }
 
-                            </td>
+                            </td> */}
 
                           </tr>
 
