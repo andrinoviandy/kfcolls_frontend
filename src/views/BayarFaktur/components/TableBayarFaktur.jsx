@@ -134,7 +134,7 @@ const dummyData = [
   {
     id: 1,
     no_faktur: "10000271521",
-    customer_id: "10000271521",
+    customer_id: "CUST001",
     nama_customer: "Dinas Kesehatan Kota Medan",
     nama_penagih: "KFTD Medan",
     alamat: "Jl. Gatot Subroto No. 125, Medan",
@@ -154,7 +154,7 @@ const dummyData = [
   {
     id: 2,
     no_faktur: "10000271522",
-    customer_id: "10000271522",
+    customer_id: "CUST002",
     nama_customer: "Apotek Maju Djaya",
     nama_penagih: "KFTD Medan",
     alamat: "Jl. Sisingamangaraja No. 88, Medan",
@@ -174,10 +174,10 @@ const dummyData = [
   {
     id: 3,
     no_faktur: "10000271523",
-    customer_id: "10000271523",
-    nama_customer: "Apotek Rusli",
+    customer_id: "CUST001",
+    nama_customer: "Dinas Kesehatan Kota Medan",
     nama_penagih: "KFTD Medan",
-    alamat: "Jl. Iskandar Muda No. 45, Medan",
+    alamat: "Jl. Gatot Subroto No. 125, Medan",
 
     nominal_tagihan: 140000000,
     total_dibayar: 0,
@@ -194,7 +194,7 @@ const dummyData = [
   {
     id: 4,
     no_faktur: "10000271524",
-    customer_id: "10000271524",
+    customer_id: "CUST003",
     nama_customer: "RSUD Pasuruan",
     nama_penagih: "KFTD Pasuruan",
     alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
@@ -214,7 +214,7 @@ const dummyData = [
   {
     id: 5,
     no_faktur: "10000271525",
-    customer_id: "10000271525",
+    customer_id: "CUST004",
     nama_customer: "RS Hermina Medan",
     nama_penagih: "KFTD Medan",
     alamat: "Jl. Asrama No. 12, Medan",
@@ -234,10 +234,10 @@ const dummyData = [
   {
     id: 6,
     no_faktur: "10000271526",
-    customer_id: "10000271526",
-    nama_customer: "Apotek Sehat Sentosa",
-    nama_penagih: "KFTD Jakarta",
-    alamat: "Jl. Kelapa Gading Raya No. 21, Jakarta",
+    customer_id: "CUST003",
+    nama_customer: "RSUD Pasuruan",
+    nama_penagih: "KFTD Pasuruan",
+    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
 
     nominal_tagihan: 65000000,
     total_dibayar: 0,
@@ -254,10 +254,10 @@ const dummyData = [
   {
     id: 7,
     no_faktur: "10000271527",
-    customer_id: "10000271527",
-    nama_customer: "Klinik Medika Utama",
-    nama_penagih: "KFTD Jakarta",
-    alamat: "Jl. Boulevard Barat No. 30, Jakarta",
+    customer_id: "CUST004",
+    nama_customer: "RS Hermina Medan",
+    nama_penagih: "KFTD Medan",
+    alamat: "Jl. Asrama No. 12, Medan",
 
     nominal_tagihan: 72500000,
     total_dibayar: 0,
@@ -274,10 +274,10 @@ const dummyData = [
   {
     id: 8,
     no_faktur: "10000271528",
-    customer_id: "10000271528",
-    nama_customer: "RS Siloam Medan",
+    customer_id: "CUST001",
+    nama_customer: "Dinas Kesehatan Kota Medan",
     nama_penagih: "KFTD Medan",
-    alamat: "Jl. Imam Bonjol No. 5, Medan",
+    alamat: "Jl. Gatot Subroto No. 125, Medan",
 
     nominal_tagihan: 210000000,
     total_dibayar: 0,
@@ -294,10 +294,10 @@ const dummyData = [
   {
     id: 9,
     no_faktur: "10000271529",
-    customer_id: "10000271529",
-    nama_customer: "Dinas Kesehatan Deli Serdang",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Negara No. 100, Deli Serdang",
+    customer_id: "CUST003",
+    nama_customer: "RSUD Pasuruan",
+    nama_penagih: "KFTD Pasuruan",
+    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
 
     nominal_tagihan: 125000000,
     total_dibayar: 0,
@@ -314,10 +314,10 @@ const dummyData = [
   {
     id: 10,
     no_faktur: "10000271530",
-    customer_id: "10000271530",
-    nama_customer: "Apotek Kimia Sehat",
-    nama_penagih: "KFTD Jakarta",
-    alamat: "Jl. Sunter Agung No. 18, Jakarta",
+    customer_id: "CUST004",
+    nama_customer: "RS Hermina Medan",
+    nama_penagih: "KFTD Medan",
+    alamat: "Jl. Asrama No. 12, Medan",
 
     nominal_tagihan: 45000000,
     total_dibayar: 0,
@@ -334,10 +334,10 @@ const dummyData = [
   {
     id: 11,
     no_faktur: "10000271531",
-    customer_id: "10000271531",
-    nama_customer: "RSUD Kota Bogor",
-    nama_penagih: "KFTD Bogor",
-    alamat: "Jl. Pajajaran No. 50, Bogor",
+    customer_id: "CUST002",
+    nama_customer: "Apotek Maju Djaya",
+    nama_penagih: "KFTD Medan",
+    alamat: "Jl. Sisingamangaraja No. 88, Medan",
 
     nominal_tagihan: 185000000,
     total_dibayar: 0,
@@ -354,10 +354,10 @@ const dummyData = [
   {
     id: 12,
     no_faktur: "10000271532",
-    customer_id: "10000271532",
-    nama_customer: "Apotek Berkah Farma",
-    nama_penagih: "KFTD Bogor",
-    alamat: "Jl. Merdeka No. 12, Bogor",
+    customer_id: "CUST003",
+    nama_customer: "RSUD Pasuruan",
+    nama_penagih: "KFTD Pasuruan",
+    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
 
     nominal_tagihan: 55000000,
     total_dibayar: 0,
@@ -484,6 +484,95 @@ const TableBayarFaktur = ({
     partialAllocation,
     setPartialAllocation
   ] = useState([]);
+
+  const [
+    selectedCustomerId,
+    setSelectedCustomerId
+  ] = useState("");
+
+
+  // ===================================================
+  // CUSTOMER OPTIONS FOR PARTIAL PAYMENT
+  // ===================================================
+
+  const partialCustomerOptions =
+    useMemo(() => {
+
+      const customers =
+        allData.filter(
+          item =>
+            (
+              item.status ===
+              "BELUM_DIBAYAR"
+              ||
+              item.status ===
+              "PARTIAL"
+            )
+            &&
+            Number(
+              item.sisa_tagihan ??
+              item.nominal_tagihan ??
+              0
+            ) > 0
+        );
+
+      const map =
+        new Map();
+
+      customers.forEach(
+        item => {
+
+          if (
+            !map.has(
+              item.customer_id
+            )
+          ) {
+
+            map.set(
+              item.customer_id,
+              {
+                customer_id:
+                  item.customer_id,
+
+                nama_customer:
+                  item.nama_customer,
+
+                nama_penagih:
+                  item.nama_penagih,
+
+                jumlah_faktur: 0,
+
+                total_sisa_tagihan: 0,
+              }
+            );
+
+          }
+
+          const customer =
+            map.get(
+              item.customer_id
+            );
+
+          customer.jumlah_faktur +=
+            1;
+
+          customer.total_sisa_tagihan +=
+            Number(
+              item.sisa_tagihan ??
+              item.nominal_tagihan ??
+              0
+            );
+
+        }
+      );
+
+      return Array.from(
+        map.values()
+      );
+
+    }, [
+      allData
+    ]);
 
 
   // ===================================================
@@ -912,7 +1001,9 @@ const TableBayarFaktur = ({
   // OPEN PARTIAL PAYMENT
   // =====================================================
 
-  const openPartialPayment = () => {
+  const openPartialPayment = (
+    data = null
+  ) => {
 
     setPartialPaymentAmount("");
 
@@ -923,6 +1014,12 @@ const TableBayarFaktur = ({
     setPartialSelectedIds([]);
 
     setPartialAllocation([]);
+
+    setSelectedCustomerId(
+      data?.customer_id
+        ? data.customer_id
+        : ""
+    );
 
     setShowPartialPaymentModal(
       true
@@ -950,6 +1047,8 @@ const TableBayarFaktur = ({
     setPartialSelectedIds([]);
 
     setPartialAllocation([]);
+
+    setSelectedCustomerId("");
 
   };
 
@@ -993,16 +1092,43 @@ const TableBayarFaktur = ({
 
   const getPayableInvoices = () => {
 
+    if (
+      !selectedCustomerId
+    ) {
+
+      return [];
+
+    }
+
     return allData.filter(
       item =>
 
-        item.status ===
-        "BELUM_DIBAYAR"
+        String(
+          item.customer_id
+        ) ===
+        String(
+          selectedCustomerId
+        )
 
-        ||
+        &&
 
-        item.status ===
-        "PARTIAL"
+        (
+          item.status ===
+          "BELUM_DIBAYAR"
+
+          ||
+
+          item.status ===
+          "PARTIAL"
+        )
+
+        &&
+
+        Number(
+          item.sisa_tagihan ??
+          item.nominal_tagihan ??
+          0
+        ) > 0
     );
 
   };
@@ -1263,6 +1389,18 @@ const TableBayarFaktur = ({
 
   const generatePartialAllocation = () => {
 
+    if (
+      !selectedCustomerId
+    ) {
+
+      alert(
+        "Pilih customer terlebih dahulu."
+      );
+
+      return;
+
+    }
+
     const paymentAmount =
       parseNominal(
         partialPaymentAmount
@@ -1317,6 +1455,18 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const handlePartialPayment = () => {
+
+    if (
+      !selectedCustomerId
+    ) {
+
+      alert(
+        "Pilih customer terlebih dahulu."
+      );
+
+      return;
+
+    }
 
     if (
       partialAllocation.length ===
@@ -2918,8 +3068,10 @@ const TableBayarFaktur = ({
 
                                   <button
                                     type="button"
-                                    onClick={
-                                      openPartialPayment
+                                    onClick={() =>
+                                      openPartialPayment(
+                                        v
+                                      )
                                     }
                                     className="
                                       inline-flex
@@ -4690,6 +4842,278 @@ const TableBayarFaktur = ({
               >
 
                 {/* ================================================= */}
+                {/* ================================================= */}
+                {/* CUSTOMER */}
+                {/* ================================================= */}
+
+                <div
+                  className="
+                    rounded-2xl
+                    bg-indigo-50
+                    border
+                    border-indigo-100
+                    p-5
+                    mb-5
+                  "
+                >
+
+                  <div
+                    className="
+                      flex
+                      items-start
+                      gap-3
+                      mb-3
+                    "
+                  >
+
+                    <div
+                      className="
+                        w-10
+                        h-10
+                        rounded-xl
+                        bg-indigo-100
+                        text-indigo-600
+                        flex
+                        items-center
+                        justify-center
+                        shrink-0
+                      "
+                    >
+                      <FaBuilding />
+                    </div>
+
+                    <div>
+                      <p
+                        className="
+                          text-sm
+                          font-bold
+                          text-indigo-900
+                        "
+                      >
+                        Pilih Customer Terlebih Dahulu
+                      </p>
+
+                      <p
+                        className="
+                          text-xs
+                          text-indigo-700
+                          mt-1
+                        "
+                      >
+                        Data faktur hanya akan ditampilkan setelah customer dipilih.
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <select
+                    className="
+                      select
+                      select-bordered
+                      w-full
+                      bg-white
+                      rounded-xl
+                      font-semibold
+                      text-gray-700
+                    "
+                    value={
+                      selectedCustomerId
+                    }
+                    onChange={
+                      e => {
+
+                        setSelectedCustomerId(
+                          e.target.value
+                        );
+
+                        setPartialSelectedIds([]);
+
+                        setPartialAllocation([]);
+
+                      }
+                    }
+                  >
+
+                    <option value="">
+                      -- Pilih Customer --
+                    </option>
+
+                    {
+                      partialCustomerOptions.map(
+                        customer => (
+
+                          <option
+                            key={
+                              customer.customer_id
+                            }
+                            value={
+                              customer.customer_id
+                            }
+                          >
+                            {
+                              customer.nama_customer
+                            }
+                            {" - "}
+                            {
+                              customer.jumlah_faktur
+                            }
+                            {" faktur"}
+                          </option>
+
+                        )
+                      )
+                    }
+
+                  </select>
+
+                  {
+                    selectedCustomerId && (
+
+                      <div
+                        className="
+                          mt-3
+                          grid
+                          grid-cols-1
+                          sm:grid-cols-3
+                          gap-3
+                        "
+                      >
+
+                        {
+                          (() => {
+
+                            const customer =
+                              partialCustomerOptions.find(
+                                item =>
+                                  String(
+                                    item.customer_id
+                                  ) ===
+                                  String(
+                                    selectedCustomerId
+                                  )
+                              );
+
+                            if (!customer) {
+                              return null;
+                            }
+
+                            return (
+                              <>
+                                <div
+                                  className="
+                                    rounded-xl
+                                    bg-white
+                                    border
+                                    border-indigo-100
+                                    px-4
+                                    py-3
+                                  "
+                                >
+                                  <p
+                                    className="
+                                      text-[11px]
+                                      text-gray-500
+                                    "
+                                  >
+                                    Customer
+                                  </p>
+
+                                  <p
+                                    className="
+                                      text-sm
+                                      font-bold
+                                      text-gray-700
+                                      mt-0.5
+                                    "
+                                  >
+                                    {
+                                      customer.nama_customer
+                                    }
+                                  </p>
+                                </div>
+
+                                <div
+                                  className="
+                                    rounded-xl
+                                    bg-white
+                                    border
+                                    border-indigo-100
+                                    px-4
+                                    py-3
+                                  "
+                                >
+                                  <p
+                                    className="
+                                      text-[11px]
+                                      text-gray-500
+                                    "
+                                  >
+                                    Jumlah Faktur
+                                  </p>
+
+                                  <p
+                                    className="
+                                      text-sm
+                                      font-bold
+                                      text-primary
+                                      mt-0.5
+                                    "
+                                  >
+                                    {
+                                      customer.jumlah_faktur
+                                    }
+                                    {" "}Faktur
+                                  </p>
+                                </div>
+
+                                <div
+                                  className="
+                                    rounded-xl
+                                    bg-white
+                                    border
+                                    border-indigo-100
+                                    px-4
+                                    py-3
+                                  "
+                                >
+                                  <p
+                                    className="
+                                      text-[11px]
+                                      text-gray-500
+                                    "
+                                  >
+                                    Total Sisa Tagihan
+                                  </p>
+
+                                  <p
+                                    className="
+                                      text-sm
+                                      font-bold
+                                      text-orange-600
+                                      mt-0.5
+                                    "
+                                  >
+                                    {
+                                      formatRupiah(
+                                        customer.total_sisa_tagihan
+                                      )
+                                    }
+                                  </p>
+                                </div>
+                              </>
+                            );
+
+                          })()
+                        }
+
+                      </div>
+
+                    )
+                  }
+
+                </div>
+
+
                 {/* NOMINAL + METHOD */}
                 {/* ================================================= */}
 
@@ -5001,6 +5425,7 @@ const TableBayarFaktur = ({
                 {/* ================================================= */}
 
                 {
+                  selectedCustomerId &&
                   partialPaymentMethod ===
                   "MANUAL" && (
 
@@ -5127,7 +5552,56 @@ const TableBayarFaktur = ({
                           <tbody>
 
                             {
-                              getPayableInvoices()
+                              !selectedCustomerId ? (
+
+                                <tr>
+                                  <td
+                                    colSpan={6}
+                                    className="
+                                      py-12
+                                      text-center
+                                      text-gray-500
+                                    "
+                                  >
+                                    <div
+                                      className="
+                                        flex
+                                        flex-col
+                                        items-center
+                                        justify-center
+                                        gap-2
+                                      "
+                                    >
+                                      <FaBuilding
+                                        className="
+                                          text-3xl
+                                          text-indigo-300
+                                        "
+                                      />
+
+                                      <p
+                                        className="
+                                          text-sm
+                                          font-semibold
+                                          text-gray-600
+                                        "
+                                      >
+                                        Silakan pilih customer terlebih dahulu
+                                      </p>
+
+                                      <p
+                                        className="
+                                          text-xs
+                                          text-gray-400
+                                        "
+                                      >
+                                        Data faktur customer akan muncul di sini.
+                                      </p>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                              ) : getPayableInvoices()
                                 .map(
                                   item => (
 
@@ -5273,6 +5747,7 @@ const TableBayarFaktur = ({
                 {/* ================================================= */}
 
                 {
+                  selectedCustomerId &&
                   partialPaymentMethod ===
                   "SYSTEM" && (
 
@@ -5343,6 +5818,9 @@ const TableBayarFaktur = ({
 
                   <button
                     type="button"
+                    disabled={
+                      !selectedCustomerId
+                    }
                     onClick={
                       generatePartialAllocation
                     }
@@ -5359,6 +5837,8 @@ const TableBayarFaktur = ({
                       font-semibold
                       hover:opacity-90
                       shadow-md
+                      disabled:opacity-50
+                      disabled:cursor-not-allowed
                     "
                   >
 
@@ -5770,6 +6250,7 @@ const TableBayarFaktur = ({
                 <button
                   type="button"
                   disabled={
+                    !selectedCustomerId ||
                     partialAllocation.length ===
                     0
                   }
