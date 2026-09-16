@@ -225,7 +225,7 @@ const dummyData = [
       "SALESMAN",
 
     jenis_penugasan:
-      "PENGAGIHAN",
+      "PENAGIHAN",
 
   },
 
@@ -297,7 +297,7 @@ const dummyData = [
       "KOLEKTOR",
 
     jenis_penugasan:
-      "PENGAGIHAN",
+      "PENAGIHAN",
 
   },
 
@@ -369,7 +369,7 @@ const dummyData = [
       "SALESMAN",
 
     jenis_penugasan:
-      "PENGAGIHAN",
+      "PENAGIHAN",
 
   },
 
@@ -477,7 +477,7 @@ const dummyData = [
       "KOLEKTOR",
 
     jenis_penugasan:
-      "PENGAGIHAN",
+      "PENAGIHAN",
 
   },
 
@@ -1698,7 +1698,7 @@ const TablePenugasanFaktur = ({
                 type="button"
                 onClick={() =>
                   openAssignment(
-                    "PENGAGIHAN"
+                    "PENAGIHAN"
                   )
                 }
                 className="
@@ -1720,7 +1720,7 @@ const TablePenugasanFaktur = ({
 
                 <FaRoute />
 
-                Pengagihan
+                Penagihan
                 (
                 {
                   selectedIds.length
@@ -2347,7 +2347,7 @@ const TablePenugasanFaktur = ({
                                   Tukar Faktur
                                 </span>
                               )
-                              : v.jenis_penugasan === "PENGAGIHAN"
+                              : v.jenis_penugasan === "PENAGIHAN"
                                 ? (
                                   <span
                                     className="
@@ -2364,7 +2364,7 @@ const TablePenugasanFaktur = ({
                                     "
                                   >
                                     <FaRoute />
-                                    Pengagihan
+                                    Penagihan
                                   </span>
                                 )
                                 : (
@@ -2761,7 +2761,7 @@ const TablePenugasanFaktur = ({
                       >
                         {selectedAction === "TUKAR_FAKTUR"
                           ? "Penugasan Tukar Faktur"
-                          : "Penugasan Pengagihan"}
+                          : "Penugasan Penagihan"}
                       </h3>
 
                       <p
@@ -2873,7 +2873,7 @@ const TablePenugasanFaktur = ({
                       >
                         {selectedAction === "TUKAR_FAKTUR"
                           ? "Pilih salesman atau kolektor yang bertanggung jawab untuk proses tukar faktur."
-                          : "Pilih salesman atau kolektor yang bertanggung jawab untuk proses pengagihan faktur."}
+                          : "Pilih salesman atau kolektor yang bertanggung jawab untuk proses penagihan faktur."}
                       </p>
 
                     </div>
@@ -2928,7 +2928,7 @@ const TablePenugasanFaktur = ({
                         <p className="text-sm font-bold text-gray-700">
                           {selectedAction === "TUKAR_FAKTUR"
                             ? "Tukar Faktur"
-                            : "Pengagihan"}
+                            : "Penagihan"}
                         </p>
                       </div>
                     </div>
@@ -2953,7 +2953,7 @@ const TablePenugasanFaktur = ({
                     >
                       {selectedAction === "TUKAR_FAKTUR"
                         ? "Petugas Tukar Faktur"
-                        : "Petugas Pengagihan"}
+                        : "Petugas Penagihan"}
                     </label>
 
 
@@ -3165,7 +3165,7 @@ const TablePenugasanFaktur = ({
                       >
                         {selectedAction === "TUKAR_FAKTUR"
                           ? "Faktur untuk Tukar Faktur"
-                          : "Faktur untuk Pengagihan"}
+                          : "Faktur untuk Penagihan"}
                       </p>
 
                       <span
@@ -3375,7 +3375,7 @@ const TablePenugasanFaktur = ({
 
                   {selectedAction === "TUKAR_FAKTUR"
                     ? "Tugaskan Tukar Faktur"
-                    : "Tugaskan Pengagihan"}
+                    : "Tugaskan Penagihan"}
 
                 </button>
 
