@@ -21,6 +21,7 @@ import {
   FaCheckDouble,
   FaTimes,
   FaClipboardList,
+  FaExchangeAlt,
 } from "react-icons/fa";
 
 import {
@@ -151,6 +152,9 @@ const dummyData = [
     tipe_petugas:
       null,
 
+    jenis_penugasan:
+      null,
+
   },
 
 
@@ -182,6 +186,9 @@ const dummyData = [
       null,
 
     tipe_petugas:
+      null,
+
+    jenis_penugasan:
       null,
 
   },
@@ -217,6 +224,9 @@ const dummyData = [
     tipe_petugas:
       "SALESMAN",
 
+    jenis_penugasan:
+      "PENGAGIHAN",
+
   },
 
 
@@ -248,6 +258,9 @@ const dummyData = [
       null,
 
     tipe_petugas:
+      null,
+
+    jenis_penugasan:
       null,
 
   },
@@ -283,6 +296,9 @@ const dummyData = [
     tipe_petugas:
       "KOLEKTOR",
 
+    jenis_penugasan:
+      "PENGAGIHAN",
+
   },
 
 
@@ -314,6 +330,9 @@ const dummyData = [
       null,
 
     tipe_petugas:
+      null,
+
+    jenis_penugasan:
       null,
 
   },
@@ -349,6 +368,9 @@ const dummyData = [
     tipe_petugas:
       "SALESMAN",
 
+    jenis_penugasan:
+      "PENGAGIHAN",
+
   },
 
 
@@ -380,6 +402,9 @@ const dummyData = [
       null,
 
     tipe_petugas:
+      null,
+
+    jenis_penugasan:
       null,
 
   },
@@ -415,6 +440,9 @@ const dummyData = [
     tipe_petugas:
       null,
 
+    jenis_penugasan:
+      null,
+
   },
 
 
@@ -447,6 +475,9 @@ const dummyData = [
 
     tipe_petugas:
       "KOLEKTOR",
+
+    jenis_penugasan:
+      "PENGAGIHAN",
 
   },
 
@@ -481,6 +512,9 @@ const dummyData = [
     tipe_petugas:
       null,
 
+    jenis_penugasan:
+      null,
+
   },
 
 
@@ -512,6 +546,9 @@ const dummyData = [
       null,
 
     tipe_petugas:
+      null,
+
+    jenis_penugasan:
       null,
 
   },
@@ -604,6 +641,13 @@ const TablePenugasanFaktur = ({
   const [
     selectedPetugas,
     setSelectedPetugas,
+  ] = useState(
+    ""
+  );
+
+  const [
+    selectedAction,
+    setSelectedAction,
   ] = useState(
     ""
   );
@@ -911,7 +955,7 @@ const TablePenugasanFaktur = ({
   // ===================================================
 
   const openAssignment =
-    () => {
+    (action) => {
 
       if (
         selectedIds.length ===
@@ -922,6 +966,10 @@ const TablePenugasanFaktur = ({
 
       }
 
+
+      setSelectedAction(
+        action
+      );
 
       setSelectedPetugas(
         ""
@@ -945,6 +993,10 @@ const TablePenugasanFaktur = ({
         ""
       );
 
+      setSelectedAction(
+        ""
+      );
+
       setShowAssignmentPanel(
         false
       );
@@ -960,7 +1012,8 @@ const TablePenugasanFaktur = ({
     () => {
 
       if (
-        !selectedPetugas
+        !selectedPetugas ||
+        !selectedAction
       ) {
 
         return;
@@ -1011,6 +1064,9 @@ const TablePenugasanFaktur = ({
 
                   tipe_petugas:
                     petugas.tipe,
+
+                  jenis_penugasan:
+                    selectedAction,
 
                 }
 
@@ -1161,6 +1217,14 @@ const TablePenugasanFaktur = ({
 
       icon:
         <FaUser />,
+    },
+
+    {
+      label:
+        "Tujuan Penugasan",
+
+      icon:
+        <FaRoute />,
     },
 
     {
@@ -1632,14 +1696,16 @@ const TablePenugasanFaktur = ({
 
               <button
                 type="button"
-                onClick={
-                  openAssignment
+                onClick={() =>
+                  openAssignment(
+                    "PENGAGIHAN"
+                  )
                 }
                 className="
                   inline-flex
                   items-center
                   gap-2
-                  px-5
+                  px-4
                   py-2
                   rounded-full
                   bg-primary
@@ -1654,7 +1720,42 @@ const TablePenugasanFaktur = ({
 
                 <FaRoute />
 
-                Tugaskan Faktur
+                Pengagihan
+                (
+                {
+                  selectedIds.length
+                }
+                )
+
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  openAssignment(
+                    "TUKAR_FAKTUR"
+                  )
+                }
+                className="
+                  inline-flex
+                  items-center
+                  gap-2
+                  px-4
+                  py-2
+                  rounded-full
+                  bg-orange-500
+                  text-white
+                  text-sm
+                  font-semibold
+                  hover:bg-orange-600
+                  transition
+                  shadow-md
+                "
+              >
+
+                <FaExchangeAlt />
+
+                Tukar Faktur
                 (
                 {
                   selectedIds.length
@@ -2216,6 +2317,70 @@ const TablePenugasanFaktur = ({
                           </td>
 
 
+                          {/* TUJUAN PENUGASAN */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+
+                            {v.jenis_penugasan === "TUKAR_FAKTUR"
+                              ? (
+                                <span
+                                  className="
+                                    inline-flex
+                                    items-center
+                                    gap-2
+                                    rounded-full
+                                    bg-orange-100
+                                    px-3
+                                    py-1.5
+                                    text-xs
+                                    font-semibold
+                                    text-orange-700
+                                  "
+                                >
+                                  <FaExchangeAlt />
+                                  Tukar Faktur
+                                </span>
+                              )
+                              : v.jenis_penugasan === "PENGAGIHAN"
+                                ? (
+                                  <span
+                                    className="
+                                      inline-flex
+                                      items-center
+                                      gap-2
+                                      rounded-full
+                                      bg-blue-100
+                                      px-3
+                                      py-1.5
+                                      text-xs
+                                      font-semibold
+                                      text-blue-700
+                                    "
+                                  >
+                                    <FaRoute />
+                                    Pengagihan
+                                  </span>
+                                )
+                                : (
+                                  <span
+                                    className="
+                                      text-xs
+                                      text-gray-400
+                                    "
+                                  >
+                                    Belum ditentukan
+                                  </span>
+                                )}
+
+                          </td>
+
+
                           {/* STATUS */}
 
                           <td
@@ -2594,7 +2759,9 @@ const TablePenugasanFaktur = ({
                     truncate
                   "
                       >
-                        Penugasan Faktur
+                        {selectedAction === "TUKAR_FAKTUR"
+                          ? "Penugasan Tukar Faktur"
+                          : "Penugasan Pengagihan"}
                       </h3>
 
                       <p
@@ -2704,11 +2871,66 @@ const TablePenugasanFaktur = ({
                     leading-relaxed
                   "
                       >
-                        Pilih salesman atau kolektor
-                        yang bertanggung jawab untuk
-                        mengantar faktur tersebut.
+                        {selectedAction === "TUKAR_FAKTUR"
+                          ? "Pilih salesman atau kolektor yang bertanggung jawab untuk proses tukar faktur."
+                          : "Pilih salesman atau kolektor yang bertanggung jawab untuk proses pengagihan faktur."}
                       </p>
 
+                    </div>
+
+                  </div>
+
+
+                  {/* ========================================= */}
+                  {/* TUJUAN PENUGASAN */}
+                  {/* ========================================= */}
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      gap-3
+                      rounded-xl
+                      border
+                      border-gray-200
+                      bg-gray-50
+                      px-4
+                      py-3
+                    "
+                  >
+
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`
+                          flex
+                          h-9
+                          w-9
+                          items-center
+                          justify-center
+                          rounded-lg
+                          ${
+                            selectedAction === "TUKAR_FAKTUR"
+                              ? "bg-orange-100 text-orange-600"
+                              : "bg-blue-100 text-blue-600"
+                          }
+                        `}
+                      >
+                        {selectedAction === "TUKAR_FAKTUR"
+                          ? <FaExchangeAlt />
+                          : <FaRoute />}
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] text-gray-400">
+                          Tujuan penugasan
+                        </p>
+                        <p className="text-sm font-bold text-gray-700">
+                          {selectedAction === "TUKAR_FAKTUR"
+                            ? "Tukar Faktur"
+                            : "Pengagihan"}
+                        </p>
+                      </div>
                     </div>
 
                   </div>
@@ -2729,7 +2951,9 @@ const TablePenugasanFaktur = ({
                   mb-2
                 "
                     >
-                      Petugas Pengantaran
+                      {selectedAction === "TUKAR_FAKTUR"
+                        ? "Petugas Tukar Faktur"
+                        : "Petugas Pengagihan"}
                     </label>
 
 
@@ -2939,7 +3163,9 @@ const TablePenugasanFaktur = ({
                     text-gray-700
                   "
                       >
-                        Faktur yang Ditugaskan
+                        {selectedAction === "TUKAR_FAKTUR"
+                          ? "Faktur untuk Tukar Faktur"
+                          : "Faktur untuk Pengagihan"}
                       </p>
 
                       <span
@@ -3143,9 +3369,13 @@ const TablePenugasanFaktur = ({
             "
                 >
 
-                  <FaRoute />
+                  {selectedAction === "TUKAR_FAKTUR"
+                    ? <FaExchangeAlt />
+                    : <FaRoute />}
 
-                  Tugaskan Faktur
+                  {selectedAction === "TUKAR_FAKTUR"
+                    ? "Tugaskan Tukar Faktur"
+                    : "Tugaskan Pengagihan"}
 
                 </button>
 
