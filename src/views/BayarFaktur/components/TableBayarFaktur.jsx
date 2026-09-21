@@ -148,7 +148,7 @@ const dummyData = [
 
     sales: "Andri Noviandy",
 
-    status: "BELUM_DIBAYAR",
+    status: "MENUNGGU_PEMBAYARAN",
   },
 
   {
@@ -168,7 +168,7 @@ const dummyData = [
 
     sales: "Budi Santoso",
 
-    status: "BELUM_DIBAYAR",
+    status: "MENUNGGU_PEMBAYARAN",
   },
 
   {
@@ -188,7 +188,7 @@ const dummyData = [
 
     sales: "Citra Lestari",
 
-    status: "BELUM_DIBAYAR",
+    status: "MENUNGGU_PEMBAYARAN",
   },
 
   {
@@ -208,7 +208,7 @@ const dummyData = [
 
     sales: "Dimas Pratama",
 
-    status: "BELUM_DIBAYAR",
+    status: "MENUNGGU_PEMBAYARAN",
   },
 
   {
@@ -228,7 +228,7 @@ const dummyData = [
 
     sales: "Andri Noviandy",
 
-    status: "BELUM_DIBAYAR",
+    status: "MENUNGGU_PEMBAYARAN",
   },
 
   {
@@ -248,7 +248,7 @@ const dummyData = [
 
     sales: "Budi Santoso",
 
-    status: "BELUM_DIBAYAR",
+    status: "MENUNGGU_PEMBAYARAN",
   },
 
   {
@@ -394,6 +394,13 @@ const statusConfig = {
       "bg-orange-100 text-orange-700",
   },
 
+  MENUNGGU_PEMBAYARAN: {
+    label: "Menunggu Pembayaran",
+    icon: FaMoneyBillWave,
+    className:
+      "bg-blue-100 text-blue-700",
+  },
+
   SUDAH_DIBAYAR: {
     label: "Sudah Dibayar",
     icon: FaCheckCircle,
@@ -454,6 +461,20 @@ const TableBayarFaktur = ({
 
   const [showPaymentModal, setShowPaymentModal] =
     useState(false);
+
+  // State khusus alokasi Partial Payment di Modal Bayar Faktur
+  const [paymentAllocationMode, setPaymentAllocationMode] =
+    useState("MANUAL");
+
+  const [paymentAllocation, setPaymentAllocation] =
+    useState({});
+
+  const [paymentPartialAmount, setPaymentPartialAmount] =
+    useState("");
+
+  const [showPaymentAllocation, setShowPaymentAllocation] =
+    useState(false);
+
 
 
   // ===================================================
@@ -878,6 +899,9 @@ const TableBayarFaktur = ({
       "GIRO"
     );
 
+    setPaymentAllocationMode("MANUAL");
+    setPaymentAllocation({});
+
     setDueDateGiro(
       ""
     );
@@ -893,6 +917,11 @@ const TableBayarFaktur = ({
     setShowPaymentModal(
       true
     );
+
+    setPaymentPartialAmount("");
+    setPaymentAllocation({});
+    setShowPaymentAllocation(false);
+    setPaymentAllocationMode("MANUAL");
 
   };
 
@@ -911,6 +940,11 @@ const TableBayarFaktur = ({
       null
     );
 
+    setPaymentPartialAmount("");
+    setPaymentAllocation({});
+    setShowPaymentAllocation(false);
+    setPaymentAllocationMode("MANUAL");
+
   };
 
 
@@ -919,6 +953,131 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const handlePayment = () => {
+    if (paymentMethod === "PARTIAL_PAYMENT") {
+      if (!canUsePartialPayment) {
+        alert(
+          "Partial Payment hanya dapat digunakan jika minimal 2 faktur yang dipilih berasal dari 1 customer yang sama."
+        );
+        return;
+      }
+
+      const paymentAmount =
+        parseNominal(paymentPartialAmount);
+
+      if (paymentAmount <= 0) {
+        alert(
+          "Masukkan nominal pembayaran terlebih dahulu."
+        );
+        return;
+      }
+
+      if (!showPaymentAllocation) {
+        alert(
+          "Klik Tampilkan Alokasi Pembayaran terlebih dahulu."
+        );
+        return;
+      }
+
+      if (allocatedPaymentTotal <= 0) {
+        alert(
+          "Minimal 1 faktur harus memiliki alokasi pembayaran."
+        );
+        return;
+      }
+
+      if (allocatedPaymentTotal > paymentAmount) {
+        alert(
+          "Total alokasi tidak boleh melebihi nominal pembayaran."
+        );
+        return;
+      }
+
+      if (allocatedPaymentTotal > totalSelectedPayment) {
+        alert(
+          "Total alokasi tidak boleh melebihi total sisa tagihan."
+        );
+        return;
+      }
+
+      setAllData((prev) =>
+        prev.map((item) => {
+          const payment = Number(
+            paymentAllocation[
+              item?.no_faktur
+            ] || 0
+          );
+
+          if (
+            !payment ||
+            String(item?.customer_id) !==
+              String(selectedPaymentCustomer)
+          ) {
+            return item;
+          }
+
+          const invoiceAmount =
+            Number(
+              item?.nominal_tagihan || 0
+            );
+
+          const currentPaid =
+            Number(
+              item?.total_dibayar || 0
+            );
+
+          const currentRemaining =
+            Number(
+              item?.sisa_tagihan ??
+              invoiceAmount
+            );
+
+          const remaining =
+            Math.max(
+              0,
+              currentRemaining -
+                payment
+            );
+
+          return {
+            ...item,
+            nominal_tagihan:
+              invoiceAmount,
+            total_dibayar:
+              currentPaid + payment,
+            sisa_tagihan:
+              remaining,
+            status:
+              remaining <= 0
+                ? "SUDAH_DIBAYAR"
+                : "PARTIAL",
+            tanggal_pembayaran:
+              new Date().toISOString(),
+            metode_pembayaran:
+              "PARTIAL_PAYMENT",
+          };
+        })
+      );
+
+      setSelectedIds((prev) =>
+        prev.filter(
+          (id) =>
+            !selectedPaymentInvoices.some(
+              (invoice) =>
+                invoice.id === id &&
+                Number(
+                  paymentAllocation[
+                    invoice.no_faktur
+                  ] || 0
+                ) > 0
+            )
+        )
+      );
+
+      closePayment();
+      return;
+    }
+
+
 
     const dataToPay =
       Array.isArray(
@@ -1607,6 +1766,192 @@ const TableBayarFaktur = ({
   // RENDER STATUS
   // ===================================================
 
+  
+  // ============================================================
+  // PARTIAL PAYMENT DI MODAL BAYAR SEKARANG
+  // Hanya tersedia jika minimal 2 faktur dipilih dan semua faktur
+  // tersebut dimiliki oleh 1 customer yang sama.
+  // ============================================================
+
+  const paymentSelection = useMemo(() => {
+    if (Array.isArray(selectedData)) return selectedData;
+    return selectedData ? [selectedData] : [];
+  }, [selectedData]);
+
+  const selectedPaymentCustomer = useMemo(() => {
+    const customers = [
+      ...new Set(
+        paymentSelection
+          .map((item) => item?.customer_id)
+          .filter(Boolean)
+      ),
+    ];
+
+    return customers.length === 1 ? customers[0] : null;
+  }, [paymentSelection]);
+
+  const selectedPaymentCustomerName = useMemo(() => {
+    const item = paymentSelection.find(
+      (v) =>
+        String(v?.customer_id) ===
+        String(selectedPaymentCustomer)
+    );
+
+    return item?.nama_customer || "-";
+  }, [paymentSelection, selectedPaymentCustomer]);
+
+  const canUsePartialPayment =
+    paymentSelection.length > 1 &&
+    !!selectedPaymentCustomer;
+
+  const selectedPaymentInvoices = useMemo(() => {
+    return paymentSelection.filter(
+      (item) =>
+        String(item?.customer_id) ===
+          String(selectedPaymentCustomer) &&
+        Number(
+          item?.sisa_tagihan ??
+          item?.nominal_tagihan ??
+          0
+        ) > 0
+    );
+  }, [paymentSelection, selectedPaymentCustomer]);
+
+  const totalSelectedPayment = useMemo(() => {
+    return selectedPaymentInvoices.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item?.sisa_tagihan ??
+          item?.nominal_tagihan ??
+          0
+        ),
+      0
+    );
+  }, [selectedPaymentInvoices]);
+
+  const allocatedPaymentTotal = useMemo(() => {
+    return Object.values(paymentAllocation || {}).reduce(
+      (sum, value) =>
+        sum + Number(value || 0),
+      0
+    );
+  }, [paymentAllocation]);
+
+  const resetPaymentMethodState = () => {
+    setPaymentMethod("GIRO");
+    setPaymentAllocationMode("MANUAL");
+    setPaymentAllocation({});
+    setPaymentPartialAmount("");
+    setShowPaymentAllocation(false);
+  };
+
+  const handleSelectPaymentMethod = (method) => {
+    if (
+      method === "PARTIAL_PAYMENT" &&
+      !canUsePartialPayment
+    ) {
+      return;
+    }
+
+    setPaymentMethod(method);
+
+    if (method !== "PARTIAL_PAYMENT") {
+      setPaymentAllocationMode("MANUAL");
+      setPaymentAllocation({});
+      setPaymentPartialAmount("");
+      setShowPaymentAllocation(false);
+    }
+  };
+
+  const handleAutoAllocatePayment = () => {
+    const paymentAmount = Math.min(
+      parseNominal(paymentPartialAmount),
+      totalSelectedPayment
+    );
+
+    let remaining = paymentAmount;
+    const allocation = {};
+
+    selectedPaymentInvoices.forEach((invoice) => {
+      const noFaktur = invoice?.no_faktur;
+      const sisa = Number(
+        invoice?.sisa_tagihan ??
+        invoice?.nominal_tagihan ??
+        0
+      );
+
+      const allocated =
+        remaining > 0
+          ? Math.min(remaining, sisa)
+          : 0;
+
+      allocation[noFaktur] = allocated;
+      remaining -= allocated;
+    });
+
+    setPaymentAllocation(allocation);
+  };
+
+  const handleShowPaymentAllocation = () => {
+    const paymentAmount =
+      parseNominal(paymentPartialAmount);
+
+    if (paymentAmount <= 0) {
+      alert(
+        "Masukkan nominal pembayaran terlebih dahulu."
+      );
+      return;
+    }
+
+    setShowPaymentAllocation(true);
+
+    if (paymentAllocationMode === "SYSTEM") {
+      handleAutoAllocatePayment();
+    }
+  };
+
+  const handleManualAllocationChange = (
+    noFaktur,
+    value
+  ) => {
+    const invoice =
+      selectedPaymentInvoices.find(
+        (item) =>
+          item?.no_faktur === noFaktur
+      );
+
+    const maxValue = Number(
+      invoice?.sisa_tagihan ??
+      invoice?.nominal_tagihan ??
+      0
+    );
+
+    setPaymentAllocation((prev) => ({
+      ...prev,
+      [noFaktur]: Math.min(
+        Math.max(0, Number(value || 0)),
+        maxValue
+      ),
+    }));
+  };
+
+  useEffect(() => {
+    if (
+      paymentMethod === "PARTIAL_PAYMENT" &&
+      !canUsePartialPayment
+    ) {
+      setPaymentMethod("GIRO");
+      setPaymentAllocation({});
+      setPaymentPartialAmount("");
+      setShowPaymentAllocation(false);
+      setPaymentAllocationMode("MANUAL");
+    }
+  }, [
+    paymentMethod,
+    canUsePartialPayment,
+  ]);
+
   const renderStatus = (
     status
   ) => {
@@ -1628,9 +1973,7 @@ const TableBayarFaktur = ({
 
     const Icon =
       config.icon;
-
-
-    return (
+return (
 
       <span
         className={`
@@ -1957,6 +2300,10 @@ const TableBayarFaktur = ({
 
               <option value="PARTIAL">
                 Partial Payment
+              </option>
+
+              <option value="MENUNGGU_PEMBAYARAN">
+                Menunggu Pembayaran
               </option>
 
               <option value="SUDAH_DIBAYAR">
@@ -4281,6 +4628,493 @@ const TableBayarFaktur = ({
                       }
 
                     </button>
+
+                    {/* PARTIAL PAYMENT */}
+                    {canUsePartialPayment && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSelectPaymentMethod(
+                            "PARTIAL_PAYMENT"
+                          )
+                        }
+                        className={`
+                          w-full
+                          flex
+                          items-center
+                          justify-between
+                          p-4
+                          rounded-xl
+                          border
+                          mt-3
+                          transition
+                          ${
+                            paymentMethod ===
+                            "PARTIAL_PAYMENT"
+                              ? "border-orange-400 bg-orange-50"
+                              : "border-gray-200 bg-white"
+                          }
+                        `}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="
+                              w-10
+                              h-10
+                              rounded-xl
+                              bg-orange-50
+                              flex
+                              items-center
+                              justify-center
+                            "
+                          >
+                            <FaCreditCard className="text-orange-500" />
+                          </div>
+
+                          <div className="text-left">
+                            <p className="font-semibold text-gray-700">
+                              Partial Payment
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Pembayaran sebagian untuk customer yang sama
+                            </p>
+                          </div>
+                        </div>
+
+                        {paymentMethod === "PARTIAL_PAYMENT" && (
+                          <FaCheckCircle className="text-orange-500" />
+                        )}
+                      </button>
+                    )}
+
+                    {paymentSelection.length > 1 &&
+                      !canUsePartialPayment && (
+                        <div
+                          className="
+                            mt-3
+                            rounded-xl
+                            border
+                            border-amber-200
+                            bg-amber-50
+                            px-4
+                            py-3
+                          "
+                        >
+                          <p className="text-xs font-semibold text-amber-700">
+                            Partial Payment tidak tersedia
+                          </p>
+
+                          <p className="text-xs text-amber-600 mt-1">
+                            Faktur yang dipilih berasal dari customer
+                            yang berbeda. Pilih faktur dari 1 customer
+                            yang sama.
+                          </p>
+                        </div>
+                      )}
+
+                    {paymentMethod === "PARTIAL_PAYMENT" &&
+                      canUsePartialPayment && (
+                        <div
+                          className="
+                            mt-4
+                            rounded-2xl
+                            border
+                            border-orange-100
+                            bg-orange-50
+                            p-4
+                          "
+                        >
+                          <div
+                            className="
+                              flex
+                              items-start
+                              justify-between
+                              gap-3
+                              mb-4
+                            "
+                          >
+                            <div>
+                              <p className="font-bold text-gray-700">
+                                Alokasi Pembayaran
+                              </p>
+
+                              <p className="text-xs text-gray-500 mt-1">
+                                Customer:{" "}
+                                <span className="font-semibold">
+                                  {selectedPaymentCustomerName}
+                                </span>
+                              </p>
+                            </div>
+
+                            <span
+                              className="
+                                text-xs
+                                font-semibold
+                                px-3
+                                py-1
+                                rounded-full
+                                bg-white
+                                text-orange-600
+                                border
+                                border-orange-200
+                              "
+                            >
+                              {selectedPaymentInvoices.length} Faktur
+                            </span>
+                          </div>
+
+                          <label className="block text-xs font-semibold text-gray-600 mb-2">
+                            Nominal Pembayaran
+                          </label>
+
+                          <div className="relative mb-4">
+                            <span
+                              className="
+                                absolute
+                                left-4
+                                top-1/2
+                                -translate-y-1/2
+                                text-gray-500
+                                font-semibold
+                              "
+                            >
+                              Rp
+                            </span>
+
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={formatInputNominal(
+                                paymentPartialAmount
+                              )}
+                              onChange={(e) => {
+                                const value =
+                                  e.target.value.replace(
+                                    /\D/g,
+                                    ""
+                                  );
+
+                                setPaymentPartialAmount(value);
+                                setPaymentAllocation({});
+                                setShowPaymentAllocation(false);
+                              }}
+                              placeholder="0"
+                              className="
+                                input
+                                input-bordered
+                                w-full
+                                bg-white
+                                rounded-xl
+                                pl-12
+                                font-bold
+                                text-primary
+                              "
+                            />
+                          </div>
+
+                          <div
+                            className="
+                              grid
+                              grid-cols-2
+                              gap-3
+                              mb-4
+                            "
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaymentAllocationMode("MANUAL");
+                                setPaymentAllocation({});
+                                setShowPaymentAllocation(false);
+                              }}
+                              className={`
+                                rounded-xl
+                                border
+                                px-4
+                                py-3
+                                text-left
+                                transition
+                                ${
+                                  paymentAllocationMode === "MANUAL"
+                                    ? "border-primary bg-blue-50"
+                                    : "border-gray-200 bg-white"
+                                }
+                              `}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-gray-700 text-sm">
+                                  Manual
+                                </span>
+
+                                {paymentAllocationMode === "MANUAL" && (
+                                  <FaCheckCircle className="text-primary" />
+                                )}
+                              </div>
+
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                Atur nominal per faktur
+                              </p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaymentAllocationMode("SYSTEM");
+                                setPaymentAllocation({});
+                                setShowPaymentAllocation(false);
+                              }}
+                              className={`
+                                rounded-xl
+                                border
+                                px-4
+                                py-3
+                                text-left
+                                transition
+                                ${
+                                  paymentAllocationMode === "SYSTEM"
+                                    ? "border-primary bg-blue-50"
+                                    : "border-gray-200 bg-white"
+                                }
+                              `}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-gray-700 text-sm">
+                                  Otomatis
+                                </span>
+
+                                {paymentAllocationMode === "SYSTEM" && (
+                                  <FaCheckCircle className="text-primary" />
+                                )}
+                              </div>
+
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                Alokasi otomatis berdasarkan urutan faktur
+                              </p>
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleShowPaymentAllocation}
+                            className="
+                              w-full
+                              inline-flex
+                              items-center
+                              justify-center
+                              gap-2
+                              px-4
+                              py-3
+                              rounded-xl
+                              bg-primary
+                              text-white
+                              text-sm
+                              font-semibold
+                              hover:opacity-90
+                              transition
+                              shadow-sm
+                            "
+                          >
+                            <FaCreditCard />
+                            Tampilkan Alokasi Pembayaran
+                          </button>
+
+                          {showPaymentAllocation && (
+                            <div
+                              className="
+                                mt-4
+                                rounded-xl
+                                border
+                                border-gray-200
+                                bg-white
+                                overflow-hidden
+                              "
+                            >
+                              <div
+                                className="
+                                  px-4
+                                  py-3
+                                  bg-gray-50
+                                  border-b
+                                  border-gray-200
+                                  flex
+                                  items-center
+                                  justify-between
+                                  gap-3
+                                "
+                              >
+                                <div>
+                                  <p className="text-sm font-bold text-gray-700">
+                                    Detail Alokasi
+                                  </p>
+
+                                  <p className="text-[11px] text-gray-500">
+                                    {paymentAllocationMode === "MANUAL"
+                                      ? "Atur nominal pembayaran pada setiap faktur."
+                                      : "Pembayaran dialokasikan otomatis dari faktur teratas."}
+                                  </p>
+                                </div>
+
+                                {paymentAllocationMode === "SYSTEM" && (
+                                  <button
+                                    type="button"
+                                    onClick={handleAutoAllocatePayment}
+                                    className="text-xs font-semibold text-primary hover:underline"
+                                  >
+                                    Hitung Ulang
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">
+                                        No. Faktur
+                                      </th>
+
+                                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">
+                                        Sisa Tagihan
+                                      </th>
+
+                                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">
+                                        Alokasi
+                                      </th>
+
+                                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">
+                                        Sisa Setelah Bayar
+                                      </th>
+                                    </tr>
+                                  </thead>
+
+                                  <tbody>
+                                    {selectedPaymentInvoices.map((invoice) => {
+                                      const sisa = Number(
+                                        invoice?.sisa_tagihan ??
+                                          invoice?.nominal_tagihan ??
+                                          0
+                                      );
+
+                                      const allocated = Number(
+                                        paymentAllocation[
+                                          invoice.no_faktur
+                                        ] || 0
+                                      );
+
+                                      return (
+                                        <tr
+                                          key={invoice.id}
+                                          className="border-t border-gray-100"
+                                        >
+                                          <td className="px-4 py-3">
+                                            <p className="font-semibold text-primary">
+                                              {invoice.no_faktur}
+                                            </p>
+                                          </td>
+
+                                          <td className="px-4 py-3 text-right font-semibold text-gray-700">
+                                            {formatRupiah(sisa)}
+                                          </td>
+
+                                          <td className="px-4 py-3">
+                                            <input
+                                              type="text"
+                                              inputMode="numeric"
+                                              disabled={
+                                                paymentAllocationMode === "SYSTEM"
+                                              }
+                                              value={formatInputNominal(
+                                                allocated
+                                              )}
+                                              onChange={(e) =>
+                                                handleManualAllocationChange(
+                                                  invoice.no_faktur,
+                                                  e.target.value.replace(
+                                                    /\D/g,
+                                                    ""
+                                                  )
+                                                )
+                                              }
+                                              className="input input-bordered input-sm w-full min-w-[150px] bg-white text-right font-semibold"
+                                            />
+                                          </td>
+
+                                          <td className="px-4 py-3 text-right font-bold text-orange-600">
+                                            {formatRupiah(
+                                              Math.max(
+                                                0,
+                                                sisa - allocated
+                                              )
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div
+                                className="
+                                  border-t
+                                  border-gray-200
+                                  bg-gray-50
+                                  p-4
+                                "
+                              >
+                                <div
+                                  className="
+                                    grid
+                                    grid-cols-1
+                                    sm:grid-cols-3
+                                    gap-3
+                                  "
+                                >
+                                  <div className="rounded-xl bg-white border border-gray-200 p-3">
+                                    <p className="text-[11px] text-gray-500">
+                                      Total Sisa Tagihan
+                                    </p>
+                                    <p className="font-bold text-gray-700 mt-1">
+                                      {formatRupiah(
+                                        totalSelectedPayment
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white border border-gray-200 p-3">
+                                    <p className="text-[11px] text-gray-500">
+                                      Total Alokasi
+                                    </p>
+                                    <p className="font-bold text-primary mt-1">
+                                      {formatRupiah(
+                                        allocatedPaymentTotal
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white border border-gray-200 p-3">
+                                    <p className="text-[11px] text-gray-500">
+                                      Sisa Dana
+                                    </p>
+                                    <p className="font-bold text-green-600 mt-1">
+                                      {formatRupiah(
+                                        Math.max(
+                                          0,
+                                          parseNominal(
+                                            paymentPartialAmount
+                                          ) -
+                                            allocatedPaymentTotal
+                                        )
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
 
                   </div>
 

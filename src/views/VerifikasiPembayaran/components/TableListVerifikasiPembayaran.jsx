@@ -127,10 +127,7 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran faktur melalui giro.",
 
-    document_number:
-      "",
-
-    clearing_document:
+    create_document_number:
       "",
 
   },
@@ -179,10 +176,7 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran melalui transfer bank.",
 
-    document_number:
-      "",
-
-    clearing_document:
+    create_document_number:
       "",
 
   },
@@ -234,11 +228,8 @@ const dummyData = [
     keterangan_verifikasi:
       "Bukti pembayaran sesuai.",
 
-    document_number:
+    create_document_number:
       "5000123456",
-
-    clearing_document:
-      "1800009876",
 
   },
 
@@ -289,11 +280,8 @@ const dummyData = [
     keterangan_verifikasi:
       "Bukti pembayaran tidak sesuai dengan nominal faktur.",
 
-    document_number:
+    create_document_number:
       "5000123457",
-
-    clearing_document:
-      "1800009877",
 
   },
 
@@ -341,10 +329,7 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran invoice bulan Agustus.",
 
-    document_number:
-      "",
-
-    clearing_document:
+    create_document_number:
       "",
 
   },
@@ -393,10 +378,7 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran tunai oleh collector.",
 
-    document_number:
-      "",
-
-    clearing_document:
+    create_document_number:
       "",
 
   },
@@ -448,11 +430,8 @@ const dummyData = [
     keterangan_verifikasi:
       "Pembayaran telah diverifikasi.",
 
-    document_number:
+    create_document_number:
       "5000123458",
-
-    clearing_document:
-      "1800009878",
 
   },
 
@@ -500,10 +479,7 @@ const dummyData = [
     keterangan_pembayaran:
       "Pembayaran menggunakan giro.",
 
-    document_number:
-      "",
-
-    clearing_document:
+    create_document_number:
       "",
 
   },
@@ -555,11 +531,8 @@ const dummyData = [
     keterangan_verifikasi:
       "Dokumen pembayaran valid.",
 
-    document_number:
+    create_document_number:
       "5000123459",
-
-    clearing_document:
-      "1800009879",
 
   },
 
@@ -607,10 +580,7 @@ const dummyData = [
     keterangan_pembayaran:
       "Transfer pembayaran faktur.",
 
-    document_number:
-      "",
-
-    clearing_document:
+    create_document_number:
       "",
 
   },
@@ -1105,12 +1075,8 @@ const TableVerifikasiPembayaran = ({
           no_faktur:
             item.no_faktur,
 
-          document_number:
-            item.document_number ||
-            "",
-
-          clearing_document:
-            item.clearing_document ||
+          create_document_number:
+            item.create_document_number ||
             "",
 
         })
@@ -1244,13 +1210,12 @@ const TableVerifikasiPembayaran = ({
 
     /*
      * Pastikan semua billing mempunyai
-     * Document Number dan Clearing Document
+     * Nomor Create Document
      */
     const invalidBilling =
       billingDocumentData.find(
         item =>
-          !item.document_number?.trim() ||
-          !item.clearing_document?.trim()
+          !item.create_document_number?.trim()
       );
 
 
@@ -1259,7 +1224,7 @@ const TableVerifikasiPembayaran = ({
     ) {
 
       alert(
-        `Document Number dan Clearing Document wajib diisi untuk billing ${invalidBilling.no_faktur}.`
+        `Nomor Create Document wajib diisi untuk billing ${invalidBilling.no_faktur}.`
       );
 
       return;
@@ -1315,14 +1280,9 @@ const TableVerifikasiPembayaran = ({
               keterangan_verifikasi:
                 verificationDescription,
 
-              document_number:
+              create_document_number:
                 billingDocument
-                  ?.document_number ||
-                "",
-
-              clearing_document:
-                billingDocument
-                  ?.clearing_document ||
+                  ?.create_document_number ||
                 "",
 
             };
@@ -3649,7 +3609,7 @@ const TableVerifikasiPembayaran = ({
 
 
                             {/* ================================================= */}
-                            {/* DOCUMENT NUMBER & CLEARING DOCUMENT */}
+                            {/* CREATE DOCUMENT NUMBER */}
                             {/* ================================================= */}
 
                             <div
@@ -3658,15 +3618,9 @@ const TableVerifikasiPembayaran = ({
                                 pt-4
                                 border-t
                                 border-gray-200
-                                grid
-                                grid-cols-1
-                                lg:grid-cols-2
-                                gap-4
                               "
                             >
 
-                              {/* DOCUMENT NUMBER */}
-
                               <div>
 
                                 <label
@@ -3679,7 +3633,7 @@ const TableVerifikasiPembayaran = ({
                                   "
                                 >
 
-                                  Document Number
+                                  Nomor Create Document
 
                                   {
                                     item.status ===
@@ -3698,7 +3652,6 @@ const TableVerifikasiPembayaran = ({
                                   }
 
                                 </label>
-
 
                                 {
                                   item.status ===
@@ -3719,21 +3672,21 @@ const TableVerifikasiPembayaran = ({
                                           focus:outline-none
                                         "
                                         placeholder="
-                                          Masukkan Document Number
+                                          Masukkan Nomor Create Document
                                         "
                                         value={
                                           verificationBillingData.find(
                                             data =>
                                               data.id ===
                                               item.id
-                                          )?.document_number ||
+                                          )?.create_document_number ||
                                           ""
                                         }
                                         onChange={
                                           e =>
                                             handleVerificationBillingChange(
                                               item.id,
-                                              "document_number",
+                                              "create_document_number",
                                               e.target.value
                                             )
                                         }
@@ -3759,113 +3712,7 @@ const TableVerifikasiPembayaran = ({
                                       >
 
                                         {
-                                          item.document_number ||
-                                          "-"
-                                        }
-
-                                      </div>
-
-                                    )
-                                }
-
-                              </div>
-
-
-                              {/* CLEARING DOCUMENT */}
-
-                              <div>
-
-                                <label
-                                  className="
-                                    block
-                                    text-xs
-                                    font-semibold
-                                    text-gray-600
-                                    mb-2
-                                  "
-                                >
-
-                                  Clearing Document
-
-                                  {
-                                    item.status ===
-                                      "MENUNGGU_VERIFIKASI" && (
-
-                                      <span
-                                        className="
-                                          text-red-500
-                                          ml-1
-                                        "
-                                      >
-                                        *
-                                      </span>
-
-                                    )
-                                  }
-
-                                </label>
-
-
-                                {
-                                  item.status ===
-                                    "MENUNGGU_VERIFIKASI"
-                                    ? (
-
-                                      <input
-                                        type="text"
-                                        className="
-                                          input
-                                          input-bordered
-                                          input-sm
-                                          w-full
-                                          bg-white
-                                          rounded-xl
-                                          border-gray-200
-                                          focus:border-primary
-                                          focus:outline-none
-                                        "
-                                        placeholder="
-                                          Masukkan Clearing Document
-                                        "
-                                        value={
-                                          verificationBillingData.find(
-                                            data =>
-                                              data.id ===
-                                              item.id
-                                          )?.clearing_document ||
-                                          ""
-                                        }
-                                        onChange={
-                                          e =>
-                                            handleVerificationBillingChange(
-                                              item.id,
-                                              "clearing_document",
-                                              e.target.value
-                                            )
-                                        }
-                                      />
-
-                                    )
-                                    : (
-
-                                      <div
-                                        className="
-                                          min-h-[36px]
-                                          flex
-                                          items-center
-                                          px-3
-                                          rounded-xl
-                                          bg-white
-                                          border
-                                          border-gray-200
-                                          text-sm
-                                          font-semibold
-                                          text-gray-700
-                                        "
-                                      >
-
-                                        {
-                                          item.clearing_document ||
+                                          item.create_document_number ||
                                           "-"
                                         }
 

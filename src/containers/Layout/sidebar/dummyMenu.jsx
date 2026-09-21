@@ -12,6 +12,7 @@ import {
     FaUserCog,
     FaUsersCog,
     FaExchangeAlt,
+    FaCheckCircle,
 } from "react-icons/fa";
 import { MdOutlineRequestQuote } from "react-icons/md";
 
@@ -85,6 +86,14 @@ export const dummyMenu = [
         name: "Riwayat Pengantaran",
         path: "/riwayat-pengantaran",
         icon: FaHistory,
+        // roles: [],
+        submenu: [],
+    },
+    {
+        id: 7,
+        name: "Verifikasi Tukar Faktur",
+        path: "/verifikasi-tukar-faktur",
+        icon: FaCheckCircle,
         // roles: [],
         submenu: [],
     },
