@@ -453,6 +453,10 @@ const TableBayarFaktur = ({
   const [dueDateGiro, setDueDateGiro] =
     useState("");
 
+  // Tanggal khusus metode Menunggu Pembayaran
+  const [plannedPaymentDate, setPlannedPaymentDate] =
+    useState("");
+
   const [paymentFile, setPaymentFile] =
     useState(null);
 
@@ -906,6 +910,10 @@ const TableBayarFaktur = ({
       ""
     );
 
+    setPlannedPaymentDate(
+      ""
+    );
+
     setPaymentFile(
       null
     );
@@ -956,7 +964,7 @@ const TableBayarFaktur = ({
     if (paymentMethod === "PARTIAL_PAYMENT") {
       if (!canUsePartialPayment) {
         alert(
-          "Partial Payment hanya dapat digunakan jika minimal 2 faktur yang dipilih berasal dari 1 customer yang sama."
+          "Partial Payment hanya dapat digunakan untuk faktur dari 1 customer yang sama."
         );
         return;
       }
@@ -1077,6 +1085,47 @@ const TableBayarFaktur = ({
       return;
     }
 
+    // Menunggu Pembayaran tidak membuat faktur menjadi lunas.
+    // Hanya mencatat status dan tanggal rencana pembayaran.
+    if (paymentMethod === "MENUNGGU_PEMBAYARAN") {
+      if (!plannedPaymentDate) {
+        alert(
+          "Tanggal rencana pembayaran wajib diisi."
+        );
+        return;
+      }
+
+      const dataToWait =
+        Array.isArray(selectedData)
+          ? selectedData
+          : [selectedData];
+
+      const idsToWait = dataToWait
+        .filter(Boolean)
+        .map((item) => item.id);
+
+      setAllData((prev) =>
+        prev.map((item) => {
+          if (!idsToWait.includes(item.id)) {
+            return item;
+          }
+
+          return {
+            ...item,
+            status: "MENUNGGU_PEMBAYARAN",
+            tanggal_rencana_pembayaran: plannedPaymentDate,
+            metode_pembayaran: "MENUNGGU_PEMBAYARAN",
+          };
+        })
+      );
+
+      setSelectedIds((prev) =>
+        prev.filter((id) => !idsToWait.includes(id))
+      );
+
+      closePayment();
+      return;
+    }
 
 
     const dataToPay =
@@ -1800,8 +1849,11 @@ const TableBayarFaktur = ({
     return item?.nama_customer || "-";
   }, [paymentSelection, selectedPaymentCustomer]);
 
+  // Partial Payment dapat digunakan untuk 1 faktur maupun
+  // beberapa faktur, selama faktur yang dipilih berasal
+  // dari customer yang sama.
   const canUsePartialPayment =
-    paymentSelection.length > 1 &&
+    paymentSelection.length > 0 &&
     !!selectedPaymentCustomer;
 
   const selectedPaymentInvoices = useMemo(() => {
@@ -1840,6 +1892,8 @@ const TableBayarFaktur = ({
 
   const resetPaymentMethodState = () => {
     setPaymentMethod("GIRO");
+    setDueDateGiro("");
+    setPlannedPaymentDate("");
     setPaymentAllocationMode("MANUAL");
     setPaymentAllocation({});
     setPaymentPartialAmount("");
@@ -4429,6 +4483,49 @@ return (
                     </button>
 
 
+                    {/* MENUNGGU PEMBAYARAN */}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentMethod("MENUNGGU_PEMBAYARAN")
+                      }
+                      className={`
+                        w-full
+                        flex
+                        items-center
+                        justify-between
+                        p-4
+                        rounded-xl
+                        border
+                        mb-3
+                        transition
+                        ${
+                          paymentMethod === "MENUNGGU_PEMBAYARAN"
+                            ? "border-orange-400 bg-orange-50"
+                            : "border-gray-200 bg-white"
+                        }
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                          <FaClock className="text-blue-500" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-700">
+                            Menunggu Pembayaran
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Pembayaran direncanakan pada tanggal tertentu
+                          </p>
+                        </div>
+                      </div>
+                      {paymentMethod === "MENUNGGU_PEMBAYARAN" && (
+                        <FaCheckCircle className="text-orange-500" />
+                      )}
+                    </button>
+
+
                     {/* SSP */}
 
                     <button
@@ -5182,9 +5279,12 @@ return (
                               "GIRO"
                               ? "Giro"
                               : paymentMethod ===
-                                "SSP"
-                                ? "Surat Setor Pajak"
-                                : "Cash"
+                                "MENUNGGU_PEMBAYARAN"
+                                ? "Menunggu Pembayaran"
+                                : paymentMethod ===
+                                  "SSP"
+                                  ? "Surat Setor Pajak"
+                                  : "Cash"
                         }
                       </span>
 
@@ -5269,6 +5369,31 @@ return (
 
                         </div>
 
+                      )
+                    }
+
+
+                    {/* RENCANA PEMBAYARAN */}
+
+                    {
+                      paymentMethod ===
+                      "MENUNGGU_PEMBAYARAN" && (
+                        <div className="mb-4">
+                          <label className="text-sm text-gray-500 mb-2 block">
+                            Tanggal Rencana Pembayaran
+                          </label>
+                          <input
+                            type="date"
+                            value={plannedPaymentDate}
+                            onChange={(e) =>
+                              setPlannedPaymentDate(e.target.value)
+                            }
+                            className="input input-bordered w-full bg-white rounded-xl"
+                          />
+                          <p className="text-xs text-gray-400 mt-2">
+                            Tanggal rencana pembayaran oleh customer.
+                          </p>
+                        </div>
                       )
                     }
 
