@@ -52,6 +52,7 @@ import DataPiutang from 'views/DataPiutang'
 import TukarFaktur from 'views/TukarFaktur'
 import ReportSales from 'views/ReportSales'
 import VerifikasiTukarFaktur from 'views/VerifikasiTukarFaktur'
+import DataCod from 'views/DataCod'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -79,6 +80,10 @@ const routes = [
   {
     path: '/data-piutang',
     component: DataPiutang,
+  },
+  {
+    path: '/data-cod',
+    component: DataCod,
   },
   {
     path: '/daftar-tugas-harian',

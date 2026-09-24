@@ -1194,6 +1194,34 @@ const produkData = [
 
 
 /* =========================================================
+   RELASI PRODUK UNTUK DATA PIUTANG
+
+   Data dummy piutang tidak memiliki field produk secara langsung.
+   Untuk kebutuhan chart Performa Piutang per Produk, produk dicari
+   berdasarkan kombinasi customer + principal + channel dari produkData.
+   Pada data real/API, sebaiknya field produk memang tersedia langsung
+   pada setiap transaksi piutang agar relasinya akurat.
+========================================================= */
+
+const piutangData = dummyData.map((item) => {
+
+  const matchedProduct = produkData.find(
+    (product) =>
+      product.customer === item.customer &&
+      product.principal === item.principal &&
+      product.channel === item.channel
+  );
+
+  return {
+    ...item,
+    produk: matchedProduct?.namaProduk || 'Produk Lainnya',
+  };
+
+});
+
+
+
+/* =========================================================
    AGING
 ========================================================= */
 
@@ -1350,7 +1378,7 @@ const Dashboard = () => {
   const [
     performanceDimension,
     setPerformanceDimension
-  ] = useState('principal');
+  ] = useState('produk');
 
 
   /* =======================================================
@@ -1360,7 +1388,7 @@ const Dashboard = () => {
   const [
     collectionDimension,
     setCollectionDimension
-  ] = useState('principal');
+  ] = useState('customer');
 
 
   /* =======================================================
@@ -1490,7 +1518,7 @@ const Dashboard = () => {
 
   const filteredData = useMemo(() => {
 
-    return dummyData.filter((item) => {
+    return piutangData.filter((item) => {
 
       const cabangMatch =
         appliedFilter.cabang ===
@@ -1520,28 +1548,11 @@ const Dashboard = () => {
         appliedFilter.customer;
 
 
-      const selectedProduct =
-        produkData.find(
-          (product) =>
-            product.namaProduk ===
-            appliedFilter.produk
-        );
-
-
       const productMatch =
         appliedFilter.produk ===
         'Semua Produk' ||
-        (
-          selectedProduct &&
-          item.cabang ===
-          selectedProduct.descSalesOffice &&
-          item.principal ===
-          selectedProduct.principal &&
-          item.customer ===
-          selectedProduct.customer &&
-          item.channel ===
-          selectedProduct.channel
-        );
+        item.produk ===
+        appliedFilter.produk;
 
 
       const tanggalMatch =
@@ -1728,6 +1739,12 @@ const Dashboard = () => {
   ======================================================= */
 
   const performanceDimensionConfig = {
+
+    produk: {
+      label: 'Produk',
+      field: 'produk',
+      icon: <FaBox size={13} />,
+    },
 
     principal: {
       label: 'Principal',
@@ -5132,6 +5149,10 @@ const Dashboard = () => {
                       "
                     >
 
+                      <option value="produk">
+                        Per Produk
+                      </option>
+
                       <option value="principal">
                         Per Principal
                       </option>
@@ -5184,8 +5205,10 @@ const Dashboard = () => {
                           right: 20,
                           left: 10,
                           bottom:
-                            performanceDimension ===
-                              'customer'
+                            (performanceDimension ===
+                              'customer' ||
+                              performanceDimension ===
+                              'produk')
                               ? 65
                               : 40,
                         }}
@@ -5207,15 +5230,19 @@ const Dashboard = () => {
                           }}
                           interval={0}
                           angle={
-                            performanceDimension ===
-                              'customer'
+                            (performanceDimension ===
+                              'customer' ||
+                              performanceDimension ===
+                              'produk')
                               ? -35
                               : -20
                           }
                           textAnchor="end"
                           height={
-                            performanceDimension ===
-                              'customer'
+                            (performanceDimension ===
+                              'customer' ||
+                              performanceDimension ===
+                              'produk')
                               ? 80
                               : 60
                           }

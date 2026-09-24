@@ -176,6 +176,9 @@ const dummyData = [
     status_pengantaran:
       "SUDAH_DIANTAR",
 
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
+
   },
 
   {
@@ -340,6 +343,9 @@ const dummyData = [
     status_pengantaran:
       "SUDAH_DIANTAR",
 
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
+
   },
 
   {
@@ -463,6 +469,9 @@ const dummyData = [
     status_pengantaran:
       "SUDAH_DIANTAR",
 
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
+
   },
 
   {
@@ -503,6 +512,182 @@ const dummyData = [
 
     status_pengantaran:
       "BELUM_DIANTAR",
+
+  },
+
+  {
+    id: 11,
+
+    nomor_tagihan:
+      "2806205841",
+
+    pelanggan:
+      "RSUD Kota Bekasi",
+
+    cabang:
+      "KFTD BEKASI",
+
+    sisa_saldo:
+      18500000,
+
+    tanggal_jatuh_tempo:
+      "2026-08-18",
+
+    periode:
+      "31 Jul 2026",
+
+    status_penugasan:
+      "DIKIRIM",
+
+    tanggal_penugasan:
+      "2026-08-11",
+
+    umur_faktur:
+      14,
+
+    jatuh_tempo:
+      false,
+
+    kolektor:
+      "Rizky Maulana",
+
+    status_pengantaran:
+      "SUDAH_DIANTAR",
+
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
+
+  },
+
+  {
+    id: 12,
+
+    nomor_tagihan:
+      "2806205849",
+
+    pelanggan:
+      "Apotek Sejahtera",
+
+    cabang:
+      "KFTD BANDUNG",
+
+    sisa_saldo:
+      7250000,
+
+    tanggal_jatuh_tempo:
+      "2026-08-20",
+
+    periode:
+      "31 Jul 2026",
+
+    status_penugasan:
+      "DIKIRIM",
+
+    tanggal_penugasan:
+      "2026-08-12",
+
+    umur_faktur:
+      12,
+
+    jatuh_tempo:
+      false,
+
+    kolektor:
+      "Deni Kurniawan",
+
+    status_pengantaran:
+      "SUDAH_DIANTAR",
+
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
+
+  },
+
+  {
+    id: 13,
+
+    nomor_tagihan:
+      "2806205857",
+
+    pelanggan:
+      "RS Bhakti Husada",
+
+    cabang:
+      "KFTD SURABAYA",
+
+    sisa_saldo:
+      32500000,
+
+    tanggal_jatuh_tempo:
+      "2026-08-22",
+
+    periode:
+      "31 Jul 2026",
+
+    status_penugasan:
+      "DIKIRIM",
+
+    tanggal_penugasan:
+      "2026-08-13",
+
+    umur_faktur:
+      10,
+
+    jatuh_tempo:
+      false,
+
+    kolektor:
+      "Andika Pratama",
+
+    status_pengantaran:
+      "SUDAH_DIANTAR",
+
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
+
+  },
+
+  {
+    id: 14,
+
+    nomor_tagihan:
+      "2806205868",
+
+    pelanggan:
+      "Dinas Kesehatan Depok",
+
+    cabang:
+      "KFTD DEPOK",
+
+    sisa_saldo:
+      46750000,
+
+    tanggal_jatuh_tempo:
+      "2026-08-25",
+
+    periode:
+      "31 Jul 2026",
+
+    status_penugasan:
+      "DIKIRIM",
+
+    tanggal_penugasan:
+      "2026-08-14",
+
+    umur_faktur:
+      8,
+
+    jatuh_tempo:
+      false,
+
+    kolektor:
+      "Fajar Hidayat",
+
+    status_pengantaran:
+      "SUDAH_DIANTAR",
+
+    status_pembayaran:
+      "MENUNGGU_PEMBAYARAN",
 
   },
 
@@ -547,6 +732,17 @@ const statusPenugasanConfig = {
 // =====================================================
 // STATUS PENGANTARAN
 // =====================================================
+
+const statusPembayaranConfig = {
+
+  MENUNGGU_PEMBAYARAN: {
+    label: "Menunggu Pembayaran",
+    className: "bg-amber-100 text-amber-700",
+    icon: FaClock,
+  },
+
+};
+
 
 const statusPengantaranConfig = {
 
@@ -1075,6 +1271,44 @@ const TableMonitoringPenugasan = ({
       );
 
     };
+
+
+  // ===================================================
+  // STATUS PEMBAYARAN
+  // ===================================================
+
+  const renderStatusPembayaran = (
+    status
+  ) => {
+    const config =
+      statusPembayaranConfig[status];
+
+    if (!config) {
+      return null;
+    }
+
+    const Icon = config.icon;
+
+    return (
+      <span
+        className={`
+          inline-flex
+          items-center
+          gap-1.5
+          px-2.5
+          py-1
+          rounded-full
+          text-[11px]
+          font-semibold
+          whitespace-nowrap
+          ${config.className}
+        `}
+      >
+        <Icon size={11} />
+        {config.label}
+      </span>
+    );
+  };
 
 
   // ===================================================
@@ -2169,11 +2403,18 @@ const TableMonitoringPenugasan = ({
                             "
                           >
 
-                            {
-                              renderStatusPengantaran(
+                            <div className="flex flex-col items-start gap-1.5">
+                              {renderStatusPengantaran(
                                 item.status_pengantaran
-                              )
-                            }
+                              )}
+
+                              {item.status_pengantaran ===
+                                "SUDAH_DIANTAR" &&
+                                renderStatusPembayaran(
+                                  item.status_pembayaran ||
+                                    "MENUNGGU_PEMBAYARAN"
+                                )}
+                            </div>
 
                           </td>
 

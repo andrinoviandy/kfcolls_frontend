@@ -42,6 +42,14 @@ export const dummyMenu = [
         submenu: [],
     },
     {
+        id: 2,
+        name: "Data COD",
+        path: "/data-cod",
+        icon: FaFileInvoice,
+        // roles: [],
+        submenu: [],
+    },
+    {
         id: 3,
         name: "Tukar Faktur",
         path: "/tukar-faktur",

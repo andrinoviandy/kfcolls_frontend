@@ -581,7 +581,7 @@ const TableTukarFaktur = ({
     }
 
     setSelectedFaktur(null);
-    
+
     setBulkFiles({});
     setShowTukarModal(false);
   };
@@ -686,7 +686,7 @@ const TableTukarFaktur = ({
 
       if (belumUpload.length > 0) {
         alert(
-          `Silakan upload dokumen faktur pengganti untuk ${belumUpload.length} faktur yang dipilih.`
+          `Silakan upload bukti tukar faktur untuk ${belumUpload.length} faktur yang dipilih.`
         );
         return;
       }
@@ -715,12 +715,12 @@ const TableTukarFaktur = ({
           prev => prev.map(
             item => berhasilIds.includes(item.id)
               ? {
-                  ...item,
-                  status: "SUDAH_DITUKAR",
-                  dokumen_tukar: bulkFiles[item.id],
-                  nama_dokumen_tukar: bulkFiles[item.id]?.name,
-                  tanggal_tukar: tanggalTukar,
-                }
+                ...item,
+                status: "SUDAH_DITUKAR",
+                dokumen_tukar: bulkFiles[item.id],
+                nama_dokumen_tukar: bulkFiles[item.id]?.name,
+                tanggal_tukar: tanggalTukar,
+              }
               : item
           )
         );
@@ -863,10 +863,9 @@ const TableTukarFaktur = ({
               border
               cursor-pointer
               transition
-              ${
-                checked
-                  ? "bg-blue-50 border-primary text-primary"
-                  : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
+              ${checked
+                ? "bg-blue-50 border-primary text-primary"
+                : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
               }
             `}
             title={checked ? "Batalkan pilihan" : "Pilih faktur"}
@@ -2393,10 +2392,9 @@ const TableTukarFaktur = ({
                                     flex
                                     items-center
                                     justify-center
-                                    ${
-                                      file
-                                        ? "bg-green-100 text-green-600"
-                                        : "bg-blue-100 text-primary"
+                                    ${file
+                                      ? "bg-green-100 text-green-600"
+                                      : "bg-blue-100 text-primary"
                                     }
                                   `}
                                 >
@@ -2410,19 +2408,25 @@ const TableTukarFaktur = ({
                                 <div className="min-w-0 flex-1">
                                   {file ? (
                                     <>
-                                      <p className="text-sm font-semibold text-gray-700 break-all">
+                                      <p className="break-all text-sm font-semibold text-gray-700">
                                         {file.name}
                                       </p>
-                                      <p className="text-xs text-gray-400 mt-0.5">
+
+                                      <p className="mt-0.5 text-xs text-gray-400">
                                         {(file.size / 1024 / 1024).toFixed(2)} MB • Klik untuk mengganti
                                       </p>
                                     </>
                                   ) : (
                                     <>
                                       <p className="text-sm font-semibold text-gray-700">
-                                        Upload Dokumen Faktur Pengganti
+                                        Upload Bukti Tukar Faktur
                                       </p>
-                                      <p className="text-xs text-gray-400 mt-0.5">
+
+                                      <p className="text-xs font-semibold leading-relaxed text-gray-700">
+                                        Sebagai bukti akan dibayarkan dan perhitungan insentif untuk sales
+                                      </p>
+
+                                      <p className="mt-0.5 text-xs text-gray-400">
                                         PDF, JPG, JPEG, PNG • Maks. 25 MB
                                       </p>
                                     </>
