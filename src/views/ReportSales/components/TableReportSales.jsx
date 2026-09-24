@@ -871,6 +871,47 @@ const TableReportSales = ({
     setIsDetailModalOpen,
   ] = useState(false);
 
+  // ===================================================
+  // DETAIL RETUR / PENCAIRAN MODAL STATE
+  // ===================================================
+
+  const [
+    selectedMetric,
+    setSelectedMetric,
+  ] = useState(null);
+
+  const [
+    isMetricModalOpen,
+    setIsMetricModalOpen,
+  ] = useState(false);
+
+
+  const openDetailMetric =
+    (item, type) => {
+
+      setSelectedMetric({
+        item,
+        type,
+      });
+
+      setIsMetricModalOpen(
+        true
+      );
+    };
+
+
+  const closeDetailMetric =
+    () => {
+
+      setIsMetricModalOpen(
+        false
+      );
+
+      setSelectedMetric(
+        null
+      );
+    };
+
 
   const openDetailPenjualan =
     (item) => {
@@ -3177,18 +3218,23 @@ const TableReportSales = ({
                                   inline-flex
                                   items-center
                                   gap-2
-                                  font-semibold
+                                  px-2.5
+                                  py-1
+                                  rounded-full
+                                  bg-blue-50
+                                  border
+                                  border-blue-200
                                   text-blue-700
+                                  hover:bg-blue-100
+                                  hover:border-blue-300
                                   hover:text-blue-900
-                                  hover:underline
+                                  font-semibold
+                                  text-xs
                                   cursor-pointer
                                   transition
                                   duration-150
                                 "
-                                title="
-                                  Klik untuk melihat
-                                  detail produk per invoice
-                                "
+                                title="Klik untuk melihat detail produk per invoice"
                               >
 
                                 <FaFileInvoice
@@ -3202,6 +3248,16 @@ const TableReportSales = ({
                                     v.penjualan
                                   )
                                 }
+
+                                <span
+                                  className="
+                                    text-[9px]
+                                    font-bold
+                                    opacity-70
+                                  "
+                                >
+                                  Detail
+                                </span>
 
                               </button>
 
@@ -3218,25 +3274,65 @@ const TableReportSales = ({
                               "
                             >
 
-                              <span
-                                className="
-                                  font-semibold
-                                  text-red-600
-                                "
-                              >
+                              {Number(v.retur || 0) > 0 ? (
 
-                                {
-                                  Number(
-                                    v.retur ||
-                                    0
-                                  ) > 0
-                                    ? formatCurrency(
-                                        v.retur
-                                      )
-                                    : "-"
-                                }
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openDetailMetric(
+                                      v,
+                                      "RETUR"
+                                    )
+                                  }
+                                  className="
+                                    inline-flex
+                                    items-center
+                                    gap-2
+                                    px-2.5
+                                    py-1
+                                    rounded-full
+                                    bg-red-50
+                                    border
+                                    border-red-200
+                                    text-red-600
+                                    hover:bg-red-100
+                                    hover:border-red-300
+                                    hover:text-red-700
+                                    font-semibold
+                                    text-xs
+                                    cursor-pointer
+                                    transition
+                                    duration-150
+                                  "
+                                  title="Klik untuk melihat detail retur"
+                                >
 
-                              </span>
+                                  <FaUndoAlt
+                                    className="
+                                      text-red-500
+                                    "
+                                  />
+
+                                  {
+                                    formatCurrency(
+                                      v.retur
+                                    )
+                                  }
+
+                                </button>
+
+                              ) : (
+
+                                <span
+                                  className="
+                                    text-gray-400
+                                    font-medium
+                                  "
+                                >
+                                  -
+                                </span>
+
+                              )}
 
                             </td>
 
@@ -3277,18 +3373,60 @@ const TableReportSales = ({
                               "
                             >
 
-                              <span
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openDetailMetric(
+                                    v,
+                                    "PENCAIRAN"
+                                  )
+                                }
                                 className="
-                                  font-semibold
+                                  inline-flex
+                                  items-center
+                                  gap-2
+                                  px-2.5
+                                  py-1
+                                  rounded-full
+                                  bg-green-50
+                                  border
+                                  border-green-200
                                   text-green-700
+                                  hover:bg-green-100
+                                  hover:border-green-300
+                                  hover:text-green-800
+                                  font-semibold
+                                  text-xs
+                                  cursor-pointer
+                                  transition
+                                  duration-150
                                 "
+                                title="Klik untuk melihat detail pencairan"
                               >
+
+                                <FaMoneyBillWave
+                                  className="
+                                    text-green-500
+                                  "
+                                />
+
                                 {
                                   formatCurrency(
                                     v.pencairan
                                   )
                                 }
-                              </span>
+
+                                <span
+                                  className="
+                                    text-[9px]
+                                    font-bold
+                                    opacity-70
+                                  "
+                                >
+                                  Detail
+                                </span>
+
+                              </button>
 
                             </td>
 
@@ -3592,6 +3730,446 @@ const TableReportSales = ({
         </div>
 
       </div>
+
+
+      {/* ================================================= */}
+      {/* MODAL DETAIL RETUR / PENCAIRAN */}
+      {/* ================================================= */}
+
+      {
+        isMetricModalOpen &&
+        selectedMetric && (
+
+          <div
+            className="
+              fixed
+              inset-0
+              z-[9998]
+              flex
+              items-center
+              justify-center
+              bg-black/50
+              backdrop-blur-sm
+              p-4
+            "
+            onClick={
+              closeDetailMetric
+            }
+          >
+
+            <div
+              className="
+                bg-white
+                w-full
+                max-w-2xl
+                rounded-2xl
+                shadow-2xl
+                overflow-hidden
+              "
+              onClick={
+                e =>
+                  e.stopPropagation()
+              }
+            >
+
+              {/* HEADER */}
+
+              <div
+                className={`
+                  px-6
+                  py-4
+                  text-white
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                  ${
+                    selectedMetric.type === "RETUR"
+                      ? "bg-red-600"
+                      : "bg-green-600"
+                  }
+                `}
+              >
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-3
+                  "
+                >
+
+                  <div
+                    className="
+                      w-10
+                      h-10
+                      rounded-xl
+                      bg-white/15
+                      flex
+                      items-center
+                      justify-center
+                    "
+                  >
+
+                    {
+                      selectedMetric.type === "RETUR" ? (
+                        <FaUndoAlt size={17} />
+                      ) : (
+                        <FaMoneyBillWave size={17} />
+                      )
+                    }
+
+                  </div>
+
+                  <div>
+
+                    <h3
+                      className="
+                        text-base
+                        font-bold
+                      "
+                    >
+                      {
+                        selectedMetric.type === "RETUR"
+                          ? "Detail Retur"
+                          : "Detail Pencairan"
+                      }
+                    </h3>
+
+                    <p
+                      className="
+                        text-xs
+                        text-white/80
+                        mt-0.5
+                      "
+                    >
+                      {
+                        selectedMetric.item.no_transaksi
+                      }
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDetailMetric
+                  }
+                  className="
+                    w-8
+                    h-8
+                    rounded-full
+                    bg-white/10
+                    hover:bg-white/20
+                    flex
+                    items-center
+                    justify-center
+                    transition
+                  "
+                >
+                  <FaTimes size={13} />
+                </button>
+
+              </div>
+
+
+              {/* CONTENT */}
+
+              <div
+                className="
+                  p-6
+                "
+              >
+
+                <div
+                  className="
+                    grid
+                    grid-cols-1
+                    md:grid-cols-2
+                    gap-4
+                  "
+                >
+
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-gray-100
+                      bg-gray-50
+                      p-4
+                    "
+                  >
+                    <p
+                      className="
+                        text-[11px]
+                        text-gray-400
+                        font-medium
+                      "
+                    >
+                      Customer
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        font-bold
+                        text-gray-800
+                      "
+                    >
+                      {
+                        selectedMetric.item.customer ||
+                        "-"
+                      }
+                    </p>
+                  </div>
+
+
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-gray-100
+                      bg-gray-50
+                      p-4
+                    "
+                  >
+                    <p
+                      className="
+                        text-[11px]
+                        text-gray-400
+                        font-medium
+                      "
+                    >
+                      Sales
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        font-bold
+                        text-gray-800
+                      "
+                    >
+                      {
+                        selectedMetric.item.sales ||
+                        "-"
+                      }
+                    </p>
+                  </div>
+
+
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-gray-100
+                      bg-gray-50
+                      p-4
+                    "
+                  >
+                    <p
+                      className="
+                        text-[11px]
+                        text-gray-400
+                        font-medium
+                      "
+                    >
+                      No. Transaksi
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        font-bold
+                        text-gray-800
+                      "
+                    >
+                      {
+                        selectedMetric.item.no_transaksi ||
+                        "-"
+                      }
+                    </p>
+                  </div>
+
+
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-gray-100
+                      bg-gray-50
+                      p-4
+                    "
+                  >
+                    <p
+                      className="
+                        text-[11px]
+                        text-gray-400
+                        font-medium
+                      "
+                    >
+                      Tanggal
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        font-bold
+                        text-gray-800
+                      "
+                    >
+                      {
+                        formatDate(
+                          selectedMetric.item.tanggal
+                        )
+                      }
+                    </p>
+                  </div>
+
+                </div>
+
+
+                <div
+                  className={`
+                    mt-5
+                    rounded-xl
+                    border
+                    p-5
+                    ${
+                      selectedMetric.type === "RETUR"
+                        ? "bg-red-50 border-red-100"
+                        : "bg-green-50 border-green-100"
+                    }
+                  `}
+                >
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      gap-4
+                    "
+                  >
+
+                    <div>
+                      <p
+                        className={`
+                          text-xs
+                          font-medium
+                          ${
+                            selectedMetric.type === "RETUR"
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }
+                        `}
+                      >
+                        {
+                          selectedMetric.type === "RETUR"
+                            ? "Total Retur"
+                            : "Total Pencairan"
+                        }
+                      </p>
+
+                      <p
+                        className={`
+                          mt-1
+                          text-2xl
+                          font-bold
+                          ${
+                            selectedMetric.type === "RETUR"
+                              ? "text-red-800"
+                              : "text-green-800"
+                          }
+                        `}
+                      >
+                        {
+                          formatCurrency(
+                            selectedMetric.type === "RETUR"
+                              ? selectedMetric.item.retur
+                              : selectedMetric.item.pencairan
+                          )
+                        }
+                      </p>
+                    </div>
+
+                    <div
+                      className={`
+                        w-12
+                        h-12
+                        rounded-xl
+                        flex
+                        items-center
+                        justify-center
+                        ${
+                          selectedMetric.type === "RETUR"
+                            ? "bg-red-100 text-red-600"
+                            : "bg-green-100 text-green-600"
+                        }
+                      `}
+                    >
+                      {
+                        selectedMetric.type === "RETUR" ? (
+                          <FaUndoAlt />
+                        ) : (
+                          <FaMoneyBillWave />
+                        )
+                      }
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* FOOTER */}
+
+              <div
+                className="
+                  px-6
+                  py-4
+                  border-t
+                  border-gray-100
+                  flex
+                  justify-end
+                "
+              >
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDetailMetric
+                  }
+                  className="
+                    btn
+                    btn-sm
+                    rounded-full
+                    bg-primary
+                    hover:bg-primary/90
+                    text-white
+                    border-0
+                    px-5
+                  "
+                >
+                  Tutup
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )
+      }
 
 
       {/* ================================================= */}
