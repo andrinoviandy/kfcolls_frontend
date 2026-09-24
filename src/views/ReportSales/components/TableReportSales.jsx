@@ -761,27 +761,103 @@ const channelMaster = [
 
 
 // =====================================================
+// GENERATE DETAIL RETUR / PENCAIRAN
+// =====================================================
+//
+// Untuk dummy data, detail retur dan pencairan diturunkan
+// dari detail penjualan per produk/invoice agar ketika angka
+// di kolom Retur/Pencairan diklik, struktur detailnya tetap
+// sama seperti modal Penjualan.
+//
+// Saat sudah memakai API real, bagian ini dapat diganti dengan
+// detail retur/pencairan yang dikirim langsung dari backend.
+// =====================================================
+
+const generateDetailMetric = ({
+  sourceDetails,
+  totalAmount,
+  fieldName,
+}) => {
+  const details =
+    Array.isArray(sourceDetails)
+      ? sourceDetails
+      : [];
+
+  if (
+    details.length === 0 ||
+    Number(totalAmount || 0) <= 0
+  ) {
+    return [];
+  }
+
+  const totalSource =
+    details.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item["Total Penjualan"] || 0
+        ),
+      0
+    );
+
+  if (totalSource <= 0) {
+    return [];
+  }
+
+  let allocated = 0;
+
+  return details.map(
+    (detail, index) => {
+      const sourceAmount =
+        Number(
+          detail["Total Penjualan"] || 0
+        );
+
+      let metricAmount;
+
+      if (
+        index ===
+        details.length - 1
+      ) {
+        metricAmount =
+          Number(totalAmount || 0) -
+          allocated;
+      } else {
+        metricAmount =
+          Math.round(
+            (
+              Number(totalAmount || 0) *
+              (sourceAmount /
+                totalSource)
+            ) /
+              1000
+          ) * 1000;
+      }
+
+      allocated += metricAmount;
+
+      return {
+        ...detail,
+        [fieldName]:
+          metricAmount,
+      };
+    }
+  );
+};
+
+
+// =====================================================
 // ATTACH DETAIL TO EVERY TRANSACTION
 // =====================================================
 
 const dummyData =
   baseData.map(
-    (item, index) => ({
+    (item, index) => {
 
-      ...item,
-
-      // Metadata tambahan untuk kebutuhan filter.
-      // Tidak mengubah kolom/data yang tampil di tabel utama.
-      cabang:
-        cabangMaster[
-          index % cabangMaster.length
-        ],
-      channel:
-        channelMaster[
-          index % channelMaster.length
-        ],
-
-      detailPenjualan:
+      // Generate satu kali saja agar detail
+      // penjualan, retur, dan pencairan
+      // menggunakan invoice/product yang sama.
+      const detailPenjualan =
         generateDetailPenjualan({
           index,
           totalPenjualan:
@@ -794,9 +870,48 @@ const dummyData =
             item.sales,
           tanggal:
             item.tanggal,
-        }),
+        });
 
-    })
+      return {
+
+        ...item,
+
+        // Metadata tambahan untuk kebutuhan filter.
+        // Tidak mengubah kolom/data yang tampil di tabel utama.
+        cabang:
+          cabangMaster[
+            index % cabangMaster.length
+          ],
+        channel:
+          channelMaster[
+            index % channelMaster.length
+          ],
+
+        detailPenjualan,
+
+        detailRetur:
+          generateDetailMetric({
+            sourceDetails:
+              detailPenjualan,
+            totalAmount:
+              item.retur,
+            fieldName:
+              "Total Retur",
+          }),
+
+        detailPencairan:
+          generateDetailMetric({
+            sourceDetails:
+              detailPenjualan,
+            totalAmount:
+              item.pencairan,
+            fieldName:
+              "Total Pencairan",
+          }),
+
+      };
+
+    }
   );
 
 
@@ -889,9 +1004,21 @@ const TableReportSales = ({
   const openDetailMetric =
     (item, type) => {
 
+      const detailData =
+        type === "RETUR"
+          ? (
+              item.detailRetur ||
+              []
+            )
+          : (
+              item.detailPencairan ||
+              []
+            );
+
       setSelectedMetric({
         item,
         type,
+        detailData,
       });
 
       setIsMetricModalOpen(
@@ -3744,7 +3871,7 @@ const TableReportSales = ({
             className="
               fixed
               inset-0
-              z-[9998]
+              z-[9999]
               flex
               items-center
               justify-center
@@ -3761,10 +3888,13 @@ const TableReportSales = ({
               className="
                 bg-white
                 w-full
-                max-w-2xl
+                max-w-7xl
+                max-h-[92vh]
                 rounded-2xl
                 shadow-2xl
                 overflow-hidden
+                flex
+                flex-col
               "
               onClick={
                 e =>
@@ -3772,7 +3902,7 @@ const TableReportSales = ({
               }
             >
 
-              {/* HEADER */}
+              {/* MODAL HEADER */}
 
               <div
                 className={`
@@ -3780,11 +3910,12 @@ const TableReportSales = ({
                   py-4
                   text-white
                   flex
-                  items-center
+                  items-start
                   justify-between
                   gap-4
                   ${
-                    selectedMetric.type === "RETUR"
+                    selectedMetric.type ===
+                    "RETUR"
                       ? "bg-red-600"
                       : "bg-green-600"
                   }
@@ -3793,64 +3924,116 @@ const TableReportSales = ({
 
                 <div
                   className="
-                    flex
-                    items-center
-                    gap-3
+                    min-w-0
                   "
                 >
 
                   <div
                     className="
-                      w-10
-                      h-10
-                      rounded-xl
-                      bg-white/15
                       flex
                       items-center
-                      justify-center
+                      gap-2
                     "
                   >
 
                     {
-                      selectedMetric.type === "RETUR" ? (
-                        <FaUndoAlt size={17} />
+                      selectedMetric.type ===
+                      "RETUR" ? (
+                        <FaUndoAlt />
                       ) : (
-                        <FaMoneyBillWave size={17} />
+                        <FaMoneyBillWave />
                       )
                     }
 
-                  </div>
-
-                  <div>
-
                     <h3
                       className="
-                        text-base
+                        text-lg
                         font-bold
                       "
                     >
                       {
-                        selectedMetric.type === "RETUR"
+                        selectedMetric.type ===
+                        "RETUR"
                           ? "Detail Retur"
                           : "Detail Pencairan"
                       }
                     </h3>
 
-                    <p
-                      className="
-                        text-xs
-                        text-white/80
-                        mt-0.5
-                      "
-                    >
-                      {
-                        selectedMetric.item.no_transaksi
-                      }
-                    </p>
+                  </div>
+
+
+                  <div
+                    className="
+                      mt-2
+                      flex
+                      flex-wrap
+                      gap-x-5
+                      gap-y-1
+                      text-sm
+                      text-white/90
+                    "
+                  >
+
+                    <span>
+
+                      Invoice:
+
+                      <strong
+                        className="
+                          ml-1
+                        "
+                      >
+                        {
+                          selectedMetric
+                            .item
+                            .no_transaksi
+                        }
+                      </strong>
+
+                    </span>
+
+
+                    <span>
+
+                      Customer:
+
+                      <strong
+                        className="
+                          ml-1
+                        "
+                      >
+                        {
+                          selectedMetric
+                            .item
+                            .customer
+                        }
+                      </strong>
+
+                    </span>
+
+
+                    <span>
+
+                      Sales:
+
+                      <strong
+                        className="
+                          ml-1
+                        "
+                      >
+                        {
+                          selectedMetric
+                            .item
+                            .sales
+                        }
+                      </strong>
+
+                    </span>
 
                   </div>
 
                 </div>
+
 
                 <button
                   type="button"
@@ -3858,8 +4041,9 @@ const TableReportSales = ({
                     closeDetailMetric
                   }
                   className="
-                    w-8
-                    h-8
+                    w-9
+                    h-9
+                    shrink-0
                     rounded-full
                     bg-white/10
                     hover:bg-white/20
@@ -3868,18 +4052,22 @@ const TableReportSales = ({
                     justify-center
                     transition
                   "
+                  title="Tutup"
                 >
-                  <FaTimes size={13} />
+                  <FaTimes />
                 </button>
 
               </div>
 
 
-              {/* CONTENT */}
+              {/* MODAL SUMMARY */}
 
               <div
                 className="
-                  p-6
+                  p-5
+                  border-b
+                  border-gray-200
+                  bg-slate-50
                 "
               >
 
@@ -3887,130 +4075,163 @@ const TableReportSales = ({
                   className="
                     grid
                     grid-cols-1
-                    md:grid-cols-2
-                    gap-4
+                    sm:grid-cols-2
+                    lg:grid-cols-4
+                    gap-3
                   "
                 >
 
+                  {/* NILAI METRIC */}
+
+                  <div
+                    className={`
+                      bg-white
+                      border
+                      rounded-xl
+                      p-4
+                      ${
+                        selectedMetric.type ===
+                        "RETUR"
+                          ? "border-red-100"
+                          : "border-green-100"
+                      }
+                    `}
+                  >
+
+                    <p
+                      className="
+                        text-xs
+                        text-gray-500
+                      "
+                    >
+                      {
+                        selectedMetric.type ===
+                        "RETUR"
+                          ? "Total Retur"
+                          : "Total Pencairan"
+                      }
+                    </p>
+
+                    <p
+                      className={`
+                        mt-1
+                        text-lg
+                        font-bold
+                        ${
+                          selectedMetric.type ===
+                          "RETUR"
+                            ? "text-red-700"
+                            : "text-green-700"
+                        }
+                      `}
+                    >
+                      {
+                        formatCurrency(
+                          selectedMetric.type ===
+                          "RETUR"
+                            ? selectedMetric.item.retur
+                            : selectedMetric.item.pencairan
+                        )
+                      }
+                    </p>
+
+                  </div>
+
+
+                  {/* JUMLAH DETAIL */}
+
                   <div
                     className="
-                      rounded-xl
+                      bg-white
                       border
                       border-gray-100
-                      bg-gray-50
+                      rounded-xl
                       p-4
                     "
                   >
+
                     <p
                       className="
-                        text-[11px]
-                        text-gray-400
-                        font-medium
+                        text-xs
+                        text-gray-500
                       "
                     >
-                      Customer
+                      Jumlah Detail Produk
                     </p>
 
                     <p
                       className="
                         mt-1
-                        text-sm
+                        text-lg
                         font-bold
                         text-gray-800
                       "
                     >
                       {
-                        selectedMetric.item.customer ||
-                        "-"
+                        selectedMetric
+                          .detailData
+                          ?.length || 0
                       }
                     </p>
+
                   </div>
 
 
+                  {/* PRINCIPAL */}
+
                   <div
                     className="
-                      rounded-xl
+                      bg-white
                       border
                       border-gray-100
-                      bg-gray-50
+                      rounded-xl
                       p-4
                     "
                   >
+
                     <p
                       className="
-                        text-[11px]
-                        text-gray-400
-                        font-medium
+                        text-xs
+                        text-gray-500
                       "
                     >
-                      Sales
+                      Principal
                     </p>
 
                     <p
                       className="
                         mt-1
-                        text-sm
+                        text-lg
                         font-bold
                         text-gray-800
                       "
                     >
                       {
-                        selectedMetric.item.sales ||
-                        "-"
+                        selectedMetric
+                          .item
+                          .principal
                       }
                     </p>
+
                   </div>
 
 
-                  <div
-                    className="
-                      rounded-xl
-                      border
-                      border-gray-100
-                      bg-gray-50
-                      p-4
-                    "
-                  >
-                    <p
-                      className="
-                        text-[11px]
-                        text-gray-400
-                        font-medium
-                      "
-                    >
-                      No. Transaksi
-                    </p>
-
-                    <p
-                      className="
-                        mt-1
-                        text-sm
-                        font-bold
-                        text-gray-800
-                      "
-                    >
-                      {
-                        selectedMetric.item.no_transaksi ||
-                        "-"
-                      }
-                    </p>
-                  </div>
-
+                  {/* TANGGAL */}
 
                   <div
                     className="
-                      rounded-xl
+                      bg-white
                       border
                       border-gray-100
-                      bg-gray-50
+                      rounded-xl
                       p-4
                     "
                   >
+
                     <p
                       className="
-                        text-[11px]
-                        text-gray-400
-                        font-medium
+                        text-xs
+                        text-gray-500
                       "
                     >
                       Tanggal
@@ -4019,109 +4240,19 @@ const TableReportSales = ({
                     <p
                       className="
                         mt-1
-                        text-sm
+                        text-lg
                         font-bold
                         text-gray-800
                       "
                     >
                       {
                         formatDate(
-                          selectedMetric.item.tanggal
+                          selectedMetric
+                            .item
+                            .tanggal
                         )
                       }
                     </p>
-                  </div>
-
-                </div>
-
-
-                <div
-                  className={`
-                    mt-5
-                    rounded-xl
-                    border
-                    p-5
-                    ${
-                      selectedMetric.type === "RETUR"
-                        ? "bg-red-50 border-red-100"
-                        : "bg-green-50 border-green-100"
-                    }
-                  `}
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-4
-                    "
-                  >
-
-                    <div>
-                      <p
-                        className={`
-                          text-xs
-                          font-medium
-                          ${
-                            selectedMetric.type === "RETUR"
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }
-                        `}
-                      >
-                        {
-                          selectedMetric.type === "RETUR"
-                            ? "Total Retur"
-                            : "Total Pencairan"
-                        }
-                      </p>
-
-                      <p
-                        className={`
-                          mt-1
-                          text-2xl
-                          font-bold
-                          ${
-                            selectedMetric.type === "RETUR"
-                              ? "text-red-800"
-                              : "text-green-800"
-                          }
-                        `}
-                      >
-                        {
-                          formatCurrency(
-                            selectedMetric.type === "RETUR"
-                              ? selectedMetric.item.retur
-                              : selectedMetric.item.pencairan
-                          )
-                        }
-                      </p>
-                    </div>
-
-                    <div
-                      className={`
-                        w-12
-                        h-12
-                        rounded-xl
-                        flex
-                        items-center
-                        justify-center
-                        ${
-                          selectedMetric.type === "RETUR"
-                            ? "bg-red-100 text-red-600"
-                            : "bg-green-100 text-green-600"
-                        }
-                      `}
-                    >
-                      {
-                        selectedMetric.type === "RETUR" ? (
-                          <FaUndoAlt />
-                        ) : (
-                          <FaMoneyBillWave />
-                        )
-                      }
-                    </div>
 
                   </div>
 
@@ -4130,18 +4261,718 @@ const TableReportSales = ({
               </div>
 
 
-              {/* FOOTER */}
+              {/* DETAIL TABLE */}
+
+              <div
+                className="
+                  flex-1
+                  overflow-auto
+                "
+              >
+
+                {
+                  selectedMetric
+                    .detailData
+                    ?.length > 0 ? (
+
+                    <table
+                      className="
+                        table
+                        w-full
+                      "
+                    >
+
+                      <thead
+                        className="
+                          sticky
+                          top-0
+                          z-20
+                          text-white
+                          text-xs
+                        "
+                      >
+
+                        <tr
+                          className={
+                            selectedMetric.type ===
+                            "RETUR"
+                              ? "bg-red-600"
+                              : "bg-green-600"
+                          }
+                        >
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            No
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            Billing No
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            Posting Date
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              min-w-[260px]
+                            "
+                          >
+                            Produk
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            Qty
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            Harga Unit
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            Disc.
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            {
+                              selectedMetric.type ===
+                              "RETUR"
+                                ? "Total Retur"
+                                : "Total Pencairan"
+                            }
+                          </th>
+
+                          <th
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            Principal
+                          </th>
+
+                        </tr>
+
+                      </thead>
+
+
+                      <tbody>
+
+                        {
+                          selectedMetric
+                            .detailData
+                            .map(
+                              (
+                                detail,
+                                index
+                              ) => (
+
+                                <tr
+                                  key={`
+                                    ${detail["Billing No"]}
+                                    -
+                                    ${detail.Material}
+                                    -
+                                    ${index}
+                                  `}
+                                  className="
+                                    border-b
+                                    border-gray-100
+                                    hover:bg-slate-50
+                                    transition
+                                  "
+                                >
+
+                                  {/* NO */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      font-semibold
+                                      text-gray-600
+                                    "
+                                  >
+                                    {
+                                      index + 1
+                                    }
+                                  </td>
+
+
+                                  {/* BILLING */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      font-semibold
+                                      text-primary
+                                      whitespace-nowrap
+                                    "
+                                  >
+                                    {
+                                      detail[
+                                        "Billing No"
+                                      ]
+                                    }
+                                  </td>
+
+
+                                  {/* DATE */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      text-gray-600
+                                      whitespace-nowrap
+                                    "
+                                  >
+                                    {
+                                      formatDate(
+                                        detail[
+                                          "Posting Date"
+                                        ]
+                                      )
+                                    }
+                                  </td>
+
+
+                                  {/* PRODUCT */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                    "
+                                  >
+
+                                    <div
+                                      className="
+                                        flex
+                                        items-center
+                                        gap-3
+                                        min-w-[230px]
+                                      "
+                                    >
+
+                                      <div
+                                        className={`
+                                          w-9
+                                          h-9
+                                          shrink-0
+                                          rounded-lg
+                                          flex
+                                          items-center
+                                          justify-center
+                                          ${
+                                            selectedMetric.type ===
+                                            "RETUR"
+                                              ? "bg-red-50 text-red-600"
+                                              : "bg-green-50 text-green-600"
+                                          }
+                                        `}
+                                      >
+
+                                        <FaBoxOpen />
+
+                                      </div>
+
+
+                                      <div
+                                        className="
+                                          min-w-0
+                                        "
+                                      >
+
+                                        <p
+                                          className="
+                                            font-semibold
+                                            text-gray-800
+                                          "
+                                        >
+                                          {
+                                            detail[
+                                              "Text Material"
+                                            ]
+                                          }
+                                        </p>
+
+                                        <p
+                                          className="
+                                            text-xs
+                                            text-gray-500
+                                          "
+                                        >
+                                          Material:{" "}
+
+                                          {
+                                            detail[
+                                              "Material"
+                                            ]
+                                          }
+
+                                        </p>
+
+                                        <p
+                                          className="
+                                            text-xs
+                                            text-gray-400
+                                          "
+                                        >
+                                          {
+                                            detail[
+                                              "Prod. Hierarchy3"
+                                            ]
+                                          }
+                                        </p>
+
+                                      </div>
+
+                                    </div>
+
+                                  </td>
+
+
+                                  {/* QTY */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      text-right
+                                      whitespace-nowrap
+                                    "
+                                  >
+
+                                    <span
+                                      className="
+                                        font-semibold
+                                      "
+                                    >
+                                      {
+                                        detail[
+                                          "Quantity"
+                                        ]
+                                      }
+                                    </span>
+
+                                    {" "}
+
+                                    <span
+                                      className="
+                                        text-gray-400
+                                      "
+                                    >
+                                      {
+                                        detail[
+                                          "Sales Unit"
+                                        ]
+                                      }
+                                    </span>
+
+                                  </td>
+
+
+                                  {/* UNIT PRICE */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      text-right
+                                      whitespace-nowrap
+                                    "
+                                  >
+                                    {
+                                      formatCurrency(
+                                        detail[
+                                          "Unit Price Penjualan"
+                                        ]
+                                      )
+                                    }
+                                  </td>
+
+
+                                  {/* DISCOUNT */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      text-right
+                                      whitespace-nowrap
+                                    "
+                                  >
+
+                                    <div
+                                      className="
+                                        font-semibold
+                                        text-red-600
+                                      "
+                                    >
+                                      {
+                                        formatCurrency(
+                                          detail[
+                                            "Total Discount"
+                                          ]
+                                        )
+                                      }
+                                    </div>
+
+                                    <div
+                                      className="
+                                        text-xs
+                                        text-gray-400
+                                      "
+                                    >
+                                      ZD03:{" "}
+
+                                      {
+                                        detail[
+                                          "Dis% (ZD03)"
+                                        ]
+                                      }%
+
+                                    </div>
+
+                                  </td>
+
+
+                                  {/* TOTAL METRIC */}
+
+                                  <td
+                                    className={`
+                                      px-4
+                                      py-3
+                                      text-right
+                                      whitespace-nowrap
+                                      font-bold
+                                      ${
+                                        selectedMetric.type ===
+                                        "RETUR"
+                                          ? "text-red-700"
+                                          : "text-green-700"
+                                      }
+                                    `}
+                                  >
+                                    {
+                                      formatCurrency(
+                                        selectedMetric.type ===
+                                        "RETUR"
+                                          ? detail[
+                                              "Total Retur"
+                                            ]
+                                          : detail[
+                                              "Total Pencairan"
+                                            ]
+                                      )
+                                    }
+                                  </td>
+
+
+                                  {/* PRINCIPAL */}
+
+                                  <td
+                                    className="
+                                      px-4
+                                      py-3
+                                      text-sm
+                                      whitespace-nowrap
+                                    "
+                                  >
+
+                                    <p
+                                      className="
+                                        font-semibold
+                                        text-gray-700
+                                      "
+                                    >
+                                      {
+                                        detail[
+                                          "Name Principle"
+                                        ]
+                                      }
+                                    </p>
+
+                                    <p
+                                      className="
+                                        text-xs
+                                        text-gray-400
+                                      "
+                                    >
+                                      {
+                                        detail[
+                                          "Principle"
+                                        ]
+                                      }
+                                    </p>
+
+                                  </td>
+
+                                </tr>
+
+                              )
+                            )
+                        }
+
+                      </tbody>
+
+
+                      {/* DETAIL FOOTER */}
+
+                      <tfoot
+                        className="
+                          sticky
+                          bottom-0
+                          bg-slate-100
+                          border-t-2
+                          border-gray-200
+                        "
+                      >
+
+                        <tr>
+
+                          <td
+                            colSpan={7}
+                            className="
+                              px-4
+                              py-4
+                              text-right
+                              font-bold
+                              text-gray-700
+                            "
+                          >
+                            Total
+                          </td>
+
+                          <td
+                            className={`
+                              px-4
+                              py-4
+                              text-right
+                              font-bold
+                              whitespace-nowrap
+                              ${
+                                selectedMetric.type ===
+                                "RETUR"
+                                  ? "text-red-800"
+                                  : "text-green-800"
+                              }
+                            `}
+                          >
+                            {
+                              formatCurrency(
+                                selectedMetric
+                                  .detailData
+                                  .reduce(
+                                    (
+                                      sum,
+                                      item
+                                    ) =>
+                                      sum +
+                                      Number(
+                                        selectedMetric.type ===
+                                        "RETUR"
+                                          ? item[
+                                              "Total Retur"
+                                            ] || 0
+                                          : item[
+                                              "Total Pencairan"
+                                            ] || 0
+                                      ),
+                                    0
+                                  )
+                              )
+                            }
+                          </td>
+
+                          <td />
+
+                        </tr>
+
+                      </tfoot>
+
+                    </table>
+
+                  ) : (
+
+                    <div
+                      className="
+                        flex
+                        flex-col
+                        items-center
+                        justify-center
+                        min-h-[280px]
+                        text-gray-400
+                        p-6
+                      "
+                    >
+
+                      {
+                        selectedMetric.type ===
+                        "RETUR" ? (
+                          <FaUndoAlt
+                            className="
+                              text-4xl
+                              mb-3
+                              text-red-300
+                            "
+                          />
+                        ) : (
+                          <FaMoneyBillWave
+                            className="
+                              text-4xl
+                              mb-3
+                              text-green-300
+                            "
+                          />
+                        )
+                      }
+
+                      <p
+                        className="
+                          font-semibold
+                          text-gray-500
+                        "
+                      >
+                        Tidak ada detail data
+                      </p>
+
+                      <p
+                        className="
+                          text-xs
+                          mt-1
+                        "
+                      >
+                        Detail produk/invoice
+                        belum tersedia.
+                      </p>
+
+                    </div>
+
+                  )
+                }
+
+              </div>
+
+
+              {/* MODAL FOOTER */}
 
               <div
                 className="
                   px-6
-                  py-4
+                  py-3
                   border-t
-                  border-gray-100
+                  border-gray-200
+                  bg-white
                   flex
-                  justify-end
+                  flex-col
+                  sm:flex-row
+                  sm:items-center
+                  sm:justify-between
+                  gap-3
                 "
               >
+
+                <div
+                  className="
+                    text-xs
+                    text-gray-500
+                  "
+                >
+
+                  <FaUser
+                    className="
+                      inline
+                      mr-1
+                    "
+                  />
+
+                  {
+                    selectedMetric
+                      .item
+                      .sales
+                  }
+
+                  <span
+                    className="
+                      mx-2
+                    "
+                  >
+                    •
+                  </span>
+
+                  <FaMapMarkerAlt
+                    className="
+                      inline
+                      mr-1
+                    "
+                  />
+
+                  {
+                    selectedMetric
+                      .item
+                      .customer
+                  }
+
+                </div>
+
 
                 <button
                   type="button"
