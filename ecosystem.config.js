@@ -7,7 +7,7 @@ module.exports = {
 
       args: "/c serve -s build -l 8002",
 
-      cwd: "C:\\Programs\\kfcolls\\frontend",
+      cwd: "C:/Programs/kfcolls/frontend",
 
       instances: 1,
 
