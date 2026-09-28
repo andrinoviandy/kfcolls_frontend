@@ -3,11 +3,10 @@ module.exports = {
     {
       name: "kfcolls-frontend",
 
-      script: "cmd.exe",
+      script: "serve",
+      args: "-s build -l 8001",
 
-      args: "/c serve -s build -l 8002",
-
-      cwd: "C:/Programs/kfcolls/frontend",
+      cwd: "/home/kfcolls/frontend",
 
       instances: 1,
 
@@ -16,8 +15,6 @@ module.exports = {
       autorestart: true,
 
       watch: false,
-
-      max_memory_restart: "500M",
 
       env: {
         NODE_ENV: "production",
