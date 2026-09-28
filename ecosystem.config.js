@@ -8,12 +8,12 @@ module.exports = {
 
       cwd: "/home/kfcolls/frontend",
 
-      instances: 1,
+      interpreter: "none",
 
+      instances: 1,
       exec_mode: "fork",
 
       autorestart: true,
-
       watch: false,
 
       env: {
