@@ -3,12 +3,10 @@ module.exports = {
     {
       name: "kfcolls-frontend",
 
-      script: "serve",
-      args: "-s build -l 8001",
+      script: "bash",
+      args: '-lc "serve -s build -l 8001"',
 
       cwd: "/home/kfcolls/frontend",
-
-      interpreter: "none",
 
       instances: 1,
       exec_mode: "fork",
