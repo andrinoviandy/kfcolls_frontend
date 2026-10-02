@@ -84,6 +84,8 @@ const dummyData = [
   {
     id: 1,
     no_faktur: "INV-2026-00001",
+    no_billing: "28093615001",
+    proses_retur: "29093615001",
     nama_customer: "Dinas Kesehatan Kota Medan",
     alamat: "Jl. Gatot Subroto No. 125, Medan",
     jatuh_tempo: "2026-08-22",
@@ -97,6 +99,8 @@ const dummyData = [
   {
     id: 2,
     no_faktur: "INV-2026-00002",
+    no_billing: "28093615002",
+    proses_retur: "29093615002",
     nama_customer: "Apotek Maju Djaya",
     alamat: "Jl. Sisingamangaraja No. 88, Medan",
     jatuh_tempo: "2026-08-25",
@@ -110,6 +114,8 @@ const dummyData = [
   {
     id: 3,
     no_faktur: "INV-2026-00003",
+    no_billing: "28093615003",
+    proses_retur: "29093615003",
     nama_customer: "Apotek Rusli",
     alamat: "Jl. Iskandar Muda No. 45, Medan",
     jatuh_tempo: "2026-08-27",
@@ -123,6 +129,8 @@ const dummyData = [
   {
     id: 4,
     no_faktur: "INV-2026-00004",
+    no_billing: "28093615004",
+    proses_retur: "29093615004",
     nama_customer: "RSUD Pasuruan",
     alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
     jatuh_tempo: "2026-08-29",
@@ -136,6 +144,8 @@ const dummyData = [
   {
     id: 5,
     no_faktur: "INV-2026-00005",
+    no_billing: "28093615005",
+    proses_retur: "29093615005",
     nama_customer: "RS Hermina Medan",
     alamat: "Jl. Asrama No. 12, Medan",
     jatuh_tempo: "2026-08-30",
@@ -149,6 +159,8 @@ const dummyData = [
   {
     id: 6,
     no_faktur: "INV-2026-00006",
+    no_billing: "28093615006",
+    proses_retur: "29093615006",
     nama_customer: "Apotek Sehat Sentosa",
     alamat: "Jl. Kelapa Gading Raya No. 21, Jakarta",
     jatuh_tempo: "2026-09-01",
@@ -162,6 +174,8 @@ const dummyData = [
   {
     id: 7,
     no_faktur: "INV-2026-00007",
+    no_billing: "28093615007",
+    proses_retur: "29093615007",
     nama_customer: "Klinik Medika Utama",
     alamat: "Jl. Boulevard Barat No. 30, Jakarta",
     jatuh_tempo: "2026-09-03",
@@ -175,6 +189,8 @@ const dummyData = [
   {
     id: 8,
     no_faktur: "INV-2026-00008",
+    no_billing: "28093615008",
+    proses_retur: "29093615008",
     nama_customer: "RS Siloam Medan",
     alamat: "Jl. Imam Bonjol No. 5, Medan",
     jatuh_tempo: "2026-09-05",
@@ -188,6 +204,8 @@ const dummyData = [
   {
     id: 9,
     no_faktur: "INV-2026-00009",
+    no_billing: "28093615009",
+    proses_retur: "29093615009",
     nama_customer: "Dinas Kesehatan Deli Serdang",
     alamat: "Jl. Negara No. 100, Deli Serdang",
     jatuh_tempo: "2026-09-07",
@@ -201,6 +219,8 @@ const dummyData = [
   {
     id: 10,
     no_faktur: "INV-2026-00010",
+    no_billing: "28093615010",
+    proses_retur: "29093615010",
     nama_customer: "Apotek Kimia Sehat",
     alamat: "Jl. Sunter Agung No. 18, Jakarta",
     jatuh_tempo: "2026-09-10",
@@ -214,6 +234,8 @@ const dummyData = [
   {
     id: 11,
     no_faktur: "INV-2026-00011",
+    no_billing: "28093615011",
+    proses_retur: "29093615011",
     nama_customer: "RSUD Kota Bogor",
     alamat: "Jl. Pajajaran No. 50, Bogor",
     jatuh_tempo: "2026-09-12",
@@ -227,6 +249,8 @@ const dummyData = [
   {
     id: 12,
     no_faktur: "INV-2026-00012",
+    no_billing: "28093615012",
+    proses_retur: "29093615012",
     nama_customer: "Apotek Berkah Farma",
     alamat: "Jl. Merdeka No. 12, Bogor",
     jatuh_tempo: "2026-09-15",
@@ -325,9 +349,9 @@ const TableTukarFaktur = ({
   ] = useState([]);
 
   const [
-    bulkFiles,
-    setBulkFiles,
-  ] = useState({});
+    bulkFile,
+    setBulkFile,
+  ] = useState(null);
 
 
   // ===================================================
@@ -405,13 +429,19 @@ const TableTukarFaktur = ({
 
             ||
 
-            item.nama_customer
+            item.no_billing
               ?.toLowerCase()
               .includes(search)
 
             ||
 
-            item.alamat
+            item.proses_retur
+              ?.toLowerCase()
+              .includes(search)
+
+            ||
+
+            item.nama_customer
               ?.toLowerCase()
               .includes(search)
         );
@@ -487,7 +517,7 @@ const TableTukarFaktur = ({
       faktur.id,
     ]);
 
-    setBulkFiles({});
+    setBulkFile(null);
 
     setShowTukarModal(
       true
@@ -565,7 +595,7 @@ const TableTukarFaktur = ({
       fakturTerpilih[0]
     );
 
-    setBulkFiles({});
+    setBulkFile(null);
     setShowTukarModal(true);
   };
 
@@ -582,7 +612,7 @@ const TableTukarFaktur = ({
 
     setSelectedFaktur(null);
 
-    setBulkFiles({});
+    setBulkFile(null);
     setShowTukarModal(false);
   };
 
@@ -625,10 +655,7 @@ const TableTukarFaktur = ({
   // FILE CHANGE
   // ===================================================
 
-  const handleBulkFileChange = (
-    e,
-    fakturId
-  ) => {
+  const handleBulkFileChange = (e) => {
 
     const file =
       e.target.files?.[0];
@@ -654,12 +681,7 @@ const TableTukarFaktur = ({
       return;
     }
 
-    setBulkFiles(
-      prev => ({
-        ...prev,
-        [fakturId]: file,
-      })
-    );
+    setBulkFile(file);
   };
 
 
@@ -680,14 +702,8 @@ const TableTukarFaktur = ({
         return;
       }
 
-      const belumUpload = fakturTerpilih.filter(
-        faktur => !bulkFiles[faktur.id]
-      );
-
-      if (belumUpload.length > 0) {
-        alert(
-          `Silakan upload bukti tukar faktur untuk ${belumUpload.length} faktur yang dipilih.`
-        );
+      if (!bulkFile) {
+        alert("Silakan upload bukti tukar faktur terlebih dahulu.");
         return;
       }
 
@@ -697,7 +713,7 @@ const TableTukarFaktur = ({
         const berhasilIds = [];
 
         for (const faktur of fakturTerpilih) {
-          const file = bulkFiles[faktur.id];
+          const file = bulkFile;
 
           if (typeof onTukarFaktur === "function") {
             await onTukarFaktur({
@@ -717,8 +733,8 @@ const TableTukarFaktur = ({
               ? {
                 ...item,
                 status: "SUDAH_DITUKAR",
-                dokumen_tukar: bulkFiles[item.id],
-                nama_dokumen_tukar: bulkFiles[item.id]?.name,
+                dokumen_tukar: bulkFile,
+                nama_dokumen_tukar: bulkFile?.name,
                 tanggal_tukar: tanggalTukar,
               }
               : item
@@ -961,13 +977,18 @@ const TableTukarFaktur = ({
     },
 
     {
+      label: "No. Billing",
+      icon: <FaFileInvoiceDollar />,
+    },
+
+    {
       label: "Customer",
       icon: <FaBuilding />,
     },
 
     {
-      label: "Alamat",
-      icon: <FaMapMarkerAlt />,
+      label: "Proses Retur",
+      icon: <FaExchangeAlt />,
     },
 
     {
@@ -1690,6 +1711,31 @@ const TableTukarFaktur = ({
                           </td>
 
 
+                          {/* NO BILLING */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="
+                                  w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600
+                                  flex items-center justify-center
+                                "
+                              >
+                                <FaFileInvoiceDollar />
+                              </div>
+                              <span className="font-semibold text-indigo-700">
+                                {v.no_billing}
+                              </span>
+                            </div>
+                          </td>
+
+
                           {/* CUSTOMER */}
 
                           <td
@@ -1746,42 +1792,33 @@ const TableTukarFaktur = ({
                           </td>
 
 
-                          {/* ALAMAT */}
+                          {/* PROSES RETUR */}
 
                           <td
                             className="
                               px-4
                               py-3
-                              min-w-[270px]
+                              whitespace-nowrap
                             "
                           >
-
                             <div
                               className="
-                                flex
-                                items-start
+                                inline-flex
+                                items-center
                                 gap-2
-                                text-sm
-                                text-gray-600
+                                px-3
+                                py-2
+                                rounded-xl
+                                bg-orange-50
+                                border
+                                border-orange-200
                               "
                             >
-
-                              <FaMapMarkerAlt
-                                className="
-                                  text-orange-500
-                                  mt-1
-                                  shrink-0
-                                "
-                              />
-
-                              <span>
-                                {
-                                  v.alamat
-                                }
+                              <FaExchangeAlt className="text-orange-600" />
+                              <span className="font-semibold text-orange-700">
+                                {v.proses_retur}
                               </span>
-
                             </div>
-
                           </td>
 
 
@@ -2293,151 +2330,111 @@ const TableTukarFaktur = ({
                     </p>
 
                     <div className="flex flex-col gap-3">
-                      {selectedFakturList.map((faktur, index) => {
-                        const file = bulkFiles[faktur.id];
-
-                        return (
-                          <div
-                            key={faktur.id}
-                            className="
-                              rounded-xl
-                              border
-                              border-gray-200
-                              bg-white
-                              shadow-sm
-                              p-4
-                            "
-                          >
-                            <div className="flex flex-col gap-4">
-                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                <div className="flex items-start gap-3 min-w-0">
-                                  <div
-                                    className="
-                                      w-10
-                                      h-10
-                                      shrink-0
-                                      rounded-xl
-                                      bg-blue-50
-                                      text-primary
-                                      flex
-                                      items-center
-                                      justify-center
-                                      font-bold
-                                      text-sm
-                                    "
-                                  >
-                                    {index + 1}
-                                  </div>
-
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-primary break-all">
-                                      {faktur.no_faktur}
-                                    </p>
-                                    <p className="text-sm font-semibold text-gray-700 mt-0.5">
-                                      {faktur.nama_customer}
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      Jatuh Tempo: {formatDate(faktur.jatuh_tempo)}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="text-left sm:text-right shrink-0">
-                                  <p className="text-xs text-gray-500">
-                                    Nominal
-                                  </p>
-                                  <p className="font-bold text-orange-700">
-                                    {formatCurrency(faktur.nominal)}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <label
+                      {selectedFakturList.map((faktur, index) => (
+                        <div
+                          key={faktur.id}
+                          className="
+                            rounded-xl
+                            border
+                            border-gray-200
+                            bg-white
+                            shadow-sm
+                            p-4
+                          "
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div
                                 className="
-                                  relative
-                                  flex
-                                  items-center
-                                  gap-3
-                                  w-full
-                                  rounded-xl
-                                  border-2
-                                  border-dashed
-                                  border-blue-200
-                                  bg-blue-50/50
-                                  hover:bg-blue-50
-                                  hover:border-primary
-                                  transition
-                                  cursor-pointer
-                                  p-4
+                                  w-10 h-10 shrink-0 rounded-xl bg-blue-50 text-primary
+                                  flex items-center justify-center font-bold text-sm
                                 "
                               >
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  accept=".pdf,.jpg,.jpeg,.png"
-                                  onChange={e =>
-                                    handleBulkFileChange(
-                                      e,
-                                      faktur.id
-                                    )
-                                  }
-                                />
+                                {index + 1}
+                              </div>
 
-                                <div
-                                  className={`
-                                    w-11
-                                    h-11
-                                    shrink-0
-                                    rounded-xl
-                                    flex
-                                    items-center
-                                    justify-center
-                                    ${file
-                                      ? "bg-green-100 text-green-600"
-                                      : "bg-blue-100 text-primary"
-                                    }
-                                  `}
-                                >
-                                  {file ? (
-                                    <FaCheck />
-                                  ) : (
-                                    <FaUpload />
-                                  )}
-                                </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-primary break-all">
+                                  {faktur.no_faktur}
+                                </p>
+                                <p className="text-sm font-semibold text-gray-700 mt-0.5">
+                                  {faktur.nama_customer}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Jatuh Tempo: {formatDate(faktur.jatuh_tempo)}
+                                </p>
+                              </div>
+                            </div>
 
-                                <div className="min-w-0 flex-1">
-                                  {file ? (
-                                    <>
-                                      <p className="break-all text-sm font-semibold text-gray-700">
-                                        {file.name}
-                                      </p>
-
-                                      <p className="mt-0.5 text-xs text-gray-400">
-                                        {(file.size / 1024 / 1024).toFixed(2)} MB • Klik untuk mengganti
-                                      </p>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <p className="text-sm font-semibold text-gray-700">
-                                        Upload Bukti Tukar Faktur
-                                      </p>
-
-                                      <p className="text-xs font-semibold leading-relaxed text-gray-700">
-                                        Sebagai bukti akan dibayarkan dan perhitungan insentif untuk sales
-                                      </p>
-
-                                      <p className="mt-0.5 text-xs text-gray-400">
-                                        PDF, JPG, JPEG, PNG • Maks. 25 MB
-                                      </p>
-                                    </>
-                                  )}
-                                </div>
-                              </label>
+                            <div className="text-left sm:text-right shrink-0">
+                              <p className="text-xs text-gray-500">Nominal</p>
+                              <p className="font-bold text-orange-700">
+                                {formatCurrency(faktur.nominal)}
+                              </p>
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
+                  </div>
+
+                  {/* BUKTI TUKAR FAKTUR - SATU DOKUMEN UNTUK SEMUA BILLING */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-3">
+                      Bukti Tukar Faktur
+                    </p>
+
+                    <label
+                      className="
+                        relative flex items-center gap-3 w-full rounded-xl border-2 border-dashed
+                        border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-primary
+                        transition cursor-pointer p-4
+                      "
+                    >
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={handleBulkFileChange}
+                      />
+
+                      <div
+                        className={`
+                          w-11 h-11 shrink-0 rounded-xl flex items-center justify-center
+                          ${bulkFile
+                            ? "bg-green-100 text-green-600"
+                            : "bg-blue-100 text-primary"
+                          }
+                        `}
+                      >
+                        {bulkFile ? <FaCheck /> : <FaUpload />}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        {bulkFile ? (
+                          <>
+                            <p className="break-all text-sm font-semibold text-gray-700">
+                              {bulkFile.name}
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-400">
+                              {(bulkFile.size / 1024 / 1024).toFixed(2)} MB • Klik untuk mengganti
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-semibold text-gray-700">
+                              Upload Bukti Tukar Faktur
+                            </p>
+                            <p className="text-xs font-semibold leading-relaxed text-gray-700">
+                              Satu dokumen dapat digunakan sebagai bukti untuk seluruh billing yang dipilih.
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-400">
+                              PDF, JPG, JPEG, PNG • Maks. 25 MB
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </label>
                   </div>
 
                   {/* INFO */}
@@ -2457,7 +2454,7 @@ const TableTukarFaktur = ({
                           Perhatian
                         </p>
                         <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                          Pastikan setiap dokumen yang diupload sesuai dengan nomor faktur yang dipilih sebelum melakukan proses Tukar Faktur.
+                          Pastikan bukti tukar faktur yang diupload sesuai dengan seluruh billing yang dipilih sebelum melakukan proses Tukar Faktur.
                         </p>
                       </div>
                     </div>
@@ -2483,7 +2480,7 @@ const TableTukarFaktur = ({
                 "
               >
                 <div className="flex items-center text-xs text-gray-500">
-                  {Object.keys(bulkFiles).length} / {selectedFakturList.length} dokumen siap diproses
+                  {bulkFile ? "1 dokumen" : "0 dokumen"} siap diproses untuk {selectedFakturList.length} billing
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row gap-2">
@@ -2517,7 +2514,7 @@ const TableTukarFaktur = ({
                     disabled={
                       isSubmitting ||
                       selectedFakturList.length === 0 ||
-                      selectedFakturList.some(item => !bulkFiles[item.id])
+                      !bulkFile
                     }
                     onClick={handleTukarFaktur}
                     className="

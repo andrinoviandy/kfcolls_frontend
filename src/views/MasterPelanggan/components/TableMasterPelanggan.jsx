@@ -1,6 +1,5 @@
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -8,14 +7,10 @@ import {
   FaEllipsisV,
   FaHashtag,
   FaUsers,
-  FaUser,
   FaBuilding,
   FaMapMarkerAlt,
-  FaPhone,
-  FaEnvelope,
   FaCheckCircle,
   FaTimesCircle,
-  FaClock,
   FaEye,
   FaPencilAlt,
   FaTrash,
@@ -24,530 +19,20 @@ import {
   FaSave,
   FaClipboardList,
   FaStore,
+  FaSyncAlt,
 } from "react-icons/fa";
 
 import {
   IoSearch,
 } from "react-icons/io5";
 
-import ReactPaginate
-  from "react-paginate";
+import ReactPaginate from "react-paginate";
 
 import {
   swal,
 } from "global/helper/swal";
 
-
-// =====================================================
-// DUMMY DATA
-// =====================================================
-
-const dummyData = [
-
-  {
-    id: 1,
-
-    customer_id:
-      "CUST-00001",
-
-    kode_customer:
-      "10000271521",
-
-    nama_customer:
-      "Dinas Kesehatan Kota Medan",
-
-    jenis_customer:
-      "Instansi Pemerintah",
-
-    cabang:
-      "KFTD MEDAN",
-
-    alamat:
-      "Jl. Gatot Subroto No. 125, Medan",
-
-    kota:
-      "Medan",
-
-    provinsi:
-      "Sumatera Utara",
-
-    no_telepon:
-      "061-456789",
-
-    email:
-      "dinkesmedan@gmail.com",
-
-    sales:
-      "Andri Noviandy",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 2,
-
-    customer_id:
-      "CUST-00002",
-
-    kode_customer:
-      "10000271522",
-
-    nama_customer:
-      "Apotek Maju Djaya",
-
-    jenis_customer:
-      "Apotek",
-
-    cabang:
-      "KFTD MEDAN",
-
-    alamat:
-      "Jl. Sisingamangaraja No. 88, Medan",
-
-    kota:
-      "Medan",
-
-    provinsi:
-      "Sumatera Utara",
-
-    no_telepon:
-      "061-667788",
-
-    email:
-      "majudjaya@gmail.com",
-
-    sales:
-      "Budi Santoso",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 3,
-
-    customer_id:
-      "CUST-00003",
-
-    kode_customer:
-      "10000271523",
-
-    nama_customer:
-      "Apotek Rusli",
-
-    jenis_customer:
-      "Apotek",
-
-    cabang:
-      "KFTD MEDAN",
-
-    alamat:
-      "Jl. Iskandar Muda No. 45, Medan",
-
-    kota:
-      "Medan",
-
-    provinsi:
-      "Sumatera Utara",
-
-    no_telepon:
-      "061-778899",
-
-    email:
-      "apotekrusli@gmail.com",
-
-    sales:
-      "Citra Lestari",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 4,
-
-    customer_id:
-      "CUST-00004",
-
-    kode_customer:
-      "10000271524",
-
-    nama_customer:
-      "RSUD Pasuruan",
-
-    jenis_customer:
-      "Rumah Sakit",
-
-    cabang:
-      "KFTD PASURUAN",
-
-    alamat:
-      "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-
-    kota:
-      "Pasuruan",
-
-    provinsi:
-      "Jawa Timur",
-
-    no_telepon:
-      "0343-555888",
-
-    email:
-      "rsudpasuruan@gmail.com",
-
-    sales:
-      "Dimas Pratama",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 5,
-
-    customer_id:
-      "CUST-00005",
-
-    kode_customer:
-      "10000271525",
-
-    nama_customer:
-      "RS Hermina Medan",
-
-    jenis_customer:
-      "Rumah Sakit",
-
-    cabang:
-      "KFTD MEDAN",
-
-    alamat:
-      "Jl. Asrama No. 12, Medan",
-
-    kota:
-      "Medan",
-
-    provinsi:
-      "Sumatera Utara",
-
-    no_telepon:
-      "061-889900",
-
-    email:
-      "info@herminamedan.com",
-
-    sales:
-      "Andri Noviandy",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 6,
-
-    customer_id:
-      "CUST-00006",
-
-    kode_customer:
-      "10000271526",
-
-    nama_customer:
-      "Apotek Sehat Sentosa",
-
-    jenis_customer:
-      "Apotek",
-
-    cabang:
-      "KFTD JAKARTA",
-
-    alamat:
-      "Jl. Kelapa Gading Raya No. 21, Jakarta",
-
-    kota:
-      "Jakarta Utara",
-
-    provinsi:
-      "DKI Jakarta",
-
-    no_telepon:
-      "021-667788",
-
-    email:
-      "sehat.sentosa@gmail.com",
-
-    sales:
-      "Budi Santoso",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 7,
-
-    customer_id:
-      "CUST-00007",
-
-    kode_customer:
-      "10000271527",
-
-    nama_customer:
-      "Klinik Medika Utama",
-
-    jenis_customer:
-      "Klinik",
-
-    cabang:
-      "KFTD JAKARTA",
-
-    alamat:
-      "Jl. Boulevard Barat No. 30, Jakarta",
-
-    kota:
-      "Jakarta Utara",
-
-    provinsi:
-      "DKI Jakarta",
-
-    no_telepon:
-      "021-778899",
-
-    email:
-      "medikautama@gmail.com",
-
-    sales:
-      "Citra Lestari",
-
-    status:
-      "NONAKTIF",
-
-  },
-
-
-  {
-    id: 8,
-
-    customer_id:
-      "CUST-00008",
-
-    kode_customer:
-      "10000271528",
-
-    nama_customer:
-      "RS Siloam Medan",
-
-    jenis_customer:
-      "Rumah Sakit",
-
-    cabang:
-      "KFTD MEDAN",
-
-    alamat:
-      "Jl. Imam Bonjol No. 5, Medan",
-
-    kota:
-      "Medan",
-
-    provinsi:
-      "Sumatera Utara",
-
-    no_telepon:
-      "061-223344",
-
-    email:
-      "siloammedan@gmail.com",
-
-    sales:
-      "Dimas Pratama",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 9,
-
-    customer_id:
-      "CUST-00009",
-
-    kode_customer:
-      "10000271529",
-
-    nama_customer:
-      "Dinas Kesehatan Deli Serdang",
-
-    jenis_customer:
-      "Instansi Pemerintah",
-
-    cabang:
-      "KFTD MEDAN",
-
-    alamat:
-      "Jl. Negara No. 100, Deli Serdang",
-
-    kota:
-      "Deli Serdang",
-
-    provinsi:
-      "Sumatera Utara",
-
-    no_telepon:
-      "061-334455",
-
-    email:
-      "dinkesdeliserdang@gmail.com",
-
-    sales:
-      "Andri Noviandy",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 10,
-
-    customer_id:
-      "CUST-00010",
-
-    kode_customer:
-      "10000271530",
-
-    nama_customer:
-      "Apotek Kimia Sehat",
-
-    jenis_customer:
-      "Apotek",
-
-    cabang:
-      "KFTD JAKARTA",
-
-    alamat:
-      "Jl. Sunter Agung No. 18, Jakarta",
-
-    kota:
-      "Jakarta Utara",
-
-    provinsi:
-      "DKI Jakarta",
-
-    no_telepon:
-      "021-990011",
-
-    email:
-      "kimia.sehat@gmail.com",
-
-    sales:
-      "Budi Santoso",
-
-    status:
-      "NONAKTIF",
-
-  },
-
-
-  {
-    id: 11,
-
-    customer_id:
-      "CUST-00011",
-
-    kode_customer:
-      "10000271531",
-
-    nama_customer:
-      "RSUD Kota Bogor",
-
-    jenis_customer:
-      "Rumah Sakit",
-
-    cabang:
-      "KFTD BOGOR",
-
-    alamat:
-      "Jl. Pajajaran No. 50, Bogor",
-
-    kota:
-      "Bogor",
-
-    provinsi:
-      "Jawa Barat",
-
-    no_telepon:
-      "0251-667788",
-
-    email:
-      "rsudbogor@gmail.com",
-
-    sales:
-      "Citra Lestari",
-
-    status:
-      "AKTIF",
-
-  },
-
-
-  {
-    id: 12,
-
-    customer_id:
-      "CUST-00012",
-
-    kode_customer:
-      "10000271532",
-
-    nama_customer:
-      "Apotek Berkah Farma",
-
-    jenis_customer:
-      "Apotek",
-
-    cabang:
-      "KFTD BOGOR",
-
-    alamat:
-      "Jl. Merdeka No. 12, Bogor",
-
-    kota:
-      "Bogor",
-
-    provinsi:
-      "Jawa Barat",
-
-    no_telepon:
-      "0251-778899",
-
-    email:
-      "berkahfarma@gmail.com",
-
-    sales:
-      "Dimas Pratama",
-
-    status:
-      "AKTIF",
-
-  },
-
-];
+import storeSchema from "global/store";
 
 
 // =====================================================
@@ -557,31 +42,114 @@ const dummyData = [
 const statusConfig = {
 
   AKTIF: {
-
-    label:
-      "Aktif",
-
-    icon:
-      FaCheckCircle,
-
+    label: "Aktif",
+    icon: FaCheckCircle,
     className:
       "bg-green-100 text-green-700",
-
   },
-
 
   NONAKTIF: {
-
-    label:
-      "Nonaktif",
-
-    icon:
-      FaTimesCircle,
-
+    label: "Nonaktif",
+    icon: FaTimesCircle,
     className:
       "bg-red-100 text-red-700",
-
   },
+
+};
+
+
+// =====================================================
+// HELPER
+// =====================================================
+
+const displayValue = (value) => {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "-";
+  }
+
+  return String(value);
+
+};
+
+
+// =====================================================
+// NORMALIZE DATA API
+// =====================================================
+
+const normalizePelanggan = (item = {}) => {
+
+  return {
+
+    ...item,
+
+    id:
+      item?.customer_id ||
+      item?.id,
+
+    customer_id:
+      item?.customer_id ||
+      item?.id ||
+      "-",
+
+    kode_customer:
+      item?.kode_customer ||
+      item?.customer_code ||
+      "-",
+
+    nama_customer:
+      item?.nama_customer ||
+      item?.name ||
+      item?.nama ||
+      "-",
+
+    jenis_customer:
+      item?.jenis_customer ||
+      item?.customer_groups_1_description ||
+      item?.customer_group ||
+      "-",
+
+    cabang:
+      item?.cabang ||
+      item?.sales_office_description ||
+      item?.sales_office ||
+      "-",
+
+    alamat:
+      item?.alamat ||
+      item?.address ||
+      "-",
+
+    kota:
+      item?.kota ||
+      item?.city ||
+      "-",
+
+    provinsi:
+      item?.provinsi ||
+      item?.province ||
+      "-",
+
+    no_npwp:
+      item?.no_npwp ||
+      "-",
+
+    nama_npwp:
+      item?.nama_npwp ||
+      "-",
+
+    status:
+      String(
+        item?.status ||
+        item?.status_outlet ||
+        "NONAKTIF"
+      ).toUpperCase(),
+
+  };
 
 };
 
@@ -596,376 +164,673 @@ const TableMasterPelanggan = ({
   loginAccess,
 }) => {
 
+
   // ===================================================
   // STATE
   // ===================================================
 
   const [
-    allData,
-    setAllData,
-  ] = useState(
-    dummyData
-  );
+    tableData,
+    setTableData,
+  ] = useState([]);
+
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
 
 
   const [
     keyword,
     setKeyword,
-  ] = useState(
-    ""
-  );
+  ] = useState("");
 
 
   const [
     selectedStatus,
     setSelectedStatus,
-  ] = useState(
-    "ALL"
-  );
+  ] = useState("ALL");
 
 
   const [
     selectedCabang,
     setSelectedCabang,
-  ] = useState(
-    "ALL"
-  );
+  ] = useState("ALL");
 
 
   const [
     currentPage,
     setCurrentPage,
-  ] = useState(
-    1
-  );
+  ] = useState(1);
 
 
   const [
     perPage,
     setPerPage,
-  ] = useState(
-    10
-  );
+  ] = useState(10);
+
+
+  const [
+    totalData,
+    setTotalData,
+  ] = useState(0);
+
+
+  const [
+    totalPage,
+    setTotalPage,
+  ] = useState(0);
+
+
+  const [
+    cabangOptions,
+    setCabangOptions,
+  ] = useState([]);
 
 
   const [
     selectedData,
     setSelectedData,
-  ] = useState(
-    null
-  );
+  ] = useState(null);
 
 
   const [
     showDetail,
     setShowDetail,
-  ] = useState(
-    false
-  );
+  ] = useState(false);
 
 
   const [
     showEdit,
     setShowEdit,
-  ] = useState(
-    false
-  );
+  ] = useState(false);
 
 
   const [
     editData,
     setEditData,
-  ] = useState(
-    null
-  );
-
-
-  // ===================================================
-  // CABANG
-  // ===================================================
-
-  const cabangOptions =
-    useMemo(
-      () => {
-
-        return [
-          "ALL",
-          ...new Set(
-            allData.map(
-              item =>
-                item.cabang
-            )
-          ),
-        ];
-
-      },
-      [
-        allData,
-      ]
-    );
-
-
-  // ===================================================
-  // FILTER
-  // ===================================================
-
-  const filteredData =
-    useMemo(
-      () => {
-
-        let data =
-          [
-            ...allData,
-          ];
-
-
-        // SEARCH
-
-        if (
-          keyword.trim()
-        ) {
-
-          const search =
-            keyword
-              .toLowerCase();
-
-
-          data =
-            data.filter(
-              item =>
-
-                item.customer_id
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.kode_customer
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.nama_customer
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.cabang
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.sales
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.no_telepon
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-            );
-
-        }
-
-
-        // STATUS
-
-        if (
-          selectedStatus !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.status ===
-                selectedStatus
-            );
-
-        }
-
-
-        // CABANG
-
-        if (
-          selectedCabang !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.cabang ===
-                selectedCabang
-            );
-
-        }
-
-
-        return data;
-
-      },
-      [
-        allData,
-        keyword,
-        selectedStatus,
-        selectedCabang,
-      ]
-    );
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData =
-    filteredData.length;
-
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) *
-        perPage,
-
-      currentPage *
-        perPage
-    );
+  ] = useState(null);
 
 
   // ===================================================
   // SUMMARY
   // ===================================================
 
-  const summaryData =
-    useMemo(
-      () => {
+  const [
+    summaryData,
+    setSummaryData,
+  ] = useState({
 
-        const total =
-          allData.length;
+    total: 0,
 
+    aktif: 0,
 
-        const aktif =
-          allData.filter(
-            item =>
-              item.status ===
-              "AKTIF"
-          ).length;
+    nonaktif: 0,
 
+    cabang: 0,
 
-        const nonaktif =
-          allData.filter(
-            item =>
-              item.status ===
-              "NONAKTIF"
-          ).length;
-
-
-        const cabang =
-          new Set(
-            allData.map(
-              item =>
-                item.cabang
-            )
-          ).size;
-
-
-        return {
-
-          total,
-
-          aktif,
-
-          nonaktif,
-
-          cabang,
-
-        };
-
-      },
-      [
-        allData,
-      ]
-    );
+  });
 
 
   // ===================================================
-  // RESET PAGE
+  // GET REFERENSI CABANG
   // ===================================================
 
-  useEffect(
-    () => {
+  const getReferensiCabang = async () => {
 
-      setCurrentPage(
-        1
+    try {
+
+      const response =
+        await storeSchema.actions.getReferensiByJenis(
+          "cabang_id"
+        );
+
+
+      if (
+        response?.status === true
+      ) {
+
+        const data =
+          (
+            response?.data ||
+            []
+          ).map(
+            (item) => ({
+
+              label:
+                item?.ur_ref,
+
+              value:
+                item?.kd_ref,
+
+            })
+          );
+
+
+        setCabangOptions(data);
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "ERROR GET REFERENSI CABANG:",
+        error
       );
 
-    },
-    [
-      keyword,
-      selectedStatus,
-      selectedCabang,
-      perPage,
-    ]
-  );
+    }
+
+  };
+
+
+  // ===================================================
+  // GET DATA PELANGGAN
+  // ===================================================
+
+  const getDataPelanggan = async () => {
+
+    try {
+
+      setLoading(true);
+
+
+      const payload = {
+
+        page:
+          currentPage,
+
+        limit:
+          perPage,
+
+        keyword:
+          keyword.trim(),
+
+        status:
+          selectedStatus === "ALL"
+            ? ""
+            : selectedStatus,
+
+        sales_office:
+          selectedCabang === "ALL"
+            ? ""
+            : selectedCabang,
+
+      };
+
+
+      console.log(
+        "PAYLOAD GET DATA PELANGGAN:",
+        payload
+      );
+
+
+      const res =
+        await storeSchema.actions.getDataPelanggan(
+          payload
+        );
+
+
+      console.log(
+        "RESPONSE GET DATA PELANGGAN:",
+        res
+      );
+
+
+      if (
+        res?.status !== true
+      ) {
+
+        throw new Error(
+          res?.message ||
+          "Gagal mengambil data pelanggan"
+        );
+
+      }
+
+
+      const responseData =
+        res?.data || {};
+
+
+      const listData =
+        responseData?.list_data || [];
+
+
+      // =================================================
+      // TABLE DATA
+      // =================================================
+
+      const normalizedData =
+        listData.map(
+          (
+            item,
+            index
+          ) => ({
+
+            ...normalizePelanggan(
+              item
+            ),
+
+            No:
+              (
+                currentPage -
+                1
+              ) *
+                perPage +
+              index +
+              1,
+
+          })
+        );
+
+
+      setTableData(
+        normalizedData
+      );
+
+
+      // =================================================
+      // PAGINATION
+      // =================================================
+
+      setTotalData(
+        Number(
+          responseData?.total_data ||
+          0
+        )
+      );
+
+
+      setTotalPage(
+        Number(
+          responseData?.total_halaman ||
+          0
+        )
+      );
+
+
+      // =================================================
+      // SUMMARY
+      // =================================================
+
+      const summary =
+        responseData?.summary ||
+        {};
+
+
+      setSummaryData({
+
+        total:
+          Number(
+            summary?.total ||
+            summary?.total_pelanggan ||
+            summary?.total_data ||
+            responseData?.total_data ||
+            0
+          ),
+
+        aktif:
+          Number(
+            summary?.aktif ||
+            summary?.total_aktif ||
+            summary?.pelanggan_aktif ||
+            0
+          ),
+
+        nonaktif:
+          Number(
+            summary?.nonaktif ||
+            summary?.total_nonaktif ||
+            summary?.pelanggan_nonaktif ||
+            0
+          ),
+
+        cabang:
+          Number(
+            summary?.cabang ||
+            summary?.total_cabang ||
+            0
+          ),
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "ERROR GET DATA PELANGGAN:",
+        error
+      );
+
+
+      setTableData([]);
+
+      setTotalData(0);
+
+      setTotalPage(0);
+
+
+      setSummaryData({
+
+        total: 0,
+
+        aktif: 0,
+
+        nonaktif: 0,
+
+        cabang: 0,
+
+      });
+
+
+      await swal.error(
+        error?.message ||
+        "Gagal mengambil data pelanggan"
+      );
+
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  };
+
+
+  // ===================================================
+  // INITIAL LOAD REFERENSI
+  // ===================================================
+
+  useEffect(() => {
+
+    getReferensiCabang();
+
+  }, []);
+
+
+  // ===================================================
+  // SERVER SIDE SEARCH / FILTER / PAGINATION
+  // ===================================================
+
+  useEffect(() => {
+
+    const timer =
+      setTimeout(
+        () => {
+
+          getDataPelanggan();
+
+        },
+        keyword.trim()
+          ? 400
+          : 0
+      );
+
+
+    return () => {
+
+      clearTimeout(timer);
+
+    };
+
+  }, [
+
+    currentPage,
+
+    perPage,
+
+    keyword,
+
+    selectedStatus,
+
+    selectedCabang,
+
+  ]);
+
+
+  // ===================================================
+  // RESET FILTER
+  // ===================================================
+
+  const resetFilter = () => {
+
+    setKeyword("");
+
+    setSelectedStatus(
+      "ALL"
+    );
+
+    setSelectedCabang(
+      "ALL"
+    );
+
+    setCurrentPage(1);
+
+  };
+
+
+  // ===================================================
+  // REFRESH
+  // ===================================================
+
+  const handleRefresh = () => {
+
+    setCurrentPage(1);
+
+    getDataPelanggan();
+
+  };
+
+
+  // ===================================================
+  // DETAIL
+  // ===================================================
+
+  const handleDetail = (
+    data
+  ) => {
+
+    setSelectedData(
+      data
+    );
+
+    setShowDetail(
+      true
+    );
+
+  };
+
+
+  const closeDetail = () => {
+
+    setShowDetail(false);
+
+    setSelectedData(null);
+
+  };
+
+
+  // ===================================================
+  // EDIT
+  // ===================================================
+
+  const handleEdit = (
+    data
+  ) => {
+
+    setEditData({
+      ...data,
+    });
+
+    setShowEdit(true);
+
+  };
+
+
+  const closeEdit = () => {
+
+    setEditData(null);
+
+    setShowEdit(false);
+
+  };
+
+
+  // ===================================================
+  // SAVE EDIT
+  // ===================================================
+
+  const handleSaveEdit = async () => {
+
+    if (
+      !editData?.nama_customer ||
+      !String(
+        editData?.nama_customer
+      ).trim()
+    ) {
+
+      await swal.warning(
+        "Nama pelanggan wajib diisi."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !editData?.cabang ||
+      !String(
+        editData?.cabang
+      ).trim()
+    ) {
+
+      await swal.warning(
+        "Cabang wajib diisi."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !editData?.alamat ||
+      !String(
+        editData?.alamat
+      ).trim()
+    ) {
+
+      await swal.warning(
+        "Alamat wajib diisi."
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * API UPDATE BELUM DIBERIKAN.
+     *
+     * Kalau nanti sudah ada:
+     *
+     * await storeSchema.actions.updatePelanggan(
+     *   editData
+     * );
+     *
+     * Setelah berhasil:
+     *
+     * closeEdit();
+     * getDataPelanggan();
+     */
+
+
+    closeEdit();
+
+    await swal.success(
+      "Data berhasil divalidasi."
+    );
+
+  };
+
+
+  // ===================================================
+  // DELETE
+  // ===================================================
+
+  const handleDelete = async (
+    data
+  ) => {
+
+    const result =
+      await swal.confirm(
+        "Hapus Pelanggan",
+        `Apakah pelanggan "${displayValue(
+          data?.nama_customer
+        )}" akan dihapus?`
+      );
+
+
+    if (!result) {
+
+      return;
+
+    }
+
+
+    /*
+     * API DELETE BELUM DIBERIKAN.
+     *
+     * Nanti dapat dihubungkan:
+     *
+     * await storeSchema.actions.deletePelanggan({
+     *   customer_id:
+     *     data.customer_id
+     * });
+     *
+     * Kemudian:
+     *
+     * getDataPelanggan();
+     */
+
+
+    await swal.success(
+      "Silakan hubungkan aksi hapus dengan API delete pelanggan."
+    );
+
+  };
 
 
   // ===================================================
   // STATUS
   // ===================================================
 
-  const renderStatus =
-    (
-      status
-    ) => {
+  const renderStatus = (
+    status
+  ) => {
 
-      const config =
-        statusConfig[
-          status
-        ];
-
-
-      if (
-        !config
-      ) {
-        return "-";
-      }
+    const normalizedStatus =
+      String(
+        status ||
+        ""
+      ).toUpperCase();
 
 
-      const Icon =
-        config.icon;
+    const config =
+      statusConfig[
+        normalizedStatus
+      ];
 
+
+    if (!config) {
 
       return (
 
         <span
-          className={`
+          className="
             inline-flex
             items-center
             gap-2
@@ -974,192 +839,52 @@ const TableMasterPelanggan = ({
             rounded-full
             text-xs
             font-semibold
-            whitespace-nowrap
-            ${config.className}
-          `}
+            bg-gray-100
+            text-gray-600
+          "
         >
 
-          <Icon />
-
-          {
-            config.label
-          }
+          {displayValue(
+            status
+          )}
 
         </span>
 
       );
 
-    };
+    }
 
 
-  // ===================================================
-  // DETAIL
-  // ===================================================
-
-  const handleDetail =
-    (
-      data
-    ) => {
-
-      setSelectedData(
-        data
-      );
-
-      setShowDetail(
-        true
-      );
-
-    };
+    const Icon =
+      config.icon;
 
 
-  // ===================================================
-  // EDIT
-  // ===================================================
+    return (
 
-  const handleEdit =
-    (
-      data
-    ) => {
+      <span
+        className={`
+          inline-flex
+          items-center
+          gap-2
+          px-3
+          py-1.5
+          rounded-full
+          text-xs
+          font-semibold
+          whitespace-nowrap
+          ${config.className}
+        `}
+      >
 
-      setEditData(
-        {
-          ...data,
-        }
-      );
+        <Icon />
 
-      setShowEdit(
-        true
-      );
+        {config.label}
 
-    };
+      </span>
 
+    );
 
-  // ===================================================
-  // CLOSE EDIT
-  // ===================================================
-
-  const closeEdit =
-    () => {
-
-      setEditData(
-        null
-      );
-
-      setShowEdit(
-        false
-      );
-
-    };
-
-
-  // ===================================================
-  // SAVE EDIT
-  // ===================================================
-
-  const handleSaveEdit =
-    async () => {
-
-      if (
-        !editData?.nama_customer?.trim()
-      ) {
-
-        await swal.warning(
-          "Nama pelanggan wajib diisi."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !editData?.cabang?.trim()
-      ) {
-
-        await swal.warning(
-          "Cabang wajib diisi."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !editData?.alamat?.trim()
-      ) {
-
-        await swal.warning(
-          "Alamat wajib diisi."
-        );
-
-        return;
-
-      }
-
-
-      setAllData(
-        prev =>
-          prev.map(
-            item =>
-              item.id ===
-              editData.id
-                ? {
-                    ...editData,
-                  }
-                : item
-          )
-      );
-
-
-      closeEdit();
-
-
-      await swal.success(
-        "Data pelanggan berhasil diperbarui."
-      );
-
-    };
-
-
-  // ===================================================
-  // DELETE
-  // ===================================================
-
-  const handleDelete =
-    async (
-      data
-    ) => {
-
-      const result =
-        await swal.confirm(
-          "Hapus Pelanggan",
-          `Apakah pelanggan "${data.nama_customer}" akan dihapus?`
-        );
-
-
-      if (
-        !result
-      ) {
-        return;
-      }
-
-
-      setAllData(
-        prev =>
-          prev.filter(
-            item =>
-              item.id !==
-              data.id
-          )
-      );
-
-
-      await swal.success(
-        "Data pelanggan berhasil dihapus."
-      );
-
-    };
+  };
 
 
   // ===================================================
@@ -1197,6 +922,7 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaEllipsisV />,
+
     },
 
     {
@@ -1205,6 +931,7 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaHashtag />,
+
     },
 
     {
@@ -1213,6 +940,7 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaUsers />,
+
     },
 
     {
@@ -1221,6 +949,7 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaBuilding />,
+
     },
 
     {
@@ -1229,6 +958,7 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaStore />,
+
     },
 
     {
@@ -1237,22 +967,16 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaMapMarkerAlt />,
+
     },
 
     {
       label:
-        "Kontak",
+        "NPWP",
 
       icon:
-        <FaPhone />,
-    },
+        <FaClipboardList />,
 
-    {
-      label:
-        "Sales",
-
-      icon:
-        <FaUser />,
     },
 
     {
@@ -1261,6 +985,7 @@ const TableMasterPelanggan = ({
 
       icon:
         <FaClipboardList />,
+
     },
 
   ];
@@ -1279,6 +1004,7 @@ const TableMasterPelanggan = ({
         gap-5
       "
     >
+
 
       {/* ================================================= */}
       {/* SEARCH + FILTER */}
@@ -1326,17 +1052,24 @@ const TableMasterPelanggan = ({
           <input
             type="text"
             placeholder="
-              Cari customer / kode / sales / telepon...
+              Cari customer / kode / NPWP...
             "
             className="grow"
             value={
               keyword
             }
             onChange={
-              e =>
+              (e) => {
+
                 setKeyword(
                   e.target.value
-                )
+                );
+
+                setCurrentPage(
+                  1
+                );
+
+              }
             }
           />
 
@@ -1354,6 +1087,8 @@ const TableMasterPelanggan = ({
           "
         >
 
+          {/* STATUS */}
+
           <select
             className="
               select
@@ -1367,10 +1102,17 @@ const TableMasterPelanggan = ({
               selectedStatus
             }
             onChange={
-              e =>
+              (e) => {
+
                 setSelectedStatus(
                   e.target.value
-                )
+                );
+
+                setCurrentPage(
+                  1
+                );
+
+              }
             }
           >
 
@@ -1389,6 +1131,8 @@ const TableMasterPelanggan = ({
           </select>
 
 
+          {/* CABANG */}
+
           <select
             className="
               select
@@ -1396,16 +1140,23 @@ const TableMasterPelanggan = ({
               select-bordered
               rounded-full
               bg-white
-              min-w-[180px]
+              min-w-[200px]
             "
             value={
               selectedCabang
             }
             onChange={
-              e =>
+              (e) => {
+
                 setSelectedCabang(
                   e.target.value
-                )
+                );
+
+                setCurrentPage(
+                  1
+                );
+
+              }
             }
           >
 
@@ -1415,52 +1166,79 @@ const TableMasterPelanggan = ({
 
 
             {
-              cabangOptions
-                .filter(
-                  item =>
-                    item !==
-                    "ALL"
+              cabangOptions.map(
+                (cabang) => (
+
+                  <option
+                    key={
+                      cabang.value
+                    }
+                    value={
+                      cabang.value
+                    }
+                  >
+
+                    {
+                      cabang.label
+                    }
+
+                  </option>
+
                 )
-                .map(
-                  cabang => (
-
-                    <option
-                      key={
-                        cabang
-                      }
-                      value={
-                        cabang
-                      }
-                    >
-
-                      {
-                        cabang
-                      }
-
-                    </option>
-
-                  )
-                )
+              )
             }
 
           </select>
 
 
+          {/* REFRESH */}
+
           <button
             type="button"
-            onClick={() => {
+            onClick={
+              handleRefresh
+            }
+            disabled={
+              loading
+            }
+            className="
+              inline-flex
+              items-center
+              gap-2
+              px-4
+              py-2
+              rounded-full
+              border
+              border-gray-200
+              bg-white
+              text-gray-600
+              text-sm
+              font-semibold
+              hover:bg-gray-50
+              disabled:opacity-50
+            "
+          >
 
-              setKeyword("");
+            <FaSyncAlt
+              className={
+                loading
+                  ? "animate-spin"
+                  : ""
+              }
+            />
 
-              setSelectedStatus(
-                "ALL"
-              );
+            Refresh
 
-              setSelectedCabang(
-                "ALL"
-              );
+          </button>
 
-            }}
+
+          {/* RESET */}
+
+          <button
+            type="button"
+            onClick={
+              resetFilter
+            }
             className="
               inline-flex
               items-center
@@ -1490,7 +1268,7 @@ const TableMasterPelanggan = ({
 
 
       {/* ================================================= */}
-      {/* SUMMARY */}
+      {/* SUMMARY CARD */}
       {/* ================================================= */}
 
       <div
@@ -1540,9 +1318,16 @@ const TableMasterPelanggan = ({
                   text-blue-900
                 "
               >
+
                 {
-                  summaryData.total
+                  Number(
+                    summaryData.total ||
+                    0
+                  ).toLocaleString(
+                    "id-ID"
+                  )
                 }
+
               </p>
 
             </div>
@@ -1610,9 +1395,16 @@ const TableMasterPelanggan = ({
                   text-green-900
                 "
               >
+
                 {
-                  summaryData.aktif
+                  Number(
+                    summaryData.aktif ||
+                    0
+                  ).toLocaleString(
+                    "id-ID"
+                  )
                 }
+
               </p>
 
             </div>
@@ -1680,9 +1472,16 @@ const TableMasterPelanggan = ({
                   text-red-900
                 "
               >
+
                 {
-                  summaryData.nonaktif
+                  Number(
+                    summaryData.nonaktif ||
+                    0
+                  ).toLocaleString(
+                    "id-ID"
+                  )
                 }
+
               </p>
 
             </div>
@@ -1750,9 +1549,16 @@ const TableMasterPelanggan = ({
                   text-purple-900
                 "
               >
+
                 {
-                  summaryData.cabang
+                  Number(
+                    summaryData.cabang ||
+                    0
+                  ).toLocaleString(
+                    "id-ID"
+                  )
                 }
+
               </p>
 
             </div>
@@ -1893,8 +1699,55 @@ const TableMasterPelanggan = ({
               <tbody>
 
                 {
-                  paginatedData.length ===
-                    0 ? (
+                  loading ? (
+
+                    <tr>
+
+                      <td
+                        colSpan={
+                          headerTable.length
+                        }
+                        className="
+                          text-center
+                          py-16
+                        "
+                      >
+
+                        <div
+                          className="
+                            flex
+                            flex-col
+                            items-center
+                            justify-center
+                            gap-3
+                          "
+                        >
+
+                          <span
+                            className="
+                              loading
+                              loading-spinner
+                              loading-md
+                              text-primary
+                            "
+                          />
+
+                          <span
+                            className="
+                              text-sm
+                              text-gray-400
+                            "
+                          >
+                            Memuat data pelanggan...
+                          </span>
+
+                        </div>
+
+                      </td>
+
+                    </tr>
+
+                  ) : tableData.length === 0 ? (
 
                     <tr>
 
@@ -1926,7 +1779,7 @@ const TableMasterPelanggan = ({
 
                   ) : (
 
-                    paginatedData.map(
+                    tableData.map(
                       (
                         item,
                         index
@@ -1934,7 +1787,9 @@ const TableMasterPelanggan = ({
 
                         <tr
                           key={
-                            item.id
+                            item?.id ||
+                            item?.customer_id ||
+                            index
                           }
                           className="
                             border-b
@@ -2089,8 +1944,8 @@ const TableMasterPelanggan = ({
                                 1
                               ) *
                                 perPage +
-                                index +
-                                1
+                              index +
+                              1
                             }
 
                           </td>
@@ -2141,10 +1996,15 @@ const TableMasterPelanggan = ({
                                     text-gray-700
                                   "
                                 >
+
                                   {
-                                    item.nama_customer
+                                    displayValue(
+                                      item?.nama_customer
+                                    )
                                   }
+
                                 </p>
+
 
                                 <p
                                   className="
@@ -2154,13 +2014,9 @@ const TableMasterPelanggan = ({
                                 >
 
                                   {
-                                    item.customer_id
-                                  }
-
-                                  {" • "}
-
-                                  {
-                                    item.kode_customer
+                                    displayValue(
+                                      item?.kode_customer
+                                    )
                                   }
 
                                 </p>
@@ -2196,7 +2052,9 @@ const TableMasterPelanggan = ({
                             >
 
                               {
-                                item.jenis_customer
+                                displayValue(
+                                  item?.jenis_customer
+                                )
                               }
 
                             </span>
@@ -2235,9 +2093,13 @@ const TableMasterPelanggan = ({
                                   text-gray-700
                                 "
                               >
+
                                 {
-                                  item.cabang
+                                  displayValue(
+                                    item?.cabang
+                                  )
                                 }
+
                               </span>
 
                             </div>
@@ -2274,9 +2136,13 @@ const TableMasterPelanggan = ({
                               />
 
                               <span>
+
                                 {
-                                  item.alamat
+                                  displayValue(
+                                    item?.alamat
+                                  )
                                 }
+
                               </span>
 
                             </div>
@@ -2284,13 +2150,13 @@ const TableMasterPelanggan = ({
                           </td>
 
 
-                          {/* KONTAK */}
+                          {/* NPWP */}
 
                           <td
                             className="
                               px-4
                               py-3
-                              min-w-[220px]
+                              min-w-[240px]
                             "
                           >
 
@@ -2304,99 +2170,34 @@ const TableMasterPelanggan = ({
 
                               <div
                                 className="
-                                  flex
-                                  items-center
-                                  gap-2
                                   text-sm
+                                  font-semibold
+                                  text-gray-700
                                 "
                               >
 
-                                <FaPhone
-                                  className="
-                                    text-primary
-                                  "
-                                />
-
                                 {
-                                  item.no_telepon
+                                  displayValue(
+                                    item?.no_npwp
+                                  )
                                 }
 
                               </div>
 
-
                               <div
                                 className="
-                                  flex
-                                  items-center
-                                  gap-2
                                   text-xs
                                   text-gray-500
                                 "
                               >
 
-                                <FaEnvelope />
-
                                 {
-                                  item.email
+                                  displayValue(
+                                    item?.nama_npwp
+                                  )
                                 }
 
                               </div>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* SALES */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-8
-                                  h-8
-                                  rounded-full
-                                  bg-orange-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
-                              >
-
-                                <FaUser
-                                  className="
-                                    text-orange-500
-                                  "
-                                />
-
-                              </div>
-
-
-                              <span
-                                className="
-                                  text-sm
-                                  font-medium
-                                  text-gray-700
-                                "
-                              >
-                                {
-                                  item.sales
-                                }
-                              </span>
 
                             </div>
 
@@ -2414,7 +2215,7 @@ const TableMasterPelanggan = ({
 
                             {
                               renderStatus(
-                                item.status
+                                item?.status
                               )
                             }
 
@@ -2547,12 +2348,19 @@ const TableMasterPelanggan = ({
                       perPage
                     }
                     onChange={
-                      e =>
+                      (e) => {
+
                         setPerPage(
-                          parseInt(
+                          Number(
                             e.target.value
                           )
-                        )
+                        );
+
+                        setCurrentPage(
+                          1
+                        );
+
+                      }
                     }
                   >
 
@@ -2572,6 +2380,10 @@ const TableMasterPelanggan = ({
                       50
                     </option>
 
+                    <option value="100">
+                      100
+                    </option>
+
                   </select>
 
                 </div>
@@ -2580,37 +2392,46 @@ const TableMasterPelanggan = ({
 
 
               {
-                totalPage >
-                  0 && (
+                totalPage > 0 && (
 
                   <ReactPaginate
+
                     breakLabel="..."
+
                     previousLabel="←"
+
                     nextLabel="→"
+
                     pageCount={
                       totalPage
                     }
+
                     onPageChange={
-                      e =>
+                      (e) => {
+
                         setCurrentPage(
-                          e.selected +
-                          1
-                        )
+                          e.selected + 1
+                        );
+
+                      }
                     }
+
                     forcePage={
-                      currentPage -
-                      1
+                      currentPage - 1
                     }
+
                     className="
                       flex
                       items-center
                       gap-2
                     "
+
                     activeClassName="
                       !bg-primary
                       !text-white
                       !border-primary
                     "
+
                     pageClassName="
                       min-w-9
                       h-9
@@ -2623,6 +2444,7 @@ const TableMasterPelanggan = ({
                       bg-white
                       hover:bg-blue-50
                     "
+
                     pageLinkClassName="
                       w-full
                       h-full
@@ -2630,6 +2452,7 @@ const TableMasterPelanggan = ({
                       items-center
                       justify-center
                     "
+
                     previousClassName="
                       min-w-9
                       h-9
@@ -2638,6 +2461,7 @@ const TableMasterPelanggan = ({
                       rounded-full
                       bg-white
                     "
+
                     nextClassName="
                       min-w-9
                       h-9
@@ -2646,6 +2470,7 @@ const TableMasterPelanggan = ({
                       rounded-full
                       bg-white
                     "
+
                     previousLinkClassName="
                       w-full
                       h-full
@@ -2653,6 +2478,7 @@ const TableMasterPelanggan = ({
                       items-center
                       justify-center
                     "
+
                     nextLinkClassName="
                       w-full
                       h-full
@@ -2660,14 +2486,17 @@ const TableMasterPelanggan = ({
                       items-center
                       justify-center
                     "
+
                     breakClassName="
                       px-2
                       text-gray-500
                     "
+
                     disabledClassName="
                       opacity-50
                       cursor-not-allowed
                     "
+
                   />
 
                 )
@@ -2702,17 +2531,9 @@ const TableMasterPelanggan = ({
               justify-center
               p-4
             "
-            onClick={() => {
-
-              setShowDetail(
-                false
-              );
-
-              setSelectedData(
-                null
-              );
-
-            }}
+            onClick={
+              closeDetail
+            }
           >
 
             <div
@@ -2726,7 +2547,7 @@ const TableMasterPelanggan = ({
                 overflow-y-auto
               "
               onClick={
-                e =>
+                (e) =>
                   e.stopPropagation()
               }
             >
@@ -2792,9 +2613,13 @@ const TableMasterPelanggan = ({
                           text-blue-100
                         "
                       >
+
                         {
-                          selectedData.customer_id
+                          displayValue(
+                            selectedData?.customer_id
+                          )
                         }
+
                       </p>
 
                     </div>
@@ -2804,17 +2629,9 @@ const TableMasterPelanggan = ({
 
                   <button
                     type="button"
-                    onClick={() => {
-
-                      setShowDetail(
-                        false
-                      );
-
-                      setSelectedData(
-                        null
-                      );
-
-                    }}
+                    onClick={
+                      closeDetail
+                    }
                     className="
                       w-9
                       h-9
@@ -2860,9 +2677,13 @@ const TableMasterPelanggan = ({
                     font-bold
                     text-primary
                   ">
+
                     {
-                      selectedData.customer_id
+                      displayValue(
+                        selectedData?.customer_id
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -2881,9 +2702,13 @@ const TableMasterPelanggan = ({
                     font-semibold
                     text-gray-700
                   ">
+
                     {
-                      selectedData.kode_customer
+                      displayValue(
+                        selectedData?.kode_customer
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -2906,9 +2731,13 @@ const TableMasterPelanggan = ({
                     font-semibold
                     text-gray-700
                   ">
+
                     {
-                      selectedData.nama_customer
+                      displayValue(
+                        selectedData?.nama_customer
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -2927,9 +2756,13 @@ const TableMasterPelanggan = ({
                     font-semibold
                     text-gray-700
                   ">
+
                     {
-                      selectedData.jenis_customer
+                      displayValue(
+                        selectedData?.jenis_customer
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -2948,9 +2781,13 @@ const TableMasterPelanggan = ({
                     font-semibold
                     text-gray-700
                   ">
+
                     {
-                      selectedData.cabang
+                      displayValue(
+                        selectedData?.cabang
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -2973,9 +2810,13 @@ const TableMasterPelanggan = ({
                     text-sm
                     text-gray-600
                   ">
+
                     {
-                      selectedData.alamat
+                      displayValue(
+                        selectedData?.alamat
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -2994,9 +2835,13 @@ const TableMasterPelanggan = ({
                     font-medium
                     text-gray-700
                   ">
+
                     {
-                      selectedData.kota
+                      displayValue(
+                        selectedData?.kota
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -3015,9 +2860,13 @@ const TableMasterPelanggan = ({
                     font-medium
                     text-gray-700
                   ">
+
                     {
-                      selectedData.provinsi
+                      displayValue(
+                        selectedData?.provinsi
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -3029,16 +2878,20 @@ const TableMasterPelanggan = ({
                     text-xs
                     text-gray-400
                   ">
-                    Telepon
+                    No. NPWP
                   </p>
 
                   <p className="
                     font-medium
                     text-gray-700
                   ">
+
                     {
-                      selectedData.no_telepon
+                      displayValue(
+                        selectedData?.no_npwp
+                      )
                     }
+
                   </p>
 
                 </div>
@@ -3050,37 +2903,20 @@ const TableMasterPelanggan = ({
                     text-xs
                     text-gray-400
                   ">
-                    Email
+                    Nama NPWP
                   </p>
 
                   <p className="
                     font-medium
                     text-gray-700
                   ">
+
                     {
-                      selectedData.email
+                      displayValue(
+                        selectedData?.nama_npwp
+                      )
                     }
-                  </p>
 
-                </div>
-
-
-                <div>
-
-                  <p className="
-                    text-xs
-                    text-gray-400
-                  ">
-                    Sales
-                  </p>
-
-                  <p className="
-                    font-medium
-                    text-gray-700
-                  ">
-                    {
-                      selectedData.sales
-                    }
                   </p>
 
                 </div>
@@ -3099,7 +2935,7 @@ const TableMasterPelanggan = ({
 
                     {
                       renderStatus(
-                        selectedData.status
+                        selectedData?.status
                       )
                     }
 
@@ -3125,17 +2961,9 @@ const TableMasterPelanggan = ({
 
                 <button
                   type="button"
-                  onClick={() => {
-
-                    setShowDetail(
-                      false
-                    );
-
-                    setSelectedData(
-                      null
-                    );
-
-                  }}
+                  onClick={
+                    closeDetail
+                  }
                   className="
                     px-5
                     py-2.5
@@ -3198,7 +3026,7 @@ const TableMasterPelanggan = ({
                 overflow-y-auto
               "
               onClick={
-                e =>
+                (e) =>
                   e.stopPropagation()
               }
             >
@@ -3264,9 +3092,13 @@ const TableMasterPelanggan = ({
                           text-blue-100
                         "
                       >
+
                         {
-                          editData.customer_id
+                          displayValue(
+                            editData?.customer_id
+                          )
                         }
+
                       </p>
 
                     </div>
@@ -3330,7 +3162,7 @@ const TableMasterPelanggan = ({
                   <input
                     type="text"
                     value={
-                      editData.customer_id ||
+                      editData?.customer_id ||
                       ""
                     }
                     disabled
@@ -3365,16 +3197,19 @@ const TableMasterPelanggan = ({
                   <input
                     type="text"
                     value={
-                      editData.kode_customer ||
+                      editData?.kode_customer ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             kode_customer:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3413,16 +3248,19 @@ const TableMasterPelanggan = ({
                   <input
                     type="text"
                     value={
-                      editData.nama_customer ||
+                      editData?.nama_customer ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             nama_customer:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3454,51 +3292,33 @@ const TableMasterPelanggan = ({
                     Jenis Customer
                   </label>
 
-                  <select
+                  <input
+                    type="text"
                     value={
-                      editData.jenis_customer ||
+                      editData?.jenis_customer ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             jenis_customer:
                               e.target.value,
+
                           })
                         )
                     }
                     className="
-                      select
-                      select-bordered
+                      input
+                      input-bordered
                       w-full
                       rounded-xl
                       bg-white
                     "
-                  >
-
-                    <option value="Apotek">
-                      Apotek
-                    </option>
-
-                    <option value="Rumah Sakit">
-                      Rumah Sakit
-                    </option>
-
-                    <option value="Klinik">
-                      Klinik
-                    </option>
-
-                    <option value="Instansi Pemerintah">
-                      Instansi Pemerintah
-                    </option>
-
-                    <option value="Distributor">
-                      Distributor
-                    </option>
-
-                  </select>
+                  />
 
                 </div>
 
@@ -3521,16 +3341,19 @@ const TableMasterPelanggan = ({
 
                   <select
                     value={
-                      editData.cabang ||
+                      editData?.cabang ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             cabang:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3543,21 +3366,33 @@ const TableMasterPelanggan = ({
                     "
                   >
 
-                    <option value="KFTD MEDAN">
-                      KFTD MEDAN
+                    <option value="">
+                      Pilih Cabang
                     </option>
 
-                    <option value="KFTD JAKARTA">
-                      KFTD JAKARTA
-                    </option>
 
-                    <option value="KFTD PASURUAN">
-                      KFTD PASURUAN
-                    </option>
+                    {
+                      cabangOptions.map(
+                        (cabang) => (
 
-                    <option value="KFTD BOGOR">
-                      KFTD BOGOR
-                    </option>
+                          <option
+                            key={
+                              cabang.value
+                            }
+                            value={
+                              cabang.value
+                            }
+                          >
+
+                            {
+                              cabang.label
+                            }
+
+                          </option>
+
+                        )
+                      )
+                    }
 
                   </select>
 
@@ -3583,16 +3418,19 @@ const TableMasterPelanggan = ({
                   <input
                     type="text"
                     value={
-                      editData.kota ||
+                      editData?.kota ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             kota:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3626,16 +3464,19 @@ const TableMasterPelanggan = ({
                   <input
                     type="text"
                     value={
-                      editData.provinsi ||
+                      editData?.provinsi ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             provinsi:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3672,16 +3513,19 @@ const TableMasterPelanggan = ({
 
                   <textarea
                     value={
-                      editData.alamat ||
+                      editData?.alamat ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             alamat:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3697,7 +3541,7 @@ const TableMasterPelanggan = ({
                 </div>
 
 
-                {/* TELEPON */}
+                {/* NO NPWP */}
 
                 <div>
 
@@ -3710,22 +3554,25 @@ const TableMasterPelanggan = ({
                       mb-2
                     "
                   >
-                    No. Telepon
+                    No. NPWP
                   </label>
 
                   <input
                     type="text"
                     value={
-                      editData.no_telepon ||
+                      editData?.no_npwp ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
-                            no_telepon:
+
+                            no_npwp:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3740,7 +3587,7 @@ const TableMasterPelanggan = ({
                 </div>
 
 
-                {/* EMAIL */}
+                {/* NAMA NPWP */}
 
                 <div>
 
@@ -3753,22 +3600,25 @@ const TableMasterPelanggan = ({
                       mb-2
                     "
                   >
-                    Email
+                    Nama NPWP
                   </label>
 
                   <input
-                    type="email"
+                    type="text"
                     value={
-                      editData.email ||
+                      editData?.nama_npwp ||
                       ""
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
-                            email:
+
+                            nama_npwp:
                               e.target.value,
+
                           })
                         )
                     }
@@ -3779,67 +3629,6 @@ const TableMasterPelanggan = ({
                       rounded-xl
                     "
                   />
-
-                </div>
-
-
-                {/* SALES */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Sales
-                  </label>
-
-                  <select
-                    value={
-                      editData.sales ||
-                      ""
-                    }
-                    onChange={
-                      e =>
-                        setEditData(
-                          prev => ({
-                            ...prev,
-                            sales:
-                              e.target.value,
-                          })
-                        )
-                    }
-                    className="
-                      select
-                      select-bordered
-                      w-full
-                      rounded-xl
-                      bg-white
-                    "
-                  >
-
-                    <option value="Andri Noviandy">
-                      Andri Noviandy
-                    </option>
-
-                    <option value="Budi Santoso">
-                      Budi Santoso
-                    </option>
-
-                    <option value="Citra Lestari">
-                      Citra Lestari
-                    </option>
-
-                    <option value="Dimas Pratama">
-                      Dimas Pratama
-                    </option>
-
-                  </select>
 
                 </div>
 
@@ -3862,16 +3651,19 @@ const TableMasterPelanggan = ({
 
                   <select
                     value={
-                      editData.status ||
-                      ""
+                      editData?.status ||
+                      "AKTIF"
                     }
                     onChange={
-                      e =>
+                      (e) =>
                         setEditData(
-                          prev => ({
+                          (prev) => ({
+
                             ...prev,
+
                             status:
                               e.target.value,
+
                           })
                         )
                     }

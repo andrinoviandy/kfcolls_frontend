@@ -27,6 +27,7 @@ import {
 import ReactPaginate from "react-paginate";
 
 import { swal } from "global/helper/swal";
+import storeSchema from "global/store";
 
 // =====================================================
 // DUMMY DATA - DIAMBIL DARI Data Penjualann.xlsx
@@ -6247,8 +6248,8 @@ const dummyDataWithTOP = dummyData.map((item) => ({
   ...item,
   TOP:
     item["TOP"] !== undefined &&
-    item["TOP"] !== null &&
-    item["TOP"] !== ""
+      item["TOP"] !== null &&
+      item["TOP"] !== ""
       ? Number(item["TOP"])
       : 30,
 }));
@@ -6787,275 +6788,261 @@ const TableMasterFaktur = ({
   reloadData,
   setReloadData,
 }) => {
-  const [tableData, setTableData] = useState(dummyDataWithTOP);
+  const [tableData, setTableData] = useState([]);
+  const [options, setOptions] = useState({});
+  const [summaryData, setSummaryData] = useState({
+    total_transaksi: 0,
+    total_billing: 0,
+    total_customer: 0,
+    total_quantity: 0,
+    total_penjualan: 0,
+    total_tax: 0,
+    total_cogs: 0,
+    total_margin: 0,
+    total_discount: 0,
+  });
+
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
 
   const [keyword, setKeyword] = useState("");
   const [filterSalesOffice, setFilterSalesOffice] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [filterCustomerGroup, setFilterCustomerGroup] = useState("ALL");
   const [filterPrinciple, setFilterPrinciple] = useState("ALL");
-
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-
   const [loading, setLoading] = useState(false);
 
   const [selectedData, setSelectedData] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
   // ===================================================
-  // OPTIONS FILTER
+  // GET REFERENSI CABANG / SALES OFFICE
   // ===================================================
 
-  const salesOfficeOptions = useMemo(() => {
-    return [
-      "ALL",
-      ...new Set(
-        tableData
-          .map((item) => item["Desc. S.Office"])
-          .filter(Boolean)
-      ),
-    ];
-  }, [tableData]);
+  const getListPrinciple = async () => {
+    try {
+      const res = await storeSchema.actions.getListPrinciple({
+        page: 1,
+        limit: 9999,
+        sortBy: 'ASC'
+      });
+      if (res?.status === true) {
+        const data = (res?.data?.list_data || []).map((item) => ({
+          label: item?.nama_principle,
+          value: item?.principle,
+        }));
 
-  const statusOptions = useMemo(() => {
-    return [
-      "ALL",
-      ...new Set(
-        tableData
-          .map((item) => item["Posting Status"])
-          .filter(Boolean)
-      ),
-    ];
-  }, [tableData]);
+        setOptions((prev) => ({ ...prev, principle: data }));
+      }
+    } catch (error) {
+      console.error("ERROR GET REFERENSI CABANG:", error);
+    }
+  };
 
-  const customerGroupOptions = useMemo(() => {
-    return [
-      "ALL",
-      ...new Set(
-        tableData
-          .map((item) => item["Desc. Cust. Grp4"])
-          .filter(Boolean)
-      ),
-    ];
-  }, [tableData]);
+  useEffect(() => {
+    const getReferensi = async () => {
+      const refCabang = await storeSchema.actions.getReferensiByJenis("cabang_id");
+      if (refCabang?.status === true) {
+        const data = (refCabang?.data || []).map((item) => ({
+          label: item?.ur_ref,
+          value: item?.kd_ref,
+        }));
 
-  const principleOptions = useMemo(() => {
-    return [
-      "ALL",
-      ...new Set(
-        tableData
-          .map((item) => item["Name Principle"])
-          .filter(Boolean)
-      ),
-    ];
-  }, [tableData]);
+        setOptions((prev) => ({ ...prev, cabang: data }))
+      }
+      const refChannel = await storeSchema.actions.getReferensiByJenis("channel_id");
+      if (refChannel?.status === true) {
+        const data = (refChannel?.data || []).map((item) => ({
+          label: item?.ur_ref,
+          value: item?.kd_ref,
+        }));
+
+        setOptions((prev) => ({ ...prev, channel: data }))
+      }
+    }
+    getReferensi();
+    getListPrinciple();
+  }, []);
 
   // ===================================================
-  // FILTER DATA
+  // NORMALIZE RESPONSE BACKEND -> FORMAT TABLE
   // ===================================================
 
-  const filteredData = useMemo(() => {
-    let data = [...tableData];
+  const normalizePenjualanItem = (item, index) => ({
+    ...item,
+    "No": ((currentPage - 1) * perPage) + index + 1,
+    "Sales Office": item?.sales_office,
+    "Desc. S.Office": item?.desc_s_office,
+    "Posting Date": item?.posting_date,
+    "Billing No": item?.billing_no,
+    "Posting Status": item?.posting_status,
+    "Bill.Cancel": item?.bill_cancel,
+    "Bill to party": item?.bill_to_party,
+    "Name Bill to": item?.name_bill_to,
+    "Address": item?.address,
+    "Material": item?.material,
+    "Material Group 1": item?.material_group_1,
+    "Desc Material Group 1": item?.desc_material_group_1,
+    "Text Material": item?.text_material,
+    "Quantity": item?.quantity,
+    "Sales Unit": item?.sales_unit,
+    "Unit Price Penjualan": item?.unit_price_penjualan,
+    "Dis% (ZD01)": item?.dis_pct_zd01,
+    "DisAmt (ZD01)": item?.dis_amt_zd01,
+    "Dis% (ZD02)": item?.dis_pct_zd02,
+    "DisAmt (ZD02)": item?.dis_amt_zd02,
+    "Dis% (ZD03)": item?.dis_pct_zd03,
+    "DisAmt (ZD03)": item?.dis_amt_zd03,
+    "Dis% (ZD04)": item?.dis_pct_zd04,
+    "DisAmt (ZD04)": item?.dis_amt_zd04,
+    "Dis% (ZD05)": item?.dis_pct_zd05,
+    "DisAmt (ZD05)": item?.dis_amt_zd05,
+    "Dis% (ZD06)": item?.dis_pct_zd06,
+    "DisAmt (ZD06)": item?.dis_amt_zd06,
+    "Disc. Upfront % (ZD07)": item?.disc_upfront_pct_zd07,
+    "Disc. Upfront Amt (ZD07)": item?.disc_upfront_amt_zd07,
+    "Disc. Beban KFTD Upf % (ZD08)": item?.disc_beban_kftd_upf_pct_zd08,
+    "Disc. Beban KFTD Upf Amt (ZD08)": item?.disc_beban_kftd_upf_amt_zd08,
+    "Disc. Beban Principle Upf % (ZD09)": item?.disc_beban_principle_upf_pct_zd09,
+    "Disc. Beban Principle Upf Amt (ZD09)": item?.disc_beban_principle_upf_amt_zd09,
+    "Disc. Pengembalian Upf % (ZD10)": item?.disc_pengembalian_upf_pct_zd10,
+    "Disc. Pengembalian Upf Amt (ZD10)": item?.disc_pengembalian_upf_amt_zd10,
+    "Dis% (ZD12)": item?.dis_pct_zd12,
+    "DisAmt (ZD12)": item?.dis_amt_zd12,
+    "Dis% (ZD14)": item?.dis_pct_zd14,
+    "DisAmt (ZD14)": item?.dis_amt_zd14,
+    "Dis% (ZD15)": item?.dis_pct_zd15,
+    "DisAmt (ZD15)": item?.dis_amt_zd15,
+    "Total Discount": item?.total_discount,
+    "Total Penjualan": item?.total_penjualan,
+    "Tax Amount": item?.tax_amount,
+    "Total COGS": item?.total_cogs,
+    "Unit Price Pembelian": item?.unit_price_pembelian,
+    "Bill Qty in SKU": item?.bill_qty_in_sku,
+    "UoM SKU": item?.uom_sku,
+    "Code Pelayanan": item?.code_pelayanan,
+    "Dec. Pelayanan": item?.dec_pelayanan,
+    "Prod. Hierarchy3": item?.prod_hierarchy3,
+    "Principle": item?.principle,
+    "Name Principle": item?.name_principle,
+    "Desc. Cust. Grp4": item?.desc_cust_grp4,
+    "Salesman": item?.salesman,
+    "Name Salesman": item?.name_salesman,
+    "PO Number": item?.po_number,
+    "Quotation Number": item?.quotation_number,
+  });
 
-    if (keyword.trim()) {
-      const search = keyword.toLowerCase().trim();
+  // ===================================================
+  // GET DATA PENJUALAN
+  // ===================================================
 
-      data = data.filter((item) => {
-        return [
-          "Billing No",
-          "Bill to party",
-          "Name Bill to",
-          "Address",
-          "Material",
-          "Text Material",
-          "Principle",
-          "Name Principle",
-          "Salesman",
-          "Name Salesman",
-          "PO Number",
-          "Quotation Number",
-          "Desc. S.Office",
-        ].some((key) =>
-          String(item[key] ?? "")
-            .toLowerCase()
-            .includes(search)
+  const getDataPenjualan = async () => {
+    try {
+      setLoading(true);
+
+      const payload = {
+        page: currentPage,
+        limit: perPage,
+        keyword: keyword.trim(),
+        sales_office: filterSalesOffice,
+        posting_status: filterStatus,
+        customer_group: filterCustomerGroup,
+        principle: filterPrinciple,
+        start_date: filterStartDate,
+        end_date: filterEndDate,
+      };
+
+      const res = await storeSchema.actions.getDataPenjualan(payload);
+
+      if (res?.status !== true) {
+        throw new Error(
+          res?.message || "Gagal mengambil data penjualan"
         );
+      }
+
+      const responseData = res?.data || {};
+      const listData = responseData?.list_data || [];
+
+      setTableData(
+        listData.map((item, index) =>
+          normalizePenjualanItem(item, index)
+        )
+      );
+
+      setTotalData(Number(responseData?.total_data || 0));
+      setTotalPage(Number(responseData?.total_halaman || 0));
+
+      setSummaryData({
+        total_transaksi: Number(
+          responseData?.summary?.total_transaksi ||
+          responseData?.total_data ||
+          0
+        ),
+        total_billing: Number(
+          responseData?.summary?.total_billing || 0
+        ),
+        total_customer: Number(
+          responseData?.summary?.total_customer || 0
+        ),
+        total_quantity: Number(
+          responseData?.summary?.total_quantity || 0
+        ),
+        total_penjualan: Number(
+          responseData?.summary?.total_penjualan || 0
+        ),
+        total_tax: Number(
+          responseData?.summary?.total_tax || 0
+        ),
+        total_cogs: Number(
+          responseData?.summary?.total_cogs || 0
+        ),
+        total_margin: Number(
+          responseData?.summary?.total_margin || 0
+        ),
+        total_discount: Number(
+          responseData?.summary?.total_discount || 0
+        ),
       });
-    }
+    } catch (error) {
+      console.error("ERROR GET DATA PENJUALAN:", error);
 
-    if (filterSalesOffice !== "ALL") {
-      data = data.filter(
-        (item) =>
-          item["Desc. S.Office"] === filterSalesOffice
-      );
-    }
-
-    if (filterStatus !== "ALL") {
-      data = data.filter(
-        (item) =>
-          item["Posting Status"] === filterStatus
-      );
-    }
-
-    if (filterCustomerGroup !== "ALL") {
-      data = data.filter(
-        (item) =>
-          item["Desc. Cust. Grp4"] ===
-          filterCustomerGroup
-      );
-    }
-
-    if (filterPrinciple !== "ALL") {
-      data = data.filter(
-        (item) =>
-          item["Name Principle"] === filterPrinciple
-      );
-    }
-
-    // FILTER TANGGAL POSTING DATE
-    if (filterStartDate) {
-      data = data.filter((item) => {
-        const postingDate = String(
-          item["Posting Date"] || ""
-        ).slice(0, 10);
-
-        return postingDate >= filterStartDate;
+      setTableData([]);
+      setTotalData(0);
+      setTotalPage(0);
+      setSummaryData({
+        total_transaksi: 0,
+        total_billing: 0,
+        total_customer: 0,
+        total_quantity: 0,
+        total_penjualan: 0,
+        total_tax: 0,
+        total_cogs: 0,
+        total_margin: 0,
+        total_discount: 0,
       });
-    }
 
-    if (filterEndDate) {
-      data = data.filter((item) => {
-        const postingDate = String(
-          item["Posting Date"] || ""
-        ).slice(0, 10);
-
-        return postingDate <= filterEndDate;
-      });
-    }
-
-    return data;
-  }, [
-    tableData,
-    keyword,
-    filterSalesOffice,
-    filterStatus,
-    filterCustomerGroup,
-    filterPrinciple,
-    filterStartDate,
-    filterEndDate,
-  ]);
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData = filteredData.length;
-
-  const totalPage = Math.ceil(
-    totalData / perPage
-  );
-
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * perPage,
-    currentPage * perPage
-  );
-
-  // ===================================================
-  // SUMMARY
-  // ===================================================
-
-  const summaryData = useMemo(() => {
-    const total = filteredData.length;
-
-    const totalPenjualan = filteredData.reduce(
-      (sum, item) =>
-        sum + Number(item["Total Penjualan"] || 0),
-      0
-    );
-
-    const totalTax = filteredData.reduce(
-      (sum, item) =>
-        sum + Number(item["Tax Amount"] || 0),
-      0
-    );
-
-    const totalCOGS = filteredData.reduce(
-      (sum, item) =>
-        sum + Number(item["Total COGS"] || 0),
-      0
-    );
-
-    const totalMargin =
-      totalPenjualan - totalCOGS;
-
-    const totalDiscount = filteredData.reduce(
-      (sum, item) =>
-        sum + Number(item["Total Discount"] || 0),
-      0
-    );
-
-    const totalQuantity = filteredData.reduce(
-      (sum, item) =>
-        sum + Number(item["Quantity"] || 0),
-      0
-    );
-
-    const totalBilling = new Set(
-      filteredData
-        .map((item) => item["Billing No"])
-        .filter(Boolean)
-    ).size;
-
-    const totalCustomer = new Set(
-      filteredData
-        .map((item) => item["Bill to party"])
-        .filter(Boolean)
-    ).size;
-
-    return {
-      total,
-      totalBilling,
-      totalCustomer,
-      totalQuantity,
-      totalPenjualan,
-      totalTax,
-      totalCOGS,
-      totalMargin,
-      totalDiscount,
-    };
-  }, [filteredData]);
-
-  // ===================================================
-  // RESET PAGE
-  // ===================================================
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    keyword,
-    filterSalesOffice,
-    filterStatus,
-    filterCustomerGroup,
-    filterPrinciple,
-    filterStartDate,
-    filterEndDate,
-    perPage,
-  ]);
-
-  // ===================================================
-  // LOADING
-  // ===================================================
-
-  useEffect(() => {
-    setLoading(true);
-
-    const timer = setTimeout(() => {
+      await swal.error(
+        error?.message ||
+        "Gagal mengambil data penjualan"
+      );
+    } finally {
       setLoading(false);
-    }, 250);
+    }
+  };
+
+  // ===================================================
+  // INITIAL LOAD + SERVER SIDE FILTER/PAGING
+  // ===================================================
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      getDataPenjualan();
+    }, keyword.trim() ? 400 : 0);
 
     return () => clearTimeout(timer);
   }, [
@@ -7066,21 +7053,75 @@ const TableMasterFaktur = ({
     filterStatus,
     filterCustomerGroup,
     filterPrinciple,
+    filterStartDate,
+    filterEndDate,
   ]);
 
   // ===================================================
-  // RELOAD
+  // RELOAD SETELAH UPLOAD
   // ===================================================
 
   useEffect(() => {
-    if (reloadData) {
-      setTableData(dummyDataWithTOP);
+    if (!reloadData) return;
 
-      if (setReloadData) {
-        setReloadData(false);
-      }
+    if (currentPage === 1) {
+      getDataPenjualan();
+    } else {
+      setCurrentPage(1);
     }
-  }, [reloadData, setReloadData]);
+
+    if (setReloadData) {
+      setReloadData(false);
+    }
+  }, [reloadData]);
+
+  // ===================================================
+  // FILTER OPTIONS
+  // ===================================================
+
+  const salesOfficeOptions = useMemo(() => {
+    return [
+      "ALL",
+      ...new Set(
+        tableData
+          .map((item) => item?.["Desc. S.Office"])
+          .filter(Boolean)
+      ),
+    ];
+  }, [tableData]);
+
+  const statusOptions = useMemo(() => {
+    return [
+      "ALL",
+      ...new Set(
+        tableData
+          .map((item) => item?.["Posting Status"])
+          .filter(Boolean)
+      ),
+    ];
+  }, [tableData]);
+
+  const customerGroupOptions = useMemo(() => {
+    return [
+      "ALL",
+      ...new Set(
+        tableData
+          .map((item) => item?.["Desc. Cust. Grp4"])
+          .filter(Boolean)
+      ),
+    ];
+  }, [tableData]);
+
+  const principleOptions = useMemo(() => {
+    return [
+      "ALL",
+      ...new Set(
+        tableData
+          .map((item) => item?.["Name Principle"])
+          .filter(Boolean)
+      ),
+    ];
+  }, [tableData]);
 
   // ===================================================
   // RESET FILTER
@@ -7098,41 +7139,6 @@ const TableMasterFaktur = ({
   };
 
   // ===================================================
-  // DELETE
-  // ===================================================
-
-  const handleDelete = async (data) => {
-    const billingNo = data["Billing No"];
-
-    const result = await swal.confirm(
-      "Hapus Data Penjualan",
-      `Apakah transaksi Billing No ${billingNo} akan dihapus?`
-    );
-
-    if (!result) return;
-
-    setLoading(true);
-
-    setTimeout(async () => {
-      setTableData((prev) =>
-        prev.filter(
-          (item) =>
-            !(
-              item["No"] === data["No"] &&
-              item["Billing No"] === billingNo
-            )
-        )
-      );
-
-      setLoading(false);
-
-      await swal.success(
-        "Data penjualan berhasil dihapus"
-      );
-    }, 300);
-  };
-
-  // ===================================================
   // DETAIL
   // ===================================================
 
@@ -7147,13 +7153,33 @@ const TableMasterFaktur = ({
   };
 
   // ===================================================
+  // DELETE - SEMENTARA UI SAJA
+  // ===================================================
+
+  const handleDelete = async (data) => {
+    const billingNo = data?.["Billing No"];
+
+    const result = await swal.confirm(
+      "Hapus Data Penjualan",
+      `Apakah transaksi Billing No ${billingNo} akan dihapus?`
+    );
+
+    if (!result) return;
+
+    await swal.custom(
+      "Belum Tersedia",
+      "API hapus data penjualan belum dihubungkan.",
+      "info"
+    );
+  };
+
+  // ===================================================
   // PAGINATION INFO
   // ===================================================
 
-  const startIndex =
-    totalData > 0
-      ? (currentPage - 1) * perPage + 1
-      : 0;
+  const startIndex = totalData > 0
+    ? (currentPage - 1) * perPage + 1
+    : 0;
 
   const endIndex = Math.min(
     currentPage * perPage,
@@ -7165,237 +7191,126 @@ const TableMasterFaktur = ({
   // ===================================================
 
   return (
-    <div
-      className="
-        flex
-        flex-col
-        gap-5
-      "
-    >
-      {/* ================================================= */}
-      {/* SEARCH + FILTER */}
-      {/* ================================================= */}
+    <div className="flex flex-col gap-5">
 
-      <div
-        className="
-          flex
-          flex-col
-          gap-4
-        "
-      >
-        <div
-          className="
-            flex
-            flex-col
-            lg:flex-row
-            justify-between
-            gap-4
-            items-stretch
-            lg:items-center
-          "
-        >
-          <div
-            className="
-              input
-              input-sm
-              input-bordered
-              flex
-              items-center
-              gap-2
-              bg-white
-              rounded-full
-              border-gray-200
-              shadow-sm
-              w-full
-              lg:w-[460px]
-            "
-          >
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col gap-4">
+
+        <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
+
+          <div className="input input-sm input-bordered flex items-center gap-2 bg-white rounded-full border-gray-200 shadow-sm w-full lg:w-[460px]">
             <FaSearch className="text-gray-400" />
 
             <input
               type="text"
-              placeholder="
-                Cari billing / customer / material / salesman...
-              "
+              placeholder="Cari billing / customer / material / salesman..."
               className="grow"
               value={keyword}
-              onChange={(e) =>
-                setKeyword(e.target.value)
-              }
+              onChange={(e) => {
+                setCurrentPage(1);
+                setKeyword(e.target.value);
+              }}
             />
           </div>
 
           <button
             type="button"
             onClick={resetFilter}
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              px-4
-              py-2
-              rounded-full
-              border
-              border-gray-200
-              bg-white
-              text-gray-600
-              text-sm
-              font-semibold
-              hover:bg-gray-50
-            "
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
           >
             <FaFilter />
             Reset Filter
           </button>
+
         </div>
 
-        <div
-          className="
-            flex
-            flex-wrap
-            items-center
-            gap-3
-          "
-        >
-          <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[190px]
-            "
-            value={filterSalesOffice}
-            onChange={(e) =>
-              setFilterSalesOffice(e.target.value)
-            }
-          >
-            <option value="ALL">
-              Semua Sales Office
-            </option>
+        <div className="flex flex-wrap items-center gap-3">
 
-            {salesOfficeOptions
+          <select
+            className="select select-sm select-bordered rounded-full bg-white min-w-[190px]"
+            value={filterSalesOffice}
+            onChange={(e) => {
+              setCurrentPage(1);
+              setFilterSalesOffice(e.target.value);
+            }}
+          >
+            <option value="ALL">Semua Sales Office</option>
+            {/* {salesOfficeOptions
               .filter((item) => item !== "ALL")
               .map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
+                <option key={item} value={item}>{item}</option>
+                ))} */}
+            {options?.cabang?.map((item) => (
+              <option key={item?.value} value={item?.value}>{item?.label}</option>
+            ))}
           </select>
 
-          <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[170px]
-            "
+          {/* <select
+            className="select select-sm select-bordered rounded-full bg-white min-w-[170px]"
             value={filterStatus}
-            onChange={(e) =>
-              setFilterStatus(e.target.value)
-            }
+            onChange={(e) => {
+              setCurrentPage(1);
+              setFilterStatus(e.target.value);
+            }}
           >
-            <option value="ALL">
-              Semua Status
-            </option>
-
+            <option value="ALL">Semua Status</option>
             {statusOptions
               .filter((item) => item !== "ALL")
               .map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
+                <option key={item} value={item}>{item}</option>
               ))}
-          </select>
+          </select> */}
 
           <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[180px]
-            "
+            className="select select-sm select-bordered rounded-full bg-white min-w-[180px]"
             value={filterCustomerGroup}
-            onChange={(e) =>
-              setFilterCustomerGroup(e.target.value)
-            }
+            onChange={(e) => {
+              setCurrentPage(1);
+              setFilterCustomerGroup(e.target.value);
+            }}
           >
-            <option value="ALL">
-              Semua Customer Group
-            </option>
-
-            {customerGroupOptions
+            <option value="ALL">Semua Channel</option>
+            {/* {customerGroupOptions
               .filter((item) => item !== "ALL")
               .map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
+                <option key={item} value={item}>{item}</option>
+              ))} */}
+            {options?.channel?.map((item) => (
+              <option key={item?.value} value={item?.label}>{item?.label}</option>
+            ))}
           </select>
 
           <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[180px]
-            "
+            className="select select-sm select-bordered rounded-full bg-white min-w-[180px]"
             value={filterPrinciple}
-            onChange={(e) =>
-              setFilterPrinciple(e.target.value)
-            }
+            onChange={(e) => {
+              setCurrentPage(1);
+              setFilterPrinciple(e.target.value);
+            }}
           >
-            <option value="ALL">
-              Semua Principle
-            </option>
-
-            {principleOptions
+            <option value="ALL">Semua Principle</option>
+            {/* {principleOptions
               .filter((item) => item !== "ALL")
               .map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
+                <option key={item} value={item}>{item}</option>
+              ))} */}
+            {options?.principle?.map((item) => (
+              <option key={item?.value} value={item?.value}>{item?.label}</option>
+            ))}
           </select>
 
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-              bg-white
-              border
-              border-gray-200
-              rounded-full
-              px-3
-              h-8
-              shadow-sm
-            "
-          >
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-8 shadow-sm">
             <FaCalendarAlt className="text-primary text-sm" />
 
             <input
               type="date"
               value={filterStartDate}
               max={filterEndDate || undefined}
-              onChange={(e) =>
-                setFilterStartDate(e.target.value)
-              }
-              className="
-                text-sm
-                bg-transparent
-                outline-none
-                text-gray-600
-                w-[125px]
-              "
+              onChange={(e) => {
+                setCurrentPage(1);
+                setFilterStartDate(e.target.value);
+              }}
+              className="text-sm bg-transparent outline-none text-gray-600 w-[125px]"
               title="Tanggal mulai"
             />
 
@@ -7405,346 +7320,119 @@ const TableMasterFaktur = ({
               type="date"
               value={filterEndDate}
               min={filterStartDate || undefined}
-              onChange={(e) =>
-                setFilterEndDate(e.target.value)
-              }
-              className="
-                text-sm
-                bg-transparent
-                outline-none
-                text-gray-600
-                w-[125px]
-              "
+              onChange={(e) => {
+                setCurrentPage(1);
+                setFilterEndDate(e.target.value);
+              }}
+              className="text-sm bg-transparent outline-none text-gray-600 w-[125px]"
               title="Tanggal akhir"
             />
           </div>
+
         </div>
       </div>
 
-      {/* ================================================= */}
       {/* SUMMARY */}
-      {/* ================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
-      <div
-        className="
-          grid
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-5
-          gap-4
-        "
-      >
-        <div
-          className="
-            rounded-2xl
-            bg-blue-50
-            border
-            border-blue-100
-            p-4
-          "
-        >
+        <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
           <div className="flex justify-between">
             <div>
-              <p className="text-sm text-blue-700">
-                Total Transaksi
-              </p>
-
+              <p className="text-sm text-blue-700">Total Transaksi</p>
               <p className="text-2xl font-bold text-blue-900">
-                {summaryData.total}
+                {formatNumber(summaryData.total_transaksi)}
               </p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-blue-100
-                flex
-                items-center
-                justify-center
-              "
-            >
+            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
               <FaClipboardList className="text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div
-          className="
-            rounded-2xl
-            bg-green-50
-            border
-            border-green-100
-            p-4
-          "
-        >
+        <div className="rounded-2xl bg-green-50 border border-green-100 p-4">
           <div className="flex justify-between">
             <div>
-              <p className="text-sm text-green-700">
-                Total Billing
-              </p>
-
+              <p className="text-sm text-green-700">Total Billing</p>
               <p className="text-2xl font-bold text-green-900">
-                {summaryData.totalBilling}
+                {formatNumber(summaryData.total_billing)}
               </p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-green-100
-                flex
-                items-center
-                justify-center
-              "
-            >
+            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
               <FaFileInvoiceDollar className="text-green-600" />
             </div>
           </div>
         </div>
 
-        <div
-          className="
-            rounded-2xl
-            bg-purple-50
-            border
-            border-purple-100
-            p-4
-          "
-        >
+        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4">
           <div className="flex justify-between">
             <div>
-              <p className="text-sm text-purple-700">
-                Total Penjualan
-              </p>
-
+              <p className="text-sm text-purple-700">Total Penjualan</p>
               <p className="text-xl font-bold text-purple-900">
-                {formatRupiah(
-                  summaryData.totalPenjualan
-                )}
+                {formatRupiah(summaryData.total_penjualan)}
               </p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-purple-100
-                flex
-                items-center
-                justify-center
-              "
-            >
+            <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center">
               <FaMoneyBillWave className="text-purple-600" />
             </div>
           </div>
         </div>
 
-        <div
-          className="
-            rounded-2xl
-            bg-orange-50
-            border
-            border-orange-100
-            p-4
-          "
-        >
+        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-4">
           <div className="flex justify-between">
             <div>
-              <p className="text-sm text-orange-700">
-                Total COGS
-              </p>
-
+              <p className="text-sm text-orange-700">Total COGS</p>
               <p className="text-xl font-bold text-orange-900">
-                {formatRupiah(
-                  summaryData.totalCOGS
-                )}
+                {formatRupiah(summaryData.total_cogs)}
               </p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-orange-100
-                flex
-                items-center
-                justify-center
-              "
-            >
+            <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center">
               <FaWarehouse className="text-orange-600" />
             </div>
           </div>
         </div>
 
-        <div
-          className="
-            rounded-2xl
-            bg-emerald-50
-            border
-            border-emerald-100
-            p-4
-          "
-        >
+        <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
           <div className="flex justify-between">
             <div>
-              <p className="text-sm text-emerald-700">
-                Total Margin
-              </p>
-
+              <p className="text-sm text-emerald-700">Total Margin</p>
               <p className="text-xl font-bold text-emerald-900">
-                {formatRupiah(
-                  summaryData.totalMargin
-                )}
+                {formatRupiah(summaryData.total_margin)}
               </p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-emerald-100
-                flex
-                items-center
-                justify-center
-              "
-            >
+            <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center">
               <FaChartLine className="text-emerald-600" />
             </div>
           </div>
         </div>
+
       </div>
 
-      {/* ================================================= */}
       {/* EXTRA SUMMARY */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          flex
-          flex-wrap
-          gap-3
-          text-sm
-        "
-      >
-        <span
-          className="
-            px-4
-            py-2
-            rounded-full
-            bg-gray-100
-            text-gray-700
-            font-semibold
-          "
-        >
-          Customer: {summaryData.totalCustomer}
+      <div className="flex flex-wrap gap-3 text-sm">
+        <span className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 font-semibold">
+          Customer: {formatNumber(summaryData.total_customer)}
         </span>
-
-        <span
-          className="
-            px-4
-            py-2
-            rounded-full
-            bg-gray-100
-            text-gray-700
-            font-semibold
-          "
-        >
-          Quantity: {formatNumber(summaryData.totalQuantity)}
+        <span className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 font-semibold">
+          Quantity: {formatNumber(summaryData.total_quantity)}
         </span>
-
-        <span
-          className="
-            px-4
-            py-2
-            rounded-full
-            bg-gray-100
-            text-gray-700
-            font-semibold
-          "
-        >
-          Tax: {formatRupiah(summaryData.totalTax)}
+        <span className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 font-semibold">
+          Tax: {formatRupiah(summaryData.total_tax)}
         </span>
-
-        <span
-          className="
-            px-4
-            py-2
-            rounded-full
-            bg-gray-100
-            text-gray-700
-            font-semibold
-          "
-        >
-          Discount: {formatRupiah(summaryData.totalDiscount)}
+        <span className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 font-semibold">
+          Discount: {formatRupiah(summaryData.total_discount)}
         </span>
       </div>
 
-      {/* ================================================= */}
       {/* TABLE */}
-      {/* ================================================= */}
+      <div className={dimensionScreenW < 768 && check ? "bringToBack" : ""}>
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
 
-      <div
-        className={
-          dimensionScreenW < 768 && check
-            ? "bringToBack"
-            : ""
-        }
-      >
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            shadow-xl
-            overflow-hidden
-            border
-            border-gray-200
-          "
-        >
-          <div
-            className="
-              relative
-              overflow-auto
-              rounded-2xl
-              max-h-[65vh]
-            "
-          >
+          <div className="relative overflow-auto rounded-2xl max-h-[65vh]">
+
             {loading && (
-              <div
-                className="
-                  absolute
-                  inset-0
-                  z-50
-                  flex
-                  items-center
-                  justify-center
-                  bg-white/70
-                  backdrop-blur-sm
-                "
-              >
-                <div
-                  className="
-                    flex
-                    flex-col
-                    items-center
-                    gap-3
-                  "
-                >
-                  <span
-                    className="
-                      loading
-                      loading-spinner
-                      loading-lg
-                      text-primary
-                    "
-                  />
-
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="loading loading-spinner loading-lg text-primary" />
                   <span className="text-sm text-gray-600">
                     Memuat data penjualan...
                   </span>
@@ -7753,24 +7441,9 @@ const TableMasterFaktur = ({
             )}
 
             <table className="table w-full">
-              <thead
-                className="
-                  bg-primary
-                  text-white
-                  sticky
-                  top-0
-                  text-[13px]
-                  z-10
-                "
-              >
+              <thead className="bg-primary text-white sticky top-0 text-[13px] z-10">
                 <tr>
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                    "
-                  >
+                  <th className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2 font-semibold">
                       <FaEllipsisV />
                       Aksi
@@ -7780,11 +7453,7 @@ const TableMasterFaktur = ({
                   {mainColumns.map((column) => (
                     <th
                       key={column.key}
-                      className="
-                        px-4
-                        py-3
-                        whitespace-nowrap
-                      "
+                      className="px-4 py-3 whitespace-nowrap"
                     >
                       <div className="flex items-center gap-2 font-semibold">
                         {column.icon}
@@ -7796,84 +7465,40 @@ const TableMasterFaktur = ({
               </thead>
 
               <tbody>
-                {paginatedData.length === 0 ? (
+                {tableData.length === 0 ? (
                   <tr>
                     <td
                       colSpan={mainColumns.length + 1}
-                      className="
-                        text-center
-                        py-16
-                        text-gray-500
-                      "
+                      className="text-center py-16 text-gray-500"
                     >
-                      <FaClipboardList
-                        className="
-                          text-4xl
-                          text-gray-300
-                          mx-auto
-                          mb-3
-                        "
-                      />
-
+                      <FaClipboardList className="text-4xl text-gray-300 mx-auto mb-3" />
                       Tidak ada data penjualan
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((item, index) => (
+                  tableData.map((item, index) => (
                     <tr
-                      key={`${item["No"]}-${item["Billing No"]}-${index}`}
-                      className="
-                        border-b
-                        hover:bg-blue-50
-                        transition
-                        duration-200
-                      "
+                      key={`${item?.penjualan_id || item?.["Billing No"] || "row"}-${index}`}
+                      className="border-b hover:bg-blue-50 transition duration-200"
                     >
-                      {/* AKSI */}
                       <td className="px-4 py-3">
                         <div className="dropdown dropdown-right">
                           <div
                             tabIndex={0}
                             role="button"
-                            className="
-                              w-9
-                              h-9
-                              rounded-full
-                              bg-blue-50
-                              text-primary
-                              flex
-                              items-center
-                              justify-center
-                              cursor-pointer
-                              hover:bg-primary
-                              hover:text-white
-                              transition
-                            "
+                            className="w-9 h-9 rounded-full bg-blue-50 text-primary flex items-center justify-center cursor-pointer hover:bg-primary hover:text-white transition"
                           >
                             <FaEllipsisV />
                           </div>
 
                           <ul
                             tabIndex={0}
-                            className="
-                              dropdown-content
-                              menu
-                              p-2
-                              shadow-xl
-                              bg-white
-                              rounded-box
-                              border
-                              border-gray-100
-                              w-44
-                              z-[20]
-                            "
+                            className="dropdown-content menu p-2 shadow-xl bg-white rounded-box border border-gray-100 w-44 z-[20]"
                           >
                             <li>
                               <button
                                 type="button"
-                                onClick={() =>
-                                  handleDetail(item)
-                                }
+                                onClick={() => handleDetail(item)}
                               >
                                 <FaEye />
                                 Detail
@@ -7883,12 +7508,7 @@ const TableMasterFaktur = ({
                             <li>
                               <button
                                 type="button"
-                                onClick={() =>
-                                  console.log(
-                                    "Edit dummy:",
-                                    item
-                                  )
-                                }
+                                onClick={() => console.log("Edit:", item)}
                               >
                                 Edit
                               </button>
@@ -7897,9 +7517,7 @@ const TableMasterFaktur = ({
                             <li>
                               <button
                                 type="button"
-                                onClick={() =>
-                                  handleDelete(item)
-                                }
+                                onClick={() => handleDelete(item)}
                                 className="text-red-500"
                               >
                                 Hapus
@@ -7917,17 +7535,13 @@ const TableMasterFaktur = ({
                         ].includes(column.key)
                           ? getCalculatedValue(item, column.key)
                           : column.key === "Tanggal Jatuh Tempo"
-                          ? getTanggalJatuhTempo(item)
-                          : item[column.key];
+                            ? getTanggalJatuhTempo(item)
+                            : item[column.key];
 
                         return (
                           <td
                             key={column.key}
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
+                            className="px-4 py-3 whitespace-nowrap"
                           >
                             {column.type === "status" ? (
                               renderPostingStatus(value)
@@ -7951,7 +7565,7 @@ const TableMasterFaktur = ({
                               </span>
                             ) : column.type === "plainNumber" ? (
                               <span className="text-gray-700">
-                                {String(value)}
+                                {displayValue(value)}
                               </span>
                             ) : column.type === "calculatedPercentCOGS" ||
                               column.type === "calculatedPercentMargin" ? (
@@ -7968,15 +7582,8 @@ const TableMasterFaktur = ({
                               </span>
                             ) : (
                               <span
-                                className="
-                                  text-gray-700
-                                  max-w-[280px]
-                                  block
-                                  truncate
-                                "
-                                title={String(
-                                  displayValue(value)
-                                )}
+                                className="text-gray-700 max-w-[280px] block truncate"
+                                title={String(displayValue(value))}
                               >
                                 {displayValue(value)}
                               </span>
@@ -7991,72 +7598,31 @@ const TableMasterFaktur = ({
             </table>
           </div>
 
-          {/* ================================================= */}
           {/* FOOTER */}
-          {/* ================================================= */}
+          <div className="border-t border-gray-100 bg-slate-50 py-4 px-5">
+            <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
 
-          <div
-            className="
-              border-t
-              border-gray-100
-              bg-slate-50
-              py-4
-              px-5
-            "
-          >
-            <div
-              className="
-                flex
-                flex-col
-                lg:flex-row
-                gap-4
-                lg:items-center
-                lg:justify-between
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-5
-                  flex-wrap
-                "
-              >
+              <div className="flex items-center gap-5 flex-wrap">
                 <div className="text-sm text-gray-600">
                   Showing{" "}
-                  <span className="font-semibold">
-                    {startIndex}
-                  </span>{" "}
+                  <span className="font-semibold">{startIndex}</span>{" "}
                   to{" "}
-                  <span className="font-semibold">
-                    {endIndex}
-                  </span>{" "}
+                  <span className="font-semibold">{endIndex}</span>{" "}
                   of{" "}
-                  <span className="font-semibold">
-                    {totalData}
-                  </span>{" "}
+                  <span className="font-semibold">{totalData}</span>{" "}
                   entries
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
-                    Rows:
-                  </span>
+                  <span className="text-sm text-gray-600">Rows:</span>
 
                   <select
-                    className="
-                      select
-                      select-bordered
-                      select-sm
-                      rounded-full
-                      bg-white
-                    "
+                    className="select select-bordered select-sm rounded-full bg-white"
                     value={perPage}
-                    onChange={(e) =>
-                      setPerPage(
-                        parseInt(e.target.value, 10)
-                      )
-                    }
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setPerPage(parseInt(e.target.value, 10));
+                    }}
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -8072,141 +7638,44 @@ const TableMasterFaktur = ({
                   previousLabel="←"
                   nextLabel="→"
                   pageCount={totalPage}
-                  onPageChange={(e) =>
-                    setCurrentPage(e.selected + 1)
-                  }
-                  forcePage={currentPage - 1}
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                  "
-                  activeClassName="
-                    !bg-primary
-                    !text-white
-                    !border-primary
-                  "
-                  pageClassName="
-                    min-w-9
-                    h-9
-                    border
-                    border-gray-300
-                    rounded-full
-                    flex
-                    items-center
-                    justify-center
-                    bg-white
-                    hover:bg-blue-50
-                    transition
-                  "
-                  pageLinkClassName="
-                    w-full
-                    h-full
-                    flex
-                    items-center
-                    justify-center
-                  "
-                  previousClassName="
-                    min-w-9
-                    h-9
-                    border
-                    border-gray-300
-                    rounded-full
-                    bg-white
-                  "
-                  nextClassName="
-                    min-w-9
-                    h-9
-                    border
-                    border-gray-300
-                    rounded-full
-                    bg-white
-                  "
-                  previousLinkClassName="
-                    w-full
-                    h-full
-                    flex
-                    items-center
-                    justify-center
-                  "
-                  nextLinkClassName="
-                    w-full
-                    h-full
-                    flex
-                    items-center
-                    justify-center
-                  "
-                  breakClassName="
-                    px-2
-                    text-gray-500
-                  "
-                  disabledClassName="
-                    opacity-50
-                    cursor-not-allowed
-                  "
+                  onPageChange={(e) => setCurrentPage(e.selected + 1)}
+                  forcePage={Math.min(
+                    currentPage - 1,
+                    Math.max(totalPage - 1, 0)
+                  )}
+                  className="flex items-center gap-2"
+                  activeClassName="!bg-primary !text-white !border-primary"
+                  pageClassName="min-w-9 h-9 border border-gray-300 rounded-full flex items-center justify-center bg-white hover:bg-blue-50 transition"
+                  pageLinkClassName="w-full h-full flex items-center justify-center"
+                  previousClassName="min-w-9 h-9 border border-gray-300 rounded-full bg-white"
+                  nextClassName="min-w-9 h-9 border border-gray-300 rounded-full bg-white"
+                  previousLinkClassName="w-full h-full flex items-center justify-center"
+                  nextLinkClassName="w-full h-full flex items-center justify-center"
+                  breakClassName="px-2 text-gray-500"
+                  disabledClassName="opacity-50 cursor-not-allowed"
                 />
               )}
+
             </div>
           </div>
         </div>
       </div>
 
-      {/* ================================================= */}
-      {/* DETAIL MODAL - SEMUA FIELD EXCEL */}
-      {/* ================================================= */}
-
+      {/* DETAIL MODAL */}
       {showDetail && selectedData && (
         <div
-          className="
-            fixed
-            inset-0
-            z-[999]
-            bg-black/40
-            backdrop-blur-sm
-            flex
-            items-center
-            justify-center
-            p-4
-          "
+          className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={closeDetail}
         >
           <div
-            className="
-              bg-white
-              rounded-2xl
-              shadow-2xl
-              w-full
-              max-w-6xl
-              max-h-[92vh]
-              overflow-y-auto
-            "
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* HEADER */}
-            <div
-              className="
-                bg-primary
-                px-6
-                py-4
-                text-white
-                sticky
-                top-0
-                z-20
-              "
-            >
+
+            <div className="bg-primary px-6 py-4 text-white sticky top-0 z-20">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div
-                    className="
-                      w-10
-                      h-10
-                      rounded-xl
-                      bg-white/10
-                      flex
-                      items-center
-                      justify-center
-                    "
-                  >
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
                     <FaFileInvoiceDollar />
                   </div>
 
@@ -8216,10 +7685,7 @@ const TableMasterFaktur = ({
                     </h3>
 
                     <p className="text-xs text-blue-100">
-                      Billing No:{" "}
-                      {displayValue(
-                        selectedData["Billing No"]
-                      )}
+                      Billing No: {displayValue(selectedData["Billing No"])}
                     </p>
                   </div>
                 </div>
@@ -8227,133 +7693,63 @@ const TableMasterFaktur = ({
                 <button
                   type="button"
                   onClick={closeDetail}
-                  className="
-                    w-9
-                    h-9
-                    rounded-full
-                    hover:bg-white/10
-                    flex
-                    items-center
-                    justify-center
-                  "
+                  className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"
                 >
                   <FaTimes />
                 </button>
               </div>
             </div>
 
-            {/* BODY */}
             <div className="p-6">
               {detailGroups.map((group) => (
-                <div
-                  key={group.title}
-                  className="mb-7"
-                >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                      mb-4
-                      pb-2
-                      border-b
-                      border-gray-200
-                    "
-                  >
+                <div key={group.title} className="mb-7">
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
                     <FaClipboardList className="text-primary" />
-
                     <h4 className="font-bold text-gray-800">
                       {group.title}
                     </h4>
                   </div>
 
-                  <div
-                    className="
-                      grid
-                      grid-cols-1
-                      sm:grid-cols-2
-                      lg:grid-cols-3
-                      gap-4
-                    "
-                  >
-                    {group.fields.map(
-                      ([key, label, type]) => (
-                        <div
-                          key={key}
-                          className="
-                            rounded-xl
-                            bg-gray-50
-                            border
-                            border-gray-100
-                            p-3
-                          "
-                        >
-                          <p
-                            className="
-                              text-xs
-                              text-gray-400
-                              mb-1
-                            "
-                          >
-                            {label}
-                          </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {group.fields.map(([key, label, type]) => (
+                      <div
+                        key={key}
+                        className="rounded-xl bg-gray-50 border border-gray-100 p-3"
+                      >
+                        <p className="text-xs text-gray-400 mb-1">
+                          {label}
+                        </p>
 
-                          <p
-                            className="
-                              font-semibold
-                              text-gray-700
-                              break-words
-                            "
-                          >
-                            {formatFieldValue(
-                              key === "Tanggal Jatuh Tempo"
-                                ? getTanggalJatuhTempo(selectedData)
-                                : selectedData[key],
-                              type,
-                              selectedData
-                            )}
-                          </p>
-                        </div>
-                      )
-                    )}
+                        <p className="font-semibold text-gray-700 break-words">
+                          {formatFieldValue(
+                            key === "Tanggal Jatuh Tempo"
+                              ? getTanggalJatuhTempo(selectedData)
+                              : selectedData[key],
+                            type,
+                            selectedData
+                          )}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* FOOTER */}
-            <div
-              className="
-                border-t
-                bg-gray-50
-                px-5
-                py-4
-                flex
-                justify-end
-                sticky
-                bottom-0
-              "
-            >
+            <div className="border-t bg-gray-50 px-5 py-4 flex justify-end sticky bottom-0">
               <button
                 type="button"
                 onClick={closeDetail}
-                className="
-                  px-5
-                  py-2.5
-                  rounded-full
-                  bg-primary
-                  text-white
-                  text-sm
-                  font-semibold
-                  hover:opacity-90
-                "
+                className="px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90"
               >
                 Tutup
               </button>
             </div>
+
           </div>
         </div>
       )}
+
     </div>
   );
 };

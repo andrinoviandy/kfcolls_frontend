@@ -448,7 +448,7 @@ const TableBayarFaktur = ({
     useState([]);
 
   const [paymentMethod, setPaymentMethod] =
-    useState("GIRO");
+    useState("DIRECT_TRANSFER");
 
   const [dueDateGiro, setDueDateGiro] =
     useState("");
@@ -900,7 +900,7 @@ const TableBayarFaktur = ({
 
 
     setPaymentMethod(
-      "GIRO"
+      "DIRECT_TRANSFER"
     );
 
     setPaymentAllocationMode("MANUAL");
@@ -1891,7 +1891,7 @@ const TableBayarFaktur = ({
   }, [paymentAllocation]);
 
   const resetPaymentMethodState = () => {
-    setPaymentMethod("GIRO");
+    setPaymentMethod("DIRECT_TRANSFER");
     setDueDateGiro("");
     setPlannedPaymentDate("");
     setPaymentAllocationMode("MANUAL");
@@ -1995,7 +1995,7 @@ const TableBayarFaktur = ({
       paymentMethod === "PARTIAL_PAYMENT" &&
       !canUsePartialPayment
     ) {
-      setPaymentMethod("GIRO");
+      setPaymentMethod("DIRECT_TRANSFER");
       setPaymentAllocation({});
       setPaymentPartialAmount("");
       setShowPaymentAllocation(false);
@@ -4379,150 +4379,6 @@ return (
                         )
                       }
 
-                    </button>
-
-
-                    {/* GIRO */}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPaymentMethod(
-                          "GIRO"
-                        )
-                      }
-                      className={`
-                        w-full
-                        flex
-                        items-center
-                        justify-between
-                        p-4
-                        rounded-xl
-                        border
-                        mb-3
-                        transition
-                        ${
-                          paymentMethod ===
-                          "GIRO"
-                            ? "border-orange-400 bg-orange-50"
-                            : "border-gray-200 bg-white"
-                        }
-                      `}
-                    >
-
-                      <div
-                        className="
-                          flex
-                          items-center
-                          gap-3
-                        "
-                      >
-
-                        <div
-                          className="
-                            w-10
-                            h-10
-                            rounded-xl
-                            bg-orange-50
-                            flex
-                            items-center
-                            justify-center
-                          "
-                        >
-
-                          <FaCreditCard
-                            className="
-                              text-orange-500
-                            "
-                          />
-
-                        </div>
-
-                        <div
-                          className="
-                            text-left
-                          "
-                        >
-
-                          <p
-                            className="
-                              font-semibold
-                              text-gray-700
-                            "
-                          >
-                            Giro
-                          </p>
-
-                          <p
-                            className="
-                              text-xs
-                              text-gray-400
-                            "
-                          >
-                            Cek diserahkan ke Collector
-                          </p>
-
-                        </div>
-
-                      </div>
-
-
-                      {
-                        paymentMethod ===
-                        "GIRO" && (
-
-                          <FaCheckCircle
-                            className="
-                              text-orange-500
-                            "
-                          />
-
-                        )
-                      }
-
-                    </button>
-
-
-                    {/* MENUNGGU PEMBAYARAN */}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPaymentMethod("MENUNGGU_PEMBAYARAN")
-                      }
-                      className={`
-                        w-full
-                        flex
-                        items-center
-                        justify-between
-                        p-4
-                        rounded-xl
-                        border
-                        mb-3
-                        transition
-                        ${
-                          paymentMethod === "MENUNGGU_PEMBAYARAN"
-                            ? "border-orange-400 bg-orange-50"
-                            : "border-gray-200 bg-white"
-                        }
-                      `}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                          <FaClock className="text-blue-500" />
-                        </div>
-                        <div className="text-left">
-                          <p className="font-semibold text-gray-700">
-                            Menunggu Pembayaran
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            Pembayaran direncanakan pada tanggal tertentu
-                          </p>
-                        </div>
-                      </div>
-                      {paymentMethod === "MENUNGGU_PEMBAYARAN" && (
-                        <FaCheckCircle className="text-orange-500" />
-                      )}
                     </button>
 
 

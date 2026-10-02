@@ -245,7 +245,7 @@ const DataPenjualan = () => {
 
             {/* TAMBAH */}
 
-            <button
+            {/* <button
               type="button"
               onClick={
                 handleAddFaktur
@@ -266,7 +266,7 @@ const DataPenjualan = () => {
 
               Tambah Penjualan
 
-            </button>
+            </button> */}
 
           </div>
 

@@ -62,6 +62,167 @@ const formatDate = (
 
 
 // =====================================================
+// UMUR PIUTANG
+// =====================================================
+// Umur piutang dihitung dari tanggal faktur sampai hari ini.
+const getUmurPiutang = (tanggalFaktur) => {
+  if (!tanggalFaktur) return 0;
+
+  const tanggal = new Date(tanggalFaktur);
+  if (Number.isNaN(tanggal.getTime())) return 0;
+
+  const today = new Date();
+
+  // Normalisasi waktu agar perhitungan berdasarkan hari kalender.
+  tanggal.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  const diffTime = today.getTime() - tanggal.getTime();
+  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+};
+
+
+// =====================================================
+// DETAIL NILAI PIUTANG
+// =====================================================
+// Asumsi:
+// - item.nominal = DPP/Komersil apabila backend belum
+//   mengirim field DPP/Komersil secara terpisah.
+// - PPN = DPP x 11%.
+// - PPh = DPP x 1,5%.
+// - Pembayaran mengambil field pencairan/pembayaran/
+//   dibayar/sudah_dibayar jika tersedia.
+// - Outstanding mengambil field outstanding jika tersedia,
+//   jika tidak maka dihitung dari DPP - pembayaran.
+//
+// Jika backend sudah mengirim field dpp/komersil,
+// pencairan/pembayaran, atau outstanding, helper ini
+// otomatis menggunakan field tersebut.
+// =====================================================
+
+const firstNumber = (...values) => {
+  for (const value of values) {
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== "" &&
+      !Number.isNaN(Number(value))
+    ) {
+      return Number(value);
+    }
+  }
+
+  return 0;
+};
+
+const getDppKomersil = (item) => {
+  return firstNumber(
+    item?.dpp,
+    item?.DPP,
+    item?.dpp_komersil,
+    item?.dpp_komersil_amount,
+    item?.komersil,
+    item?.nilai_komersil,
+    item?.nominal
+  );
+};
+
+const getPpn = (item) => {
+  const dpp = getDppKomersil(item);
+  return dpp * 0.11;
+};
+
+const getPph = (item) => {
+  const dpp = getDppKomersil(item);
+  return dpp * 0.015;
+};
+
+const getPembayaran = (item) => {
+  const explicitPayment = firstNumber(
+    item?.pencairan,
+    item?.pembayaran,
+    item?.payment,
+    item?.dibayar,
+    item?.sudah_dibayar
+  );
+
+  // Jika backend belum mengirim nominal pembayaran,
+  // status DITERIMA dianggap sudah membayar penuh.
+  if (
+    explicitPayment === 0 &&
+    item?.status_pembayaran === "DITERIMA"
+  ) {
+    return getDppKomersil(item);
+  }
+
+  return explicitPayment;
+};
+
+const getOutstanding = (item) => {
+  if (
+    item?.outstanding !== null &&
+    item?.outstanding !== undefined &&
+    item?.outstanding !== ""
+  ) {
+    return firstNumber(item.outstanding);
+  }
+
+  return Math.max(
+    0,
+    getDppKomersil(item) - getPembayaran(item)
+  );
+};
+
+const getKeteranganPiutang = (item) => {
+  const outstanding = Number(getOutstanding(item) || 0);
+  const ppn = Number(getPpn(item) || 0);
+  const pph = Number(getPph(item) || 0);
+
+  // Jangan memberikan keterangan pajak jika outstanding = 0.
+  // Outstanding 0 berarti tidak ada sisa piutang.
+  if (outstanding <= 0) {
+    return "Sisa Piutang";
+  }
+
+  // Bandingkan nilai setelah pembulatan ke rupiah penuh.
+  // Jadi misalnya 11.000.000 dan 11.000.000,00 tetap dianggap sama.
+  const sisa = Math.round(outstanding);
+  const nilaiPPN = Math.round(ppn);
+  const nilaiPPh = Math.round(pph);
+
+  // PRIORITAS 1: Outstanding sama dengan PPN
+  if (sisa === nilaiPPN) {
+    return "Sisa PPN";
+  }
+
+  // PRIORITAS 2: Outstanding sama dengan PPh
+  if (sisa === nilaiPPh) {
+    return "Sisa PPh";
+  }
+
+  // Selain nilai PPN dan PPh
+  return "Sisa Piutang";
+};
+
+const getDetailNilaiPiutang = (item) => {
+  const dpp = getDppKomersil(item);
+  const ppn = getPpn(item);
+  const pph = getPph(item);
+  const pembayaran = getPembayaran(item);
+  const outstanding = getOutstanding(item);
+
+  return {
+    dpp,
+    ppn,
+    pph,
+    pembayaran,
+    outstanding,
+    keterangan: getKeteranganPiutang(item),
+  };
+};
+
+
+// =====================================================
 // FORMAT CURRENCY
 // =====================================================
 
@@ -125,6 +286,16 @@ const dummyData = [
     nominal:
       140000000,
 
+    // Dummy: Outstanding = PPN (11% DPP)
+    dpp:
+      140000000,
+
+    pencairan:
+      124600000,
+
+    outstanding:
+      15400000,
+
     tanggal_faktur:
       "2026-08-01",
 
@@ -179,6 +350,16 @@ const dummyData = [
     nominal:
       85000000,
 
+    // Dummy: Outstanding = PPh (1,5% DPP)
+    dpp:
+      85000000,
+
+    pencairan:
+      83725000,
+
+    outstanding:
+      1275000,
+
     tanggal_faktur:
       "2026-08-02",
 
@@ -232,6 +413,16 @@ const dummyData = [
 
     nominal:
       140000000,
+
+    // Dummy: Outstanding bukan PPN dan bukan PPh
+    dpp:
+      140000000,
+
+    pencairan:
+      120000000,
+
+    outstanding:
+      20000000,
 
     tanggal_faktur:
       "2026-08-03",
@@ -1529,6 +1720,9 @@ const TableLaporan = ({
         "No. Tagihan":
           item.no_tagihan || "-",
 
+        "Umur Piutang":
+          `${getUmurPiutang(item.tanggal_faktur)} hari`,
+
         "Pelanggan":
           item.customer || "-",
 
@@ -1538,8 +1732,23 @@ const TableLaporan = ({
         "Kolektor":
           item.kolektor || "-",
 
-        "Nilai Tagihan":
-          item.nominal || 0,
+        "DPP/Komersil":
+          getDetailNilaiPiutang(item).dpp,
+
+        "PPN (11%)":
+          getDetailNilaiPiutang(item).ppn,
+
+        "PPh (1,5%)":
+          getDetailNilaiPiutang(item).pph,
+
+        "Pencairan/Pembayaran":
+          getDetailNilaiPiutang(item).pembayaran,
+
+        "Sisa/Outstanding Piutang":
+          getDetailNilaiPiutang(item).outstanding,
+
+        "Keterangan":
+          getDetailNilaiPiutang(item).keterangan,
 
         "Tanggal Faktur":
           item.tanggal_faktur || null,
@@ -1689,35 +1898,26 @@ const TableLaporan = ({
     worksheet["!cols"] = [
 
       { wch: 6 },   // No
-
       { wch: 20 },  // Faktur
-
-      { wch: 18 },  // Tagihan
-
+      { wch: 18 },  // No. Tagihan
+      { wch: 16 },  // Umur Piutang
       { wch: 30 },  // Customer
-
       { wch: 18 },  // Cabang
-
       { wch: 22 },  // Kolektor
-
-      { wch: 18 },  // Nilai
-
+      { wch: 18 },  // DPP/Komersil
+      { wch: 18 },  // PPN
+      { wch: 18 },  // PPh
+      { wch: 20 },  // Pencairan/Pembayaran
+      { wch: 22 },  // Sisa/Outstanding Piutang
+      { wch: 20 },  // Keterangan
       { wch: 16 },  // Tgl Faktur
-
       { wch: 16 },  // Jatuh Tempo
-
       { wch: 20 },  // Penugasan
-
       { wch: 20 },  // Pengantaran
-
       { wch: 20 },  // Pembayaran
-
       { wch: 22 },  // Metode
-
       { wch: 22 },  // Status Penugasan
-
       { wch: 22 },  // Status Pengantaran
-
       { wch: 24 },  // Status Pembayaran
 
     ];
@@ -1733,28 +1933,37 @@ const TableLaporan = ({
       row++
     ) {
 
-      const cell =
-        worksheet[
-        XLSX.utils.encode_cell({
-          r: row,
-          c: 6,
-        })
-        ];
+      // Kolom nominal yang diformat sebagai Rupiah:
+      // DPP/Komersil (7), PPN (8), PPh (9),
+      // Pencairan/Pembayaran (10), Outstanding (11).
+      [7, 8, 9, 10, 11].forEach(
+        (columnIndex) => {
 
-      if (cell) {
+          const cell =
+            worksheet[
+            XLSX.utils.encode_cell({
+              r: row,
+              c: columnIndex,
+            })
+            ];
 
-        cell.z =
-          '"Rp" #,##0';
+          if (cell) {
 
-        cell.s = {
+            cell.z =
+              '"Rp" #,##0';
 
-          alignment: {
-            horizontal: "right",
-          },
+            cell.s = {
 
-        };
+              alignment: {
+                horizontal: "right",
+              },
 
-      }
+            };
+
+          }
+
+        }
+      );
 
     }
 
@@ -3041,6 +3250,26 @@ const TableLaporan = ({
                     className="
                       px-4
                       py-3
+                      whitespace-nowrap
+                    "
+                  >
+                    No. Billing
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                    "
+                  >
+                    Umur Piutang
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
                     "
                   >
                     Pelanggan
@@ -3060,9 +3289,64 @@ const TableLaporan = ({
                       px-4
                       py-3
                       whitespace-nowrap
+                      text-right
                     "
                   >
-                    Nilai Tagihan
+                    DPP/Komersil
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                      text-right
+                    "
+                  >
+                    PPN (11%)
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                      text-right
+                    "
+                  >
+                    PPh (1,5%)
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                      text-right
+                    "
+                  >
+                    Pencairan/Pembayaran
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                      text-right
+                    "
+                  >
+                    Sisa/Outstanding Piutang
+                  </th>
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                    "
+                  >
+                    Keterangan
                   </th>
 
                   <th
@@ -3135,7 +3419,7 @@ const TableLaporan = ({
 
                       <td
                         colSpan={
-                          11
+                          18
                         }
                         className="
                           text-center
@@ -3273,6 +3557,66 @@ const TableLaporan = ({
                           </td>
 
 
+                          {/* NO BILLING */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            <div
+                              className="
+                                flex
+                                items-center
+                                gap-2
+                                text-sm
+                                text-gray-700
+                              "
+                            >
+                              <FaHashtag
+                                className="
+                                  text-blue-500
+                                "
+                              />
+
+                              <span className="font-semibold">
+                                {item.no_tagihan || "-"}
+                              </span>
+                            </div>
+                          </td>
+
+
+                          {/* UMUR PIUTANG */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                            "
+                          >
+                            <div
+                              className="
+                                inline-flex
+                                items-center
+                                gap-2
+                                px-3
+                                py-1.5
+                                rounded-full
+                                bg-orange-50
+                                text-orange-700
+                                text-xs
+                                font-semibold
+                              "
+                            >
+                              <FaClock />
+                              {getUmurPiutang(item.tanggal_faktur)} hari
+                            </div>
+                          </td>
+
+
                           {/* CUSTOMER */}
 
                           <td
@@ -3360,7 +3704,97 @@ const TableLaporan = ({
                           </td>
 
 
-                          {/* NILAI */}
+                          {/* DPP / KOMERSIL */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            <span className="font-semibold text-gray-800">
+                              {formatRupiah(
+                                getDetailNilaiPiutang(item).dpp
+                              )}
+                            </span>
+                          </td>
+
+
+                          {/* PPN */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            <span className="font-semibold text-blue-600">
+                              {formatRupiah(
+                                getDetailNilaiPiutang(item).ppn
+                              )}
+                            </span>
+                          </td>
+
+
+                          {/* PPH */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            <span className="font-semibold text-purple-600">
+                              {formatRupiah(
+                                getDetailNilaiPiutang(item).pph
+                              )}
+                            </span>
+                          </td>
+
+
+                          {/* PENCAIRAN / PEMBAYARAN */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            <span className="font-semibold text-green-600">
+                              {formatRupiah(
+                                getDetailNilaiPiutang(item).pembayaran
+                              )}
+                            </span>
+                          </td>
+
+
+                          {/* SISA / OUTSTANDING */}
+
+                          <td
+                            className="
+                              px-4
+                              py-3
+                              whitespace-nowrap
+                              text-right
+                            "
+                          >
+                            <span className="font-bold text-red-600">
+                              {formatRupiah(
+                                getDetailNilaiPiutang(item).outstanding
+                              )}
+                            </span>
+                          </td>
+
+
+                          {/* KETERANGAN */}
 
                           <td
                             className="
@@ -3369,20 +3803,23 @@ const TableLaporan = ({
                               whitespace-nowrap
                             "
                           >
-
-                            <p
+                            <span
                               className="
-                                font-bold
-                                text-gray-700
+                                inline-flex
+                                items-center
+                                px-3
+                                py-1.5
+                                rounded-full
+                                bg-blue-50
+                                text-blue-700
+                                text-xs
+                                font-semibold
                               "
                             >
                               {
-                                formatRupiah(
-                                  item.nominal
-                                )
+                                getDetailNilaiPiutang(item).keterangan
                               }
-                            </p>
-
+                            </span>
                           </td>
 
 
@@ -4155,26 +4592,119 @@ const TableLaporan = ({
                     </div>
 
 
-                    <div>
-
+                    <div
+                      className="
+                        sm:col-span-2
+                        lg:col-span-3
+                        rounded-xl
+                        bg-blue-50
+                        border
+                        border-blue-100
+                        p-4
+                      "
+                    >
                       <p className="
                         text-xs
-                        text-gray-400
+                        text-blue-500
+                        mb-3
+                        font-semibold
                       ">
-                        Nilai Tagihan
+                        Detail Nilai Piutang
                       </p>
 
-                      <p className="
-                        font-bold
-                        text-primary
+                      <div className="
+                        grid
+                        grid-cols-1
+                        sm:grid-cols-2
+                        lg:grid-cols-3
+                        gap-3
                       ">
-                        {
-                          formatRupiah(
-                            selectedData.nominal
-                          )
-                        }
-                      </p>
+                        <div>
+                          <p className="text-xs text-gray-400">
+                            DPP/Komersil
+                          </p>
+                          <p className="font-bold text-gray-800">
+                            {
+                              formatRupiah(
+                                getDetailNilaiPiutang(selectedData).dpp
+                              )
+                            }
+                          </p>
+                        </div>
 
+                        <div>
+                          <p className="text-xs text-gray-400">
+                            PPN (DPP × 11%)
+                          </p>
+                          <p className="font-bold text-blue-600">
+                            {
+                              formatRupiah(
+                                getDetailNilaiPiutang(selectedData).ppn
+                              )
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-400">
+                            PPh (DPP × 1,5%)
+                          </p>
+                          <p className="font-bold text-purple-600">
+                            {
+                              formatRupiah(
+                                getDetailNilaiPiutang(selectedData).pph
+                              )
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-400">
+                            Pencairan/Pembayaran
+                          </p>
+                          <p className="font-bold text-green-600">
+                            {
+                              formatRupiah(
+                                getDetailNilaiPiutang(selectedData).pembayaran
+                              )
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-400">
+                            Sisa/Outstanding Piutang
+                          </p>
+                          <p className="font-bold text-red-600">
+                            {
+                              formatRupiah(
+                                getDetailNilaiPiutang(selectedData).outstanding
+                              )
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-400">
+                            Keterangan
+                          </p>
+                          <span className="
+                            inline-flex
+                            mt-1
+                            px-3
+                            py-1
+                            rounded-full
+                            bg-blue-100
+                            text-blue-700
+                            text-xs
+                            font-semibold
+                          ">
+                            {
+                              getDetailNilaiPiutang(selectedData).keterangan
+                            }
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
 

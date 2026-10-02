@@ -2124,6 +2124,105 @@ const n2nGetService = {
       return error.response;
     }
   },
+  // ?? KFCOLLS
+  getDataPenjualan: async ({
+    page,
+    limit,
+    keyword = "",
+    sales_office = "ALL",
+    posting_status = "ALL",
+    customer_group = "ALL",
+    principle = "ALL",
+    start_date = "",
+    end_date = ""
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataPenjualan",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            posting_status,
+            customer_group,
+            principle,
+            start_date,
+            end_date
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataPiutang: async ({
+    page,
+    limit,
+    keyword = "",
+    status = "",
+    sales_office = "ALL",
+    posting_status = "ALL",
+    customer_group = "ALL",
+    principle = "ALL",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataPiutang",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            status,
+            sales_office,
+            posting_status,
+            customer_group,
+            principle,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getListPrinciple: async ({ page, limit, sortBy = "ASC", keyword = ""}) => {
+    try {
+      const response = await api.get("/getListPrinciple", {
+        params: {
+          page,
+          limit,
+          sortBy,
+          keyword
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataPelanggan: async ({ page, limit, sortBy = "ASC", keyword = "", status = 'ALL', sales_office = 'ALL'}) => {
+    try {
+      const response = await api.get("/getDataPelanggan", {
+        params: {
+          page,
+          limit,
+          sortBy,
+          keyword,
+          status,
+          sales_office
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nGetService;

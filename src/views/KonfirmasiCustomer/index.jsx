@@ -175,6 +175,9 @@ export default function KonfirmasiCustomer() {
   const [confirmationNote, setConfirmationNote] =
     useState("");
 
+  const [paymentPlanDate, setPaymentPlanDate] =
+    useState("");
+
   // ====================================================
   // GET DETAIL
   // ====================================================
@@ -700,6 +703,8 @@ export default function KonfirmasiCustomer() {
 
     setConfirmationNote("");
 
+    setPaymentPlanDate("");
+
     setShowConfirmationModal(true);
   };
 
@@ -716,6 +721,8 @@ export default function KonfirmasiCustomer() {
     setShowConfirmationModal(false);
 
     setConfirmationNote("");
+
+    setPaymentPlanDate("");
 
     setConfirmationType("approve");
   };
@@ -746,6 +753,17 @@ export default function KonfirmasiCustomer() {
       return;
     }
 
+    if (
+      confirmationType === "approve" &&
+      !paymentPlanDate
+    ) {
+      swal.warning(
+        "Tanggal rencana pembayaran wajib diisi."
+      );
+
+      return;
+    }
+
     try {
       setIsConfirming(true);
 
@@ -762,6 +780,10 @@ export default function KonfirmasiCustomer() {
       //       ? "DISETUJUI"
       //       : "DITOLAK",
       //   catatan: confirmationNote,
+      //   tanggal_rencana_pembayaran:
+      //     confirmationType === "approve"
+      //       ? paymentPlanDate
+      //       : null,
       //   customer_id: data?.customer_id,
       //   items: selectedInvoices.map((item) => ({
       //     billing_id: item?.billing_id,
@@ -843,6 +865,10 @@ export default function KonfirmasiCustomer() {
                 status: newStatus,
                 catatan_konfirmasi:
                   confirmationNote,
+                tanggal_rencana_pembayaran:
+                  confirmationType === "approve"
+                    ? paymentPlanDate
+                    : null,
               };
             }
           );
@@ -904,6 +930,8 @@ export default function KonfirmasiCustomer() {
       setShowConfirmationModal(false);
 
       setConfirmationNote("");
+
+      setPaymentPlanDate("");
 
       setConfirmationType("approve");
 
@@ -1193,29 +1221,93 @@ export default function KonfirmasiCustomer() {
             INFORMATION BOX
         ================================================== */}
 
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 mb-5">
+        <div className="bg-yellow-50 border border-yellow-300 rounded-2xl px-5 py-4 mb-5">
 
           <div className="flex gap-3">
 
-            <div className="w-9 h-9 shrink-0 rounded-lg bg-blue-100 flex items-center justify-center">
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-yellow-100 flex items-center justify-center">
 
-              <FaExclamationTriangle className="text-blue-600" />
+              <FaExclamationTriangle className="text-yellow-600" />
 
             </div>
 
             <div>
 
-              <h3 className="font-semibold text-blue-800 text-sm">
+              <h3 className="font-bold text-yellow-900 text-sm">
                 Konfirmasi Piutang
               </h3>
 
-              <p className="text-xs md:text-sm text-blue-700 mt-1 leading-relaxed">
+              <p className="text-xs md:text-sm text-yellow-800 mt-1 leading-relaxed">
 
                 Silakan periksa daftar faktur dan billing yang
                 dikirimkan oleh sales pada tanggal tersebut.
                 Pilih faktur yang telah Anda terima kemudian
                 klik tombol <b>Konfirmasi</b>.
 
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* ==================================================
+            KETENTUAN KONFIRMASI PIUTANG
+        ================================================== */}
+
+        <div className="
+          bg-yellow-50
+          border
+          border-yellow-300
+          rounded-2xl
+          px-5
+          py-4
+          mb-5
+        ">
+
+          <div className="flex items-start gap-3">
+
+            <div className="
+              w-10
+              h-10
+              shrink-0
+              rounded-xl
+              bg-yellow-100
+              text-yellow-600
+              flex
+              items-center
+              justify-center
+            ">
+              <FaInfoCircle className="text-lg" />
+            </div>
+
+            <div className="flex-1">
+
+              <h3 className="
+                text-sm
+                md:text-base
+                font-bold
+                text-yellow-900
+              ">
+                Ketentuan Konfirmasi Piutang
+              </h3>
+
+              <p className="
+                text-xs
+                md:text-sm
+                text-yellow-800
+                mt-1
+                leading-relaxed
+              ">
+                Customer menerima permintaan konfirmasi melalui email.
+                Apabila tidak memberikan tanggapan dalam waktu
+                <span className="font-bold">
+                  {" "}14 hari kalender{ " "}
+                </span>
+                sejak konfirmasi dikirim, faktur akan dianggap telah
+                disetujui sebagai piutang.
               </p>
 
             </div>
@@ -2460,6 +2552,65 @@ export default function KonfirmasiCustomer() {
 
 
               {/* ==================================================
+                  KETENTUAN KONFIRMASI PIUTANG
+              ================================================== */}
+
+              <div className="
+                flex
+                items-start
+                gap-3
+                rounded-xl
+                border
+                border-yellow-300
+                bg-yellow-50
+                p-4
+              ">
+
+                <div className="
+                  w-9
+                  h-9
+                  shrink-0
+                  rounded-xl
+                  bg-yellow-100
+                  text-yellow-600
+                  flex
+                  items-center
+                  justify-center
+                ">
+                  <FaInfoCircle className="text-base" />
+                </div>
+
+                <div className="flex-1">
+
+                  <p className="
+                    text-sm
+                    font-bold
+                    text-yellow-900
+                    mb-1
+                  ">
+                    Ketentuan Konfirmasi Piutang
+                  </p>
+
+                  <p className="
+                    text-xs
+                    leading-relaxed
+                    text-yellow-800
+                  ">
+                    Customer menerima permintaan konfirmasi melalui email.
+                    Apabila tidak memberikan tanggapan dalam waktu
+                    <span className="font-bold">
+                      {" "}14 hari kalender{ " "}
+                    </span>
+                    sejak konfirmasi dikirim, faktur akan dianggap telah
+                    disetujui sebagai piutang.
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              {/* ==================================================
                   DECISION
               ================================================== */}
 
@@ -2605,6 +2756,104 @@ export default function KonfirmasiCustomer() {
                 </div>
 
               </div>
+
+
+              {/* ==================================================
+                  TANGGAL RENCANA PEMBAYARAN
+              ================================================== */}
+
+              {confirmationType === "approve" && (
+                <div>
+
+                  <div className="flex items-center justify-between mb-2">
+
+                    <label
+                      className="
+                        text-sm
+                        font-bold
+                        text-gray-700
+                      "
+                    >
+                      Tanggal Rencana Pembayaran
+                      <span className="text-red-500 ml-1">
+                        *
+                      </span>
+                    </label>
+
+                    <span
+                      className="
+                        text-[11px]
+                        text-gray-400
+                      "
+                    >
+                      Wajib diisi
+                    </span>
+
+                  </div>
+
+                  <div className="relative">
+
+                    <FaCalendarAlt
+                      className="
+                        absolute
+                        left-4
+                        top-1/2
+                        -translate-y-1/2
+                        text-blue-500
+                        pointer-events-none
+                      "
+                    />
+
+                    <input
+                      type="date"
+                      value={paymentPlanDate}
+                      onChange={(e) =>
+                        setPaymentPlanDate(
+                          e.target.value
+                        )
+                      }
+                      disabled={isConfirming}
+                      min={
+                        new Date()
+                          .toISOString()
+                          .split("T")[0]
+                      }
+                      className="
+                        w-full
+                        h-11
+                        pl-11
+                        pr-4
+                        rounded-xl
+                        border
+                        border-gray-200
+                        bg-white
+                        text-sm
+                        text-gray-700
+                        outline-none
+                        transition
+                        focus:border-blue-400
+                        focus:ring-2
+                        focus:ring-blue-100
+                        disabled:bg-gray-100
+                        disabled:cursor-not-allowed
+                      "
+                    />
+
+                  </div>
+
+                  <p
+                    className="
+                      text-[11px]
+                      text-gray-400
+                      mt-1.5
+                    "
+                  >
+                    Tentukan tanggal rencana customer melakukan
+                    pembayaran piutang.
+                  </p>
+
+                </div>
+              )}
 
 
               {/* ==================================================
@@ -2776,6 +3025,11 @@ export default function KonfirmasiCustomer() {
                     confirmationType ===
                       "reject" &&
                     !confirmationNote.trim()
+                  ) ||
+                  (
+                    confirmationType ===
+                      "approve" &&
+                    !paymentPlanDate
                   )
                 }
                 className={`

@@ -157,6 +157,11 @@ export const dummyMenu = [
                 path: "/data-pelanggan",
                 // roles: [],
             },
+            // {
+            //     name: "Data Principle",
+            //     path: "/data-principle",
+            //     // roles: [],
+            // },
         ],
     },
 ];

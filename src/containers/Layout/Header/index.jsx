@@ -773,9 +773,7 @@ const Header = () => {
     () => {
 
       return (
-        access?.username ||
-        access?.nama ||
-        "User"
+        access?.nama
       );
 
     };
@@ -785,10 +783,7 @@ const Header = () => {
     () => {
 
       return (
-        access?.role ||
-        access?.jenis_user ||
-        access?.jabatan ||
-        "User"
+        access?.role
       );
 
     };
@@ -1608,11 +1603,7 @@ const Header = () => {
                     >
 
                       {
-                        access?.cabang_id !==
-                          "2000"
-                          ? access?.cabang
-                          : access?.unit_kerja ??
-                          access?.nama
+                        access?.nama
                       }
 
                     </p>
@@ -1626,21 +1617,7 @@ const Header = () => {
                     >
 
                       {
-                        access?.cabang_id !==
-                          "2000"
-                          ? access?.jabatan
-                          : access?.role_id ===
-                            "RL17"
-                            ? access?.jabatan
-                            : (
-                              access?.jenis_user ??
-                              (
-                                access?.role_id ===
-                                  "RL16"
-                                  ? access?.role
-                                  : "Pemohon"
-                              )
-                            )
+                        access?.role
                       }
 
                     </p>
@@ -1736,7 +1713,7 @@ const Header = () => {
                     >
 
                       {
-                        access?.username
+                        access?.nama
                           ?.charAt(
                             0
                           )
