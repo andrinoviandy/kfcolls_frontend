@@ -621,7 +621,8 @@ const hasValue = (
 // COMPONENT
 // =====================================================
 
-const ModalUploadFaktur = () => {
+const ModalUploadFaktur = ({ reloadData,
+  setReloadData }) => {
 
   const dispatch =
     useDispatch();
@@ -1890,6 +1891,15 @@ const ModalUploadFaktur = () => {
           `Semua Data Berhasil Disimpan !\n\n${totalSuccess.toLocaleString(
             "id-ID"
           )} data berhasil disimpan.`
+        );
+
+        setReloadData(true)
+
+        await dispatch(
+          setToggleModal({
+            isOpen: false,
+            modal: "",
+          })
         );
 
         return;
