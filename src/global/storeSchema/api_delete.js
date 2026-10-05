@@ -164,6 +164,23 @@ const n2nDeleteService = {
       return error.response;
     }
   },
+  // KFCOLLS
+  deleteDataCod: async (id) => {
+    try {
+      const response = await api.delete(`/deleteDataCod/${id}`);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  deleteUser: async (user_id) => {
+    try {
+      const response = await api.delete(`/deleteUser/${user_id}`);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nDeleteService;

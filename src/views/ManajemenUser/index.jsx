@@ -13,11 +13,6 @@ import {
 } from "react-redux";
 
 import {
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
-
-import {
   decodeData,
 } from "global/helper/jwt";
 
@@ -35,13 +30,6 @@ import TableManajemenUser
 
 const ManajemenUser = () => {
 
-  const navigation =
-    useNavigate();
-
-  const location =
-    useLocation();
-
-
   const {
     dimensionScreenW,
     check,
@@ -55,6 +43,11 @@ const ManajemenUser = () => {
     loginAccess,
     setLoginAccess,
   ] = useState();
+
+  const [
+    showAddUser,
+    setShowAddUser,
+  ] = useState(false);
 
 
   // ===================================================
@@ -104,18 +97,7 @@ const ManajemenUser = () => {
 
   const handleAddUser =
     () => {
-
-      navigation(
-        "/add-manajemen-user",
-        {
-          state: {
-            ...location.state,
-            project:
-              "Tambah User",
-          },
-        }
-      );
-
+      setShowAddUser(true);
     };
 
 
@@ -262,18 +244,14 @@ const ManajemenUser = () => {
       {/* ================================================= */}
 
       <TableManajemenUser
+        showAddUser={showAddUser}
+        setShowAddUser={setShowAddUser}
         check={check}
         dimensionScreenW={
           dimensionScreenW
         }
         loginAccess={
           loginAccess
-        }
-        navigation={
-          navigation
-        }
-        location={
-          location
         }
       />
 

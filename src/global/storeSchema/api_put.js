@@ -218,6 +218,14 @@ const n2nPutService = {
       return error.response;
     }
   },
+  editDataCod: async (data) => {
+    try {
+      const response = await api.put("/editDataCod", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nPutService;

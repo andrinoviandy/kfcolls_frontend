@@ -1926,21 +1926,6 @@ const n2nGetService = {
       return error.response;
     }
   },
-  getListUserManagement: async ({ page, limit, sortBy = "DESC", keyword = "" }) => {
-    try {
-      const response = await api.get("/getListUserManagement", {
-        params: {
-          page,
-          limit,
-          sortBy,
-          keyword
-        }
-      });
-      return response.data;
-    } catch (error) {
-      return error.response;
-    }
-  },
   getListMasterApproval: async ({ page, limit, sortBy = "DESC", keyword = "" }) => {
     try {
       const response = await api.get("/getListMasterApproval", {
@@ -2168,6 +2153,8 @@ const n2nGetService = {
     posting_status = "ALL",
     customer_group = "ALL",
     principle = "ALL",
+    start_date = "",
+    end_date = "",
   }) => {
     try {
       const response = await api.get(
@@ -2182,6 +2169,8 @@ const n2nGetService = {
             posting_status,
             customer_group,
             principle,
+            start_date,
+            end_date,
           }
         }
       );
@@ -2191,7 +2180,7 @@ const n2nGetService = {
       return error.response;
     }
   },
-  getListPrinciple: async ({ page, limit, sortBy = "ASC", keyword = ""}) => {
+  getListPrinciple: async ({ page, limit, sortBy = "ASC", keyword = "" }) => {
     try {
       const response = await api.get("/getListPrinciple", {
         params: {
@@ -2206,7 +2195,7 @@ const n2nGetService = {
       return error.response;
     }
   },
-  getDataPelanggan: async ({ page, limit, sortBy = "ASC", keyword = "", status = 'ALL', sales_office = 'ALL'}) => {
+  getDataPelanggan: async ({ page, limit, sortBy = "ASC", keyword = "", status = 'ALL', sales_office = 'ALL' }) => {
     try {
       const response = await api.get("/getDataPelanggan", {
         params: {
@@ -2216,6 +2205,39 @@ const n2nGetService = {
           keyword,
           status,
           sales_office
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getListUserManagement: async ({ page, limit, sortBy = "DESC", keyword = "", status = 'ALL', role_id = 'ALL', cabang_id = 'ALL' }) => {
+    try {
+      const response = await api.get("/getListUserManagement", {
+        params: {
+          page,
+          limit,
+          sortBy,
+          keyword,
+          status,
+          role_id,
+          cabang_id
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getListDataCod: async ({ page, limit, sortBy = "DESC", keyword = ""}) => {
+    try {
+      const response = await api.get("/getListDataCod", {
+        params: {
+          page,
+          limit,
+          sortBy,
+          keyword
         }
       });
       return response.data;

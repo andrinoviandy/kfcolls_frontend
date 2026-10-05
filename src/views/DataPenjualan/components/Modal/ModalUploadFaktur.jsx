@@ -1811,77 +1811,41 @@ const ModalUploadFaktur = ({ reloadData,
       return;
     }
 
-    const CHUNK_SIZE = 500;
+    if (!fileExcel) {
+      swal.error("File Excel belum tersedia, silakan upload ulang file.");
+      return;
+    }
 
-    swal.loading();
+    swal.loading("Mengirim file Excel...");
 
     try {
-      const dataExcel = excelData.map(({ id, ...rest }) => rest);
+      const formData = new FormData();
+      formData.append("file", fileExcel);
 
-      const totalData = dataExcel.length;
-      const totalChunk = Math.ceil(totalData / CHUNK_SIZE);
+      const res = await storeSchema.actions.uploadPenjualanExcel(formData);
 
-      let totalSuccess = 0;
-      let totalError = 0;
-      let dataError = [];
-
-      for (let i = 0; i < totalData; i += CHUNK_SIZE) {
-        const chunk = dataExcel.slice(
-          i,
-          i + CHUNK_SIZE
-        );
-
-        const chunkNumber =
-          Math.floor(i / CHUNK_SIZE) + 1;
-
-        console.log(
-          `Upload chunk ${chunkNumber}/${totalChunk}`,
-          {
-            start: i + 1,
-            end: Math.min(
-              i + CHUNK_SIZE,
-              totalData
-            ),
-            total: chunk.length,
-          }
-        );
-
-        const res =
-          await storeSchema.actions.insertPenjualanArray(
-            chunk
-          );
-
-        if (res?.status !== true) {
-          throw new Error(
+      if (res?.status !== true) {
+        throw new Error(
+          res?.data?.message ||
             res?.data?.data ||
             res?.message ||
-            `Gagal menyimpan chunk ${chunkNumber}`
-          );
-        }
-
-        totalSuccess +=
-          Number(
-            res?.data?.total_success || 0
-          );
-
-        totalError +=
-          Number(
-            res?.data?.total_error || 0
-          );
-
-        if (
-          Array.isArray(
-            res?.data?.data_error
-          )
-        ) {
-          dataError = [
-            ...dataError,
-            ...res.data.data_error,
-          ];
-        }
+            "Gagal mengirim file Excel ke server."
+        );
       }
 
       swal.close();
+
+      const totalData = excelData.length;
+      const responseData = res?.data || {};
+      const dataError = Array.isArray(responseData?.data_error)
+        ? responseData.data_error
+        : [];
+      const totalError = Number(
+        responseData?.total_error ?? dataError.length
+      );
+      const totalSuccess = Number(
+        responseData?.total_success ?? totalData - totalError
+      );
 
       if (
         totalSuccess === totalData &&

@@ -672,6 +672,14 @@ const n2nPostService = {
       return error.response;
     }
   },
+  uploadPenjualanExcel: async (data) => {
+    try {
+      const response = await api.post("/uploadPenjualanExcel", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
   insertMasterData: async (data) => {
     try {
       const response = await api.post("/insertMasterData", data);
@@ -739,6 +747,15 @@ const n2nPostService = {
   killSession: async (data) => {
     try {
       const response = await api.post("/killSession", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  // KFCOLLS
+  insertDataCod: async (data) => {
+    try {
+      const response = await api.post("/insertDataCod", data);
       return response.data;
     } catch (error) {
       return error.response;

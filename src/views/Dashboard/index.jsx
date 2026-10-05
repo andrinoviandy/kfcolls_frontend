@@ -5,6 +5,9 @@ import {
   BarChart,
   Bar,
   LabelList,
+  LineChart,
+  Line,
+  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -1340,8 +1343,181 @@ const chartColors = [
 
 
 /* =========================================================
+   DATA GRAFIK TREND
+
+   Nilai mengikuti contoh pada desain/gambar yang diberikan.
+   Satuan nominal = Rp juta.
+========================================================= */
+
+const trendSaldoPiutangData = [
+  { bulan: 'MAR 26', saldoPiutang: 104861, saldoOverdue: 10954, overduePct: 10.4 },
+  { bulan: 'APR 26', saldoPiutang: 296832, saldoOverdue: 8710, overduePct: 2.9 },
+  { bulan: 'MAY 26', saldoPiutang: 337441, saldoOverdue: 8589, overduePct: 2.7 },
+  { bulan: 'JUN 26', saldoPiutang: 271101, saldoOverdue: 9160, overduePct: 3.4 },
+  { bulan: 'JUL 26', saldoPiutang: 130752, saldoOverdue: 10497, overduePct: 8.0 },
+  { bulan: 'AUG 26', saldoPiutang: 73167, saldoOverdue: 9412, overduePct: 12.9 },
+];
+
+const trendPencairanData = [
+  { bulan: 'MAR', realisasi: 50303, achPencairan: 88 },
+  { bulan: 'APR', realisasi: 62738, achPencairan: 81 },
+  { bulan: 'MAY', realisasi: 106874, achPencairan: 184 },
+  { bulan: 'JUN', realisasi: 223737, achPencairan: 99 },
+  { bulan: 'JUL', realisasi: 202839, achPencairan: 100 },
+  { bulan: 'AUG', realisasi: 83438, achPencairan: 133 },
+];
+
+
+/* =========================================================
    COMPONENT
 ========================================================= */
+
+
+/* =========================================================
+   KPI CARD DASHBOARD PIUTANG - 2 BARIS
+========================================================= */
+
+const PiutangGaugeCard = ({
+  title,
+  value,
+  delta,
+  achievement,
+  target = 100,
+  color = '#3b82f6',
+  targetLabel,
+  icon,
+}) => {
+  const numericAchievement = Number(achievement) || 0;
+  const gaugePercent = Math.min(
+    100,
+    Math.max(0, numericAchievement)
+  );
+  const gaugeAngle = gaugePercent * 1.8;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+      <div className="px-4 py-2 border-b border-gray-200">
+        <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+          {title}
+        </div>
+      </div>
+
+      <div className="px-4 pt-3">
+        <div className="text-2xl font-bold text-blue-800 leading-none">
+          {value}
+        </div>
+
+        {delta && (
+          <div className="text-[10px] text-gray-500 mt-2 whitespace-nowrap">
+            {delta}
+          </div>
+        )}
+
+        <div className="mt-3 text-xs font-semibold text-gray-600">
+          {targetLabel || `% Ach ${title}`}
+        </div>
+
+        <div className="relative flex justify-center mt-1">
+          <div className="relative w-[150px] h-[76px] overflow-hidden">
+            <div
+              className="absolute left-0 top-0 w-[150px] h-[150px] rounded-full"
+              style={{
+                background: `conic-gradient(
+                  from 270deg,
+                  ${color} 0deg,
+                  ${color} ${gaugeAngle}deg,
+                  #e5e7eb ${gaugeAngle}deg,
+                  #e5e7eb 180deg,
+                  transparent 180deg
+                )`,
+              }}
+            />
+
+            <div className="absolute left-[18px] top-[18px] w-[114px] h-[114px] rounded-full bg-white" />
+
+            <div
+              className="absolute left-1/2 bottom-0 w-[2px] h-[55px] origin-bottom rounded-full bg-gray-700"
+              style={{
+                transform: `translateX(-50%) rotate(${Math.max(
+                  -90,
+                  Math.min(90, gaugeAngle - 90)
+                )}deg)`,
+              }}
+            />
+
+            <div className="absolute left-1/2 bottom-[-4px] w-3 h-3 -translate-x-1/2 rounded-full bg-gray-700 border-2 border-white shadow-sm" />
+
+            <div className="absolute left-1 bottom-[-1px] text-[9px] font-semibold text-gray-500">
+              0%
+            </div>
+
+            <div className="absolute right-1 bottom-[-1px] text-[9px] font-semibold text-gray-500">
+              100%
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-1 -mt-1 pb-2 text-[11px]">
+          <span className="font-bold text-gray-800">
+            {numericAchievement.toFixed(1)}%
+          </span>
+
+          <span className="text-gray-400">
+            | Target {target}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const PiutangKpiSimpleCard = ({
+  title,
+  value,
+  delta,
+  footer,
+  icon,
+}) => {
+  return (
+    <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+      <div className="px-4 py-2 border-b border-gray-200">
+        <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+          {title}
+        </div>
+      </div>
+
+      <div className="px-4 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-2xl font-bold text-blue-800 leading-none">
+              {value}
+            </div>
+
+            {delta && (
+              <div className="text-[10px] text-gray-500 mt-3">
+                {delta}
+              </div>
+            )}
+
+            {footer && (
+              <div className="text-[10px] text-gray-500 mt-1">
+                {footer}
+              </div>
+            )}
+          </div>
+
+          {icon && (
+            <div className="text-blue-700 opacity-80">
+              {icon}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const Dashboard = () => {
 
@@ -1622,6 +1798,203 @@ const Dashboard = () => {
     );
 
   }, [filteredData]);
+
+
+  /* =========================================================
+     GRAFIK SALDO PIUTANG BY AGING & CHANNEL
+  ========================================================= */
+
+  const agingChannelData = useMemo(() => {
+    const agingKeys = [
+      '0 - 30 Hari',
+      '31 - 45 Hari',
+      '46 - 60 Hari',
+      '61 - 90 Hari',
+      '91 - 180 Hari',
+      '181 - 360 Hari',
+      '> 360 Hari',
+    ];
+
+    const rows = agingKeys.map((agingLabel) => {
+      const row = {
+        aging: agingLabel
+          .replace(' Hari', '')
+          .replace('0 - 30', '0-30')
+          .replace('31 - 45', '31-45')
+          .replace('46 - 60', '46-60')
+          .replace('61 - 90', '61-90')
+          .replace('91 - 180', '91-180')
+          .replace('181 - 360', '181-360'),
+        'RS Pemerintah': 0,
+        'Instansi Pemerintah': 0,
+        Swasta: 0,
+      };
+
+      filteredData.forEach((item) => {
+        const aging = Number(item.aging || 0);
+        const itemAging = getAgingCategory(aging);
+
+        if (itemAging !== agingLabel) return;
+
+        const value = Number(item.outstanding || 0) / 1000000;
+
+        let channelGroup = 'Swasta';
+
+        if (item.channel === 'RS Pemerintah') {
+          channelGroup = 'RS Pemerintah';
+        } else if (
+          item.channel === 'Dinkes' ||
+          item.channel === 'Puskesmas' ||
+          item.customerGroup === 'Instansi Pemerintah'
+        ) {
+          channelGroup = 'Instansi Pemerintah';
+        }
+
+        row[channelGroup] += value;
+      });
+
+      return row;
+    });
+
+    return rows;
+  }, [filteredData]);
+
+
+  /* =========================================================
+     RINGKASAN CHANNEL UNTUK TABEL
+     Dibuat menyerupai tabel pada desain:
+     Channel | Total | % | 2026 BLM JTO | SDH JTO |
+     2025 BLM JTO | SDH JTO | < 2024 SDH JTO | % SDH JTO
+  ========================================================= */
+
+  const channelSummaryData = useMemo(() => {
+    const groups = [
+      {
+        label: 'RS Pemerintah',
+        match: (item) => item.channel === 'RS Pemerintah',
+      },
+      {
+        label: 'Instansi Pemerintah',
+        match: (item) =>
+          item.channel === 'Dinkes' ||
+          item.channel === 'Puskesmas' ||
+          item.customerGroup === 'Instansi Pemerintah',
+      },
+      {
+        label: 'Swasta',
+        match: (item) =>
+          item.channel !== 'RS Pemerintah' &&
+          item.channel !== 'Dinkes' &&
+          item.channel !== 'Puskesmas' &&
+          item.customerGroup !== 'Instansi Pemerintah',
+      },
+    ];
+
+    const totalOutstanding = filteredData.reduce(
+      (sum, item) => sum + Number(item.outstanding || 0),
+      0
+    );
+
+    const getRow = (group) => {
+      const items = filteredData.filter(group.match);
+
+      const total = items.reduce(
+        (sum, item) => sum + Number(item.outstanding || 0),
+        0
+      );
+
+      const currentYear = 2026;
+
+      const blmJto2026 = items
+        .filter((item) => Number(item.aging || 0) <= 0)
+        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+
+      const sdhJto2026 = items
+        .filter((item) => Number(item.aging || 0) > 0)
+        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+
+      const blmJto2025 = items
+        .filter((item) => {
+          const year = Number(
+            String(item.tanggal || '').slice(0, 4)
+          );
+          return year === 2025 && Number(item.aging || 0) <= 0;
+        })
+        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+
+      const sdhJto2025 = items
+        .filter((item) => {
+          const year = Number(
+            String(item.tanggal || '').slice(0, 4)
+          );
+          return year === 2025 && Number(item.aging || 0) > 0;
+        })
+        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+
+      const sdhJtoBefore2025 = items
+        .filter((item) => {
+          const year = Number(
+            String(item.tanggal || '').slice(0, 4)
+          );
+          return year < currentYear - 1 && Number(item.aging || 0) > 0;
+        })
+        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+
+      return {
+        channel: group.label,
+        total,
+        percentage:
+          totalOutstanding > 0
+            ? (total / totalOutstanding) * 100
+            : 0,
+        blmJto2026,
+        sdhJto2026,
+        blmJto2025,
+        sdhJto2025,
+        sdhJtoBefore2025,
+        percentageSdhJto:
+          total > 0
+            ? (sdhJto2026 / total) * 100
+            : 0,
+      };
+    };
+
+    const rows = groups.map(getRow);
+
+    const totalRow = rows.reduce(
+      (acc, row) => ({
+        channel: 'TOTAL',
+        total: acc.total + row.total,
+        percentage: acc.percentage + row.percentage,
+        blmJto2026: acc.blmJto2026 + row.blmJto2026,
+        sdhJto2026: acc.sdhJto2026 + row.sdhJto2026,
+        blmJto2025: acc.blmJto2025 + row.blmJto2025,
+        sdhJto2025: acc.sdhJto2025 + row.sdhJto2025,
+        sdhJtoBefore2025:
+          acc.sdhJtoBefore2025 + row.sdhJtoBefore2025,
+        percentageSdhJto:
+          totalOutstanding > 0
+            ? ((acc.sdhJto2026 + row.sdhJto2026) /
+                totalOutstanding) *
+              100
+            : 0,
+      }),
+      {
+        channel: 'TOTAL',
+        total: 0,
+        percentage: 0,
+        blmJto2026: 0,
+        sdhJto2026: 0,
+        blmJto2025: 0,
+        sdhJto2025: 0,
+        sdhJtoBefore2025: 0,
+        percentageSdhJto: 0,
+      }
+    );
+
+    return [...rows, totalRow];
+  }, [filteredData]);
+
 
 
   const collectionRatio =
@@ -3385,6 +3758,255 @@ const Dashboard = () => {
   };
 
 
+  /* =========================================================
+     WIDGET 3 KOLOM:
+     1. TOP PIUTANG JATUH TEMPO BERDASARKAN CHANNEL
+     2. PERINGKAT CABANG BERDASARKAN SKOR KINERJA PIUTANG
+     3. SALDO PIUTANG >360 HARI
+  ========================================================= */
+
+  const topJatuhTempoChannelData = useMemo(() => {
+    const channelConfig = [
+      {
+        label: 'RS Pemerintah',
+        match: (item) =>
+          item.channel === 'RS Pemerintah',
+      },
+      {
+        label: 'Swasta',
+        match: (item) =>
+          item.channel !== 'RS Pemerintah' &&
+          item.channel !== 'Dinkes' &&
+          item.channel !== 'Puskesmas' &&
+          item.customerGroup !== 'Instansi Pemerintah',
+      },
+      {
+        label: 'Instansi Pemerintah',
+        match: (item) =>
+          item.channel === 'Dinkes' ||
+          item.channel === 'Puskesmas' ||
+          item.customerGroup === 'Instansi Pemerintah',
+      },
+    ];
+
+    return channelConfig.map((group) => {
+      const rows = filteredData
+        .filter(
+          (item) =>
+            group.match(item) &&
+            Number(item.aging || 0) > 0
+        )
+        .map((item) => ({
+          customer: item.customer || '-',
+          tahun: String(item.tanggal || '').slice(0, 4) || '-',
+          value: Number(item.outstanding || 0),
+          aging: Number(item.aging || 0),
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+
+      const total = rows.reduce(
+        (sum, item) => sum + item.value,
+        0
+      );
+
+      return {
+        ...group,
+        rows,
+        total,
+      };
+    });
+  }, [filteredData]);
+
+
+
+  /* =========================================================
+     MASTER CABANG
+     Semua cabang ditampilkan. Cabang yang belum memiliki data
+     aktual menggunakan dummy value yang berbeda-beda.
+  ========================================================= */
+
+  const masterCabangPiutang = [
+    'KFTD Banda Aceh',
+    'KFTD Medan',
+    'KFTD Pematang Siantar',
+    'KFTD Padang',
+    'KFTD Pekanbaru',
+    'KFTD Batam',
+    'KFTD Jambi',
+    'KFTD Palembang',
+    'KFTD Pangkal Pinang',
+    'KFTD Bengkulu',
+    'KFTD Bandar Lampung',
+    'KFTD Jakarta 1',
+    'KFTD Jakarta 2',
+    'KFTD Tangerang',
+    'KFTD Serang',
+    'KFTD Bandung',
+    'KFTD Bekasi',
+    'KFTD Bogor',
+    'KFTD Cirebon',
+    'KFTD Tasikmalaya',
+    'KFTD Tegal',
+    'KFTD Purwokerto',
+    'KFTD Semarang',
+    'KFTD Surakarta',
+    'KFTD Yogyakarta',
+    'KFTD Madiun',
+    'KFTD Malang',
+    'KFTD Sidoarjo',
+    'KFTD Jember',
+    'KFTD Surabaya',
+    'KFTD Denpasar',
+    'KFTD Mataram',
+    'KFTD Kupang',
+    'KFTD Pontianak',
+    'KFTD Palangkaraya',
+    'KFTD Banjarmasin',
+    'KFTD Samarinda',
+    'KFTD Balikpapan',
+    'KFTD Manado',
+    'KFTD Makassar',
+    'KFTD Kendari',
+    'KFTD Gorontalo',
+    'KFTD Ambon',
+    'KFTD Ternate',
+    'KFTD Sorong',
+    'KFTD Jayapura',
+    'KFTD Palu',
+    'KFTD Jakarta 3',
+  ];
+
+  const branchPiutangBaseData = useMemo(() => {
+    const map = {};
+
+    filteredData.forEach((item) => {
+      const branch = item.cabang || item.descSalesOffice;
+      if (!branch) return;
+
+      if (!map[branch]) {
+        map[branch] = {
+          branch,
+          outstanding: 0,
+          overdue: 0,
+          overdue360: 0,
+        };
+      }
+
+      const outstanding = Number(item.outstanding || 0);
+      const aging = Number(item.aging || 0);
+
+      map[branch].outstanding += outstanding;
+
+      if (aging > 0) {
+        map[branch].overdue += outstanding;
+      }
+
+      if (aging > 360) {
+        map[branch].overdue360 += outstanding;
+      }
+    });
+
+    return map;
+  }, [filteredData]);
+
+  const getDummyOverdue = (index) => {
+    const values = [
+      38, 55, 72, 91, 110, 126, 143, 159,
+      176, 194, 211, 228, 247, 265, 283, 301,
+      319, 337, 356, 374, 392, 411, 429, 448,
+      467, 486, 505, 524, 543, 562, 581, 600,
+      620, 641, 663, 685, 708, 731, 754, 778,
+      802, 826, 851, 876, 901, 927, 953, 980,
+    ];
+
+    return (values[index] || 100) * 1000000;
+  };
+
+  const getDummyOverdue360 = (index) => {
+    const values = [
+      55, 72, 88, 104, 121, 139, 158, 177,
+      196, 216, 237, 258, 280, 302, 325, 348,
+      371, 394, 418, 442, 466, 490, 515, 540,
+      565, 590, 615, 640, 665, 690, 715, 740,
+      765, 790, 815, 840, 865, 890, 915, 940,
+      965, 990, 1015, 1040, 1065, 1090, 1115, 1140,
+    ];
+
+    return (values[index] || 50) * 1000000;
+  };
+
+  const branchScoreData = useMemo(() => {
+    const rows = masterCabangPiutang.map((branch, index) => {
+      const actual = branchPiutangBaseData[branch];
+
+      const overdue =
+        actual && actual.overdue > 0
+          ? actual.overdue
+          : getDummyOverdue(index);
+
+      const outstanding =
+        actual && actual.outstanding > 0
+          ? actual.outstanding
+          : overdue * 2.8;
+
+      return {
+        branch,
+        overdue,
+        outstanding,
+        isDummy: !actual || actual.overdue <= 0,
+      };
+    });
+
+    const maxOverdue = Math.max(
+      ...rows.map((item) => item.overdue),
+      1
+    );
+    const minOverdue = Math.min(
+      ...rows.map((item) => item.overdue),
+      0
+    );
+    const range = maxOverdue - minOverdue || 1;
+
+    return rows
+      .map((item) => ({
+        ...item,
+        // Overdue paling kecil = skor paling tinggi.
+        score: Math.round(
+          105 -
+          (item.overdue - minOverdue) /
+            range *
+            88
+        ),
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.overdue - b.overdue;
+      })
+      .map((item, index) => ({
+        ...item,
+        rank: index + 1,
+      }));
+  }, [branchPiutangBaseData]);
+
+  const piutang360BranchData = useMemo(() => {
+    return masterCabangPiutang
+      .map((branch, index) => {
+        const actual = branchPiutangBaseData[branch];
+
+        return {
+          branch,
+          value:
+            actual && actual.overdue360 > 0
+              ? actual.overdue360
+              : getDummyOverdue360(index),
+          isDummy:
+            !actual || actual.overdue360 <= 0,
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+  }, [branchPiutangBaseData]);
+
   /* =======================================================
      RENDER
   ======================================================= */
@@ -4172,202 +4794,1052 @@ const Dashboard = () => {
 
         </div>
 
-        <div
-          className="
-                  grid
-                  grid-cols-1
-                  sm:grid-cols-2
-                  lg:grid-cols-5
-                  gap-4
-                  mb-5
-                "
-        >
-          <div
-            className="
-                    rounded-2xl
-                    bg-blue-50
-                    border
-                    border-blue-100
-                    p-4
-                  "
-          >
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm text-blue-700">
-                  Total Transaksi
-                </p>
+        {/* =================================================
+            KPI PIUTANG - 2 BARIS
+        ================================================= */}
 
-                <p className="text-2xl font-bold text-blue-900">
-                  {summaryData.total}
-                </p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
 
-              <div
-                className="
-                        w-11
-                        h-11
-                        rounded-xl
-                        bg-blue-100
-                        flex
-                        items-center
-                        justify-center
-                      "
-              >
-                <FaClipboardList className="text-blue-600" />
-              </div>
-            </div>
-          </div>
+          {/* BARIS 1 */}
 
-          <div
-            className="
-                    rounded-2xl
-                    bg-green-50
-                    border
-                    border-green-100
-                    p-4
-                  "
-          >
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm text-green-700">
-                  Total Billing
-                </p>
+          <PiutangKpiSimpleCard
+            title="TOTAL PIUTANG"
+            value={formatNumber(summary.totalPiutang)}
+            delta="▼ Rp58 M | 44% dari bulan lalu"
+          />
 
-                <p className="text-2xl font-bold text-green-900">
-                  {summaryData.totalBilling}
-                </p>
-              </div>
+          <PiutangKpiSimpleCard
+            title="DOAR"
+            value="60"
+            delta="▲ 1 Hari dari bulan lalu"
+            footer="Days Outstanding Average Receivable"
+          />
 
-              <div
-                className="
-                        w-11
-                        h-11
-                        rounded-xl
-                        bg-green-100
-                        flex
-                        items-center
-                        justify-center
-                      "
-              >
-                <FaFileInvoiceDollar className="text-green-600" />
-              </div>
-            </div>
-          </div>
+          <PiutangKpiSimpleCard
+            title="SKOR PIUTANG *"
+            value="103"
+            delta="▲ 1 Point dari bulan lalu"
+            footer="Rank 6/44 Cabang"
+          />
 
-          <div
-            className="
-                    rounded-2xl
-                    bg-purple-50
-                    border
-                    border-purple-100
-                    p-4
-                  "
-          >
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm text-purple-700">
-                  Total Penjualan
-                </p>
-
-                <p className="text-xl font-bold text-purple-900">
-                  {formatRupiah(
-                    summaryData.totalPenjualan
-                  )}
-                </p>
-              </div>
-
-              <div
-                className="
-                        w-11
-                        h-11
-                        rounded-xl
-                        bg-purple-100
-                        flex
-                        items-center
-                        justify-center
-                      "
-              >
-                <FaMoneyBillWave className="text-purple-600" />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="
-                    rounded-2xl
-                    bg-orange-50
-                    border
-                    border-orange-100
-                    p-4
-                  "
-          >
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm text-orange-700">
-                  Total COGS
-                </p>
-
-                <p className="text-xl font-bold text-orange-900">
-                  {formatRupiah(
-                    summaryData.totalCOGS
-                  )}
-                </p>
-              </div>
-
-              <div
-                className="
-                        w-11
-                        h-11
-                        rounded-xl
-                        bg-orange-100
-                        flex
-                        items-center
-                        justify-center
-                      "
-              >
-                <FaWarehouse className="text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="
-                    rounded-2xl
-                    bg-emerald-50
-                    border
-                    border-emerald-100
-                    p-4
-                  "
-          >
-            <div className="flex justify-between">
-              <div>
-                <p className="text-sm text-emerald-700">
-                  Total Margin
-                </p>
-
-                <p className="text-xl font-bold text-emerald-900">
-                  {formatRupiah(
-                    summaryData.totalMargin
-                  )}
-                </p>
-              </div>
-
-              <div
-                className="
-                        w-11
-                        h-11
-                        rounded-xl
-                        bg-emerald-100
-                        flex
-                        items-center
-                        justify-center
-                      "
-              >
-                <FaChartLine className="text-emerald-600" />
-              </div>
-            </div>
-          </div>
         </div>
+
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+
+          {/* BARIS 2 */}
+
+          <PiutangGaugeCard
+            title="PENCAIRAN (MTD)"
+            value={formatNumber(summary.totalCollection)}
+            delta="▼ Rp119 M | 59% dari bulan lalu"
+            achievement={133.1}
+            target={100}
+            color="#5b9bd5"
+            targetLabel="% Ach Pencairan Piutang"
+          />
+
+          <PiutangGaugeCard
+            title="PIUTANG JATUH TEMPO"
+            value={formatNumber(
+              saldoJatuhTempoData?.find(
+                (item) => item.name === 'Sudah JTO'
+              )?.value || 0
+            )}
+            delta="▼ Rp01 M | 10% dari bulan lalu"
+            achievement={12.9}
+            target={15}
+            color="#e1261c"
+            targetLabel="% Piutang Jatuh Tempo"
+          />
+
+          <PiutangGaugeCard
+            title="PIUTANG >360 HARI"
+            value={formatNumber(
+              filteredData.reduce(
+                (sum, item) =>
+                  sum + (
+                    Number(item.aging) > 360
+                      ? Number(item.outstanding || 0)
+                      : 0
+                  ),
+                0
+              )
+            )}
+            delta="▲ Rp105,019 Jt | 03% dari bulan lalu"
+            achievement={5.7}
+            target={0}
+            color="#d90000"
+            targetLabel="% Piutang >360 Hari"
+          />
+
+        </div>
+
+
+        {/* =================================================
+            TREND CHARTS - 2 GRAFIK BERSEBELAHAN
+        ================================================= */}
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+
+          {/* TREND SALDO PIUTANG & SALDO OVERDUE */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-sm font-bold text-gray-800">
+                  Trend Saldo Piutang & Saldo Overdue
+                </h3>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Nominal dalam Rp juta dan persentase overdue
+                </p>
+              </div>
+            </div>
+
+            <div className="w-full h-[270px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={trendSaldoPiutangData}
+                  margin={{
+                    top: 22,
+                    right: 8,
+                    left: 0,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e5e7eb"
+                  />
+
+                  <XAxis
+                    dataKey="bulan"
+                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickLine={false}
+                  />
+
+                  <YAxis
+                    yAxisId="nominal"
+                    orientation="left"
+                    tick={{ fontSize: 9, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) =>
+                      new Intl.NumberFormat('id-ID').format(value)
+                    }
+                  />
+
+                  <YAxis
+                    yAxisId="percentage"
+                    orientation="right"
+                    domain={[0, 14]}
+                    tick={{ fontSize: 9, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => `${value},0%`}
+                  />
+
+                  <Tooltip
+                    formatter={(value, name) => {
+                      if (name === '% overdue') {
+                        return [`${value}%`, name];
+                      }
+
+                      return [
+                        `${new Intl.NumberFormat('id-ID').format(value)} juta`,
+                        name,
+                      ];
+                    }}
+                  />
+
+                  <Legend
+                    verticalAlign="bottom"
+                    height={28}
+                    iconType="rect"
+                    wrapperStyle={{ fontSize: 10 }}
+                  />
+
+                  <Bar
+                    yAxisId="nominal"
+                    dataKey="saldoPiutang"
+                    name="Saldo Piutang"
+                    fill="#2563eb"
+                    barSize={28}
+                  >
+                    <LabelList
+                      dataKey="saldoPiutang"
+                      position="top"
+                      formatter={(value) =>
+                        new Intl.NumberFormat('id-ID').format(value)
+                      }
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        fill: '#374151',
+                      }}
+                    />
+                  </Bar>
+
+                  <Bar
+                    yAxisId="nominal"
+                    dataKey="saldoOverdue"
+                    name="Saldo Overdue"
+                    fill="#ef4444"
+                    barSize={28}
+                  >
+                    <LabelList
+                      dataKey="saldoOverdue"
+                      position="top"
+                      formatter={(value) =>
+                        new Intl.NumberFormat('id-ID').format(value)
+                      }
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        fill: '#374151',
+                      }}
+                    />
+                  </Bar>
+
+                  <Line
+                    yAxisId="percentage"
+                    type="monotone"
+                    dataKey="overduePct"
+                    name="% overdue"
+                    stroke="#f59e0b"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#f59e0b' }}
+                    activeDot={{ r: 5 }}
+                  >
+                    <LabelList
+                      dataKey="overduePct"
+                      position="top"
+                      offset={8}
+                      formatter={(value) => `${value}%`}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        fill: '#92400e',
+                      }}
+                    />
+                  </Line>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+
+          {/* TREND PENCAIRAN PIUTANG */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-sm font-bold text-gray-800">
+                  Trend Pencairan Piutang (Rp juta) dan % Ach Pencairan
+                </h3>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Realisasi pencairan dan achievement pencairan
+                </p>
+              </div>
+            </div>
+
+            <div className="w-full h-[270px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={trendPencairanData}
+                  margin={{
+                    top: 22,
+                    right: 8,
+                    left: 0,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e5e7eb"
+                  />
+
+                  <XAxis
+                    dataKey="bulan"
+                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickLine={false}
+                  />
+
+                  <YAxis
+                    yAxisId="realisasi"
+                    orientation="left"
+                    tick={{ fontSize: 9, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) =>
+                      new Intl.NumberFormat('id-ID').format(value)
+                    }
+                  />
+
+                  <YAxis
+                    yAxisId="ach"
+                    orientation="right"
+                    domain={[0, 300]}
+                    tick={{ fontSize: 9, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => `${value}%`}
+                  />
+
+                  <Tooltip
+                    formatter={(value, name) => {
+                      if (name === '% Ach Pencairan') {
+                        return [`${value}%`, name];
+                      }
+
+                      return [
+                        `${new Intl.NumberFormat('id-ID').format(value)} juta`,
+                        name,
+                      ];
+                    }}
+                  />
+
+                  <Legend
+                    verticalAlign="bottom"
+                    height={28}
+                    iconType="rect"
+                    wrapperStyle={{ fontSize: 10 }}
+                  />
+
+                  <Bar
+                    yAxisId="realisasi"
+                    dataKey="realisasi"
+                    name="Realisasi Pencairan"
+                    fill="#ed7d31"
+                    barSize={30}
+                  >
+                    <LabelList
+                      dataKey="realisasi"
+                      position="top"
+                      formatter={(value) =>
+                        new Intl.NumberFormat('id-ID').format(value)
+                      }
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        fill: '#374151',
+                      }}
+                    />
+                  </Bar>
+
+                  <Line
+                    yAxisId="ach"
+                    type="monotone"
+                    dataKey="achPencairan"
+                    name="% Ach Pencairan"
+                    stroke="#5b9bd5"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#5b9bd5' }}
+                    activeDot={{ r: 5 }}
+                  >
+                    <LabelList
+                      dataKey="achPencairan"
+                      position="top"
+                      offset={8}
+                      formatter={(value) => `${value}%`}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        fill: '#0369a1',
+                      }}
+                    />
+                  </Line>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+        </div>
+
+
+        {/* =================================================
+            GRAFIK TAMBAHAN - AGING & TABEL CHANNEL
+            Tinggi card dibuat sama agar sejajar.
+        ================================================= */}
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+
+          {/* ===============================================
+              SALDO PIUTANG BY AGING & CHANNEL
+          =============================================== */}
+
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 h-[350px]">
+
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-gray-800">
+                Saldo Piutang by Aging &amp; Channel
+              </h3>
+            </div>
+
+            <div className="w-full h-[285px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={agingChannelData}
+                  margin={{
+                    top: 15,
+                    right: 105,
+                    left: 0,
+                    bottom: 20,
+                  }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e5e7eb"
+                  />
+
+                  <XAxis
+                    dataKey="aging"
+                    tick={{
+                      fontSize: 9,
+                      fill: '#6b7280',
+                    }}
+                    axisLine={{
+                      stroke: '#d1d5db',
+                    }}
+                    tickLine={false}
+                  />
+
+                  <YAxis
+                    tick={{
+                      fontSize: 9,
+                      fill: '#6b7280',
+                    }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) =>
+                      new Intl.NumberFormat('id-ID').format(
+                        value
+                      )
+                    }
+                  />
+
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${new Intl.NumberFormat('id-ID').format(
+                        value
+                      )} juta`,
+                      name,
+                    ]}
+                  />
+
+                  <Legend
+                    verticalAlign="middle"
+                    align="right"
+                    layout="vertical"
+                    wrapperStyle={{
+                      fontSize: 9,
+                      right: 0,
+                    }}
+                  />
+
+                  <Bar
+                    dataKey="RS Pemerintah"
+                    name="RS Pemerintah"
+                    stackId="aging"
+                    fill="#60a5fa"
+                  >
+                    <LabelList
+                      dataKey="RS Pemerintah"
+                      position="center"
+                      formatter={(value) =>
+                        value > 0
+                          ? new Intl.NumberFormat('id-ID', {
+                              maximumFractionDigits: 0,
+                            }).format(value)
+                          : ''
+                      }
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 600,
+                        fill: '#ffffff',
+                      }}
+                    />
+                  </Bar>
+
+                  <Bar
+                    dataKey="Instansi Pemerintah"
+                    name="Instansi Pemerintah"
+                    stackId="aging"
+                    fill="#f59e0b"
+                  >
+                    <LabelList
+                      dataKey="Instansi Pemerintah"
+                      position="center"
+                      formatter={(value) =>
+                        value > 0
+                          ? new Intl.NumberFormat('id-ID', {
+                              maximumFractionDigits: 0,
+                            }).format(value)
+                          : ''
+                      }
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 600,
+                        fill: '#ffffff',
+                      }}
+                    />
+                  </Bar>
+
+                  <Bar
+                    dataKey="Swasta"
+                    name="Swasta"
+                    stackId="aging"
+                    fill="#173b7a"
+                  >
+                    <LabelList
+                      dataKey="Swasta"
+                      position="center"
+                      formatter={(value) =>
+                        value > 0
+                          ? new Intl.NumberFormat('id-ID', {
+                              maximumFractionDigits: 0,
+                            }).format(value)
+                          : ''
+                      }
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 600,
+                        fill: '#ffffff',
+                      }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+
+          {/* ===============================================
+              TABEL CHANNEL
+              TBODY SCROLL
+          =============================================== */}
+
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 h-[350px] flex flex-col">
+
+            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+              <h3 className="text-sm font-bold text-gray-800">
+                Channel
+              </h3>
+            </div>
+
+            <div className="flex-1 min-h-0 border border-gray-200 rounded-lg overflow-hidden">
+
+              <table className="w-full text-[10px] border-collapse">
+
+                <thead className="sticky top-0 z-10 bg-blue-700 text-white">
+
+                  <tr>
+                    <th
+                      rowSpan={2}
+                      className="px-2 py-2 text-left border-r border-blue-500 whitespace-nowrap"
+                    >
+                      Channel
+                    </th>
+
+                    <th
+                      rowSpan={2}
+                      className="px-2 py-2 text-right border-r border-blue-500 whitespace-nowrap"
+                    >
+                      TOTAL
+                    </th>
+
+                    <th
+                      rowSpan={2}
+                      className="px-2 py-2 text-right border-r border-blue-500 whitespace-nowrap"
+                    >
+                      %
+                    </th>
+
+                    <th
+                      colSpan={2}
+                      className="px-2 py-1 text-center border-r border-blue-500"
+                    >
+                      2026
+                    </th>
+
+                    <th
+                      colSpan={2}
+                      className="px-2 py-1 text-center border-r border-blue-500"
+                    >
+                      2025
+                    </th>
+
+                    <th
+                      rowSpan={2}
+                      className="px-2 py-2 text-right border-r border-blue-500 whitespace-nowrap"
+                    >
+                      &lt; 2024
+                      <br />
+                      SDH JTO
+                    </th>
+
+                    <th
+                      rowSpan={2}
+                      className="px-2 py-2 text-right whitespace-nowrap"
+                    >
+                      % SDH
+                      <br />
+                      JTO
+                    </th>
+                  </tr>
+
+                  <tr>
+                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-blue-600">
+                      BLM JTO
+                    </th>
+
+                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-red-600">
+                      SDH JTO
+                    </th>
+
+                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-blue-600">
+                      BLM JTO
+                    </th>
+
+                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-red-600">
+                      SDH JTO
+                    </th>
+                  </tr>
+
+                </thead>
+
+                <tbody className="divide-y divide-gray-200">
+
+                  {channelSummaryData.map((row) => {
+
+                    const isTotal =
+                      row.channel === 'TOTAL';
+
+                    return (
+                      <tr
+                        key={row.channel}
+                        className={
+                          isTotal
+                            ? 'font-bold bg-blue-50'
+                            : 'hover:bg-gray-50'
+                        }
+                      >
+
+                        <td className="px-2 py-2 font-semibold whitespace-nowrap border-r border-gray-200">
+                          {row.channel}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
+                          {formatNumber(row.total)}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
+                          {row.percentage.toFixed(1)}%
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
+                          {formatNumber(row.blmJto2026)}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap text-red-600 border-r border-gray-200">
+                          {row.sdhJto2026 > 0
+                            ? `(${formatNumber(row.sdhJto2026)})`
+                            : '-'}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
+                          {formatNumber(row.blmJto2025)}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap text-red-600 border-r border-gray-200">
+                          {row.sdhJto2025 > 0
+                            ? `(${formatNumber(row.sdhJto2025)})`
+                            : '-'}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
+                          {formatNumber(row.sdhJtoBefore2025)}
+                        </td>
+
+                        <td className="px-2 py-2 text-right whitespace-nowrap">
+                          {row.percentageSdhJto.toFixed(1)}%
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+
+                </tbody>
+
+              </table>
+
+            </div>
+          </div>
+
+        </div>
+
+
+        {/* =================================================
+            3 WIDGET DASHBOARD TAMBAHAN
+            Semua dibuat satu baris pada layar xl.
+        ================================================= */}
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
+
+          {/* ===============================================
+              1. TOP PIUTANG JATUH TEMPO BERDASARKAN CHANNEL
+          =============================================== */}
+
+          <div className="
+            bg-white
+            rounded-2xl
+            border
+            border-gray-200
+            shadow-sm
+            overflow-hidden
+            h-[520px]
+            flex
+            flex-col
+          ">
+
+            <div className="px-4 py-3 bg-blue-700 text-white text-center font-bold text-xs flex-shrink-0">
+              Top Piutang Jatuh Tempo berdasarkan Channel (Rp Ribu)
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+
+              {topJatuhTempoChannelData.map(
+                (group) => (
+                  <div key={group.label}>
+
+                    <div className="
+                      bg-red-700
+                      text-white
+                      text-[10px]
+                      font-bold
+                      px-3
+                      py-1.5
+                    ">
+                      Total Overdue: Rp{' '}
+                      {formatNumber(
+                        group.total / 1000
+                      )}{' '}
+                      ({filteredData.length > 0
+                        ? (
+                            (group.total /
+                              Math.max(
+                                filteredData.reduce(
+                                  (sum, item) =>
+                                    sum +
+                                    Number(
+                                      item.outstanding ||
+                                        0
+                                    ),
+                                  0
+                                ),
+                                1
+                              )) *
+                            100
+                          ).toFixed(0)
+                        : 0}
+                      % dari total Piutang)
+                    </div>
+
+                    <div className="
+                      grid
+                      grid-cols-[minmax(0,1fr)_48px_75px_60px]
+                      bg-blue-700
+                      text-white
+                      text-[9px]
+                      font-bold
+                      px-2
+                      py-1
+                      gap-1
+                      sticky
+                      top-0
+                      z-10
+                    ">
+                      <div>{group.label} (TOP 10 hari)</div>
+                      <div className="text-center">Tahun</div>
+                      <div className="text-right">Rp Ribu</div>
+                      <div className="text-right">Aging</div>
+                    </div>
+
+                    {group.rows.map(
+                      (row, index) => {
+                        const critical =
+                          row.aging > 360;
+
+                        return (
+                          <div
+                            key={`${group.label}-${row.customer}-${index}`}
+                            className={`
+                              grid
+                              grid-cols-[minmax(0,1fr)_48px_75px_60px]
+                              px-2
+                              py-1
+                              gap-1
+                              text-[9px]
+                              border-b
+                              border-blue-100
+                              ${
+                                index % 2 === 0
+                                  ? 'bg-white'
+                                  : 'bg-blue-50'
+                              }
+                            `}
+                          >
+                            <div
+                              className={`
+                                truncate
+                                ${
+                                  critical
+                                    ? 'text-red-600 font-bold'
+                                    : 'text-gray-700'
+                                }
+                              `}
+                              title={row.customer}
+                            >
+                              {row.customer}
+                            </div>
+
+                            <div
+                              className={`
+                                text-center
+                                ${
+                                  critical
+                                    ? 'text-red-600 font-bold'
+                                    : 'text-gray-600'
+                                }
+                              `}
+                            >
+                              {row.tahun}
+                            </div>
+
+                            <div
+                              className={`
+                                text-right
+                                font-semibold
+                                ${
+                                  critical
+                                    ? 'text-red-600'
+                                    : 'text-gray-700'
+                                }
+                              `}
+                            >
+                              {formatNumber(
+                                row.value / 1000
+                              )}
+                            </div>
+
+                            <div
+                              className={`
+                                text-right
+                                ${
+                                  critical
+                                    ? 'text-red-600 font-bold'
+                                    : 'text-gray-600'
+                                }
+                              `}
+                            >
+                              {critical
+                                ? '>360 hari'
+                                : `${row.aging} hari`}
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+
+                    {group.rows.length === 0 && (
+                      <div className="px-3 py-5 text-center text-[10px] text-gray-400">
+                        Tidak ada data jatuh tempo.
+                      </div>
+                    )}
+
+                  </div>
+                )
+              )}
+
+            </div>
+          </div>
+
+
+          {/* ===============================================
+              2. PERINGKAT CABANG BERDASARKAN SKOR
+          =============================================== */}
+
+          <div className="
+            bg-white
+            rounded-2xl
+            border
+            border-gray-200
+            shadow-sm
+            p-4
+            h-[520px]
+            flex
+            flex-col
+          ">
+
+            <h3 className="
+              text-sm
+              font-semibold
+              text-gray-700
+              text-center
+              mb-2
+              flex-shrink-0
+            ">
+              Peringkat Cabang berdasarkan Skor
+              <br />
+              Kinerja Piutang
+            </h3>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1">
+              <div className="w-full space-y-1">
+                {branchScoreData.map((row) => {
+                  const width =
+                    Math.max(
+                      2,
+                      Math.min(
+                        100,
+                        (row.score / 105) * 100
+                      )
+                    );
+
+                  const isJakarta2 =
+                    row.branch.toLowerCase() ===
+                    'kftd jakarta 2';
+
+                  return (
+                    <div
+                      key={row.branch}
+                      className="grid grid-cols-[112px_minmax(0,1fr)_32px] items-center gap-2 min-h-[24px]"
+                    >
+                      <div className="text-[8px] leading-[9px] text-gray-600 text-right whitespace-nowrap overflow-hidden text-ellipsis">
+                        {row.branch}
+                        <span className="block">
+                          [{row.rank}]
+                        </span>
+                      </div>
+
+                      <div className="w-full h-[9px] relative">
+                        <div
+                          className={
+                            isJakarta2
+                              ? "h-full rounded-r-sm bg-yellow-400"
+                              : "h-full rounded-r-sm bg-sky-500"
+                          }
+                          style={{
+                            width: `${width}%`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="text-[9px] font-semibold text-gray-700 text-left">
+                        {row.score}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-center gap-4 pt-2 flex-shrink-0 text-[8px]">
+              <div className="flex items-center gap-1 text-yellow-500">
+                <span className="w-3 h-3 bg-yellow-400 inline-block" />
+                Jakarta 2
+              </div>
+              <div className="flex items-center gap-1 text-sky-500">
+                <span className="w-3 h-3 bg-sky-500 inline-block" />
+                Skor Piutang
+              </div>
+            </div>
+          </div>
+
+
+          {/* ===============================================
+              3. SALDO PIUTANG >360 HARI
+          =============================================== */}
+
+          <div className="
+            bg-white
+            rounded-2xl
+            border
+            border-gray-200
+            shadow-sm
+            p-4
+            h-[520px]
+            flex
+            flex-col
+          ">
+
+            <h3 className="
+              text-sm
+              font-semibold
+              text-gray-700
+              text-center
+              mb-2
+              flex-shrink-0
+            ">
+              Saldo Piutang &gt;360 (Rp juta)
+            </h3>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1">
+              <div className="w-full space-y-1">
+                {piutang360BranchData.map((row) => {
+                  const maxValue = Math.max(
+                          ...piutang360BranchData.map(
+                            (item) => item.value
+                          ),
+                          1
+                        );
+
+                  const width = Math.max(
+                    1,
+                    Math.min(
+                      100,
+                      (row.value / maxValue) * 100
+                    )
+                  );
+
+                  return (
+                    <div
+                      key={row.branch}
+                      className="grid grid-cols-[112px_minmax(0,1fr)_48px] items-center gap-2 min-h-[24px]"
+                    >
+                      <div className="text-[8px] leading-[9px] text-gray-600 text-right whitespace-nowrap overflow-hidden text-ellipsis">
+                        {row.branch}
+                      </div>
+
+                      <div className="w-full h-[9px]">
+                        <div
+                          className="h-full rounded-r-sm bg-red-700"
+                          style={{
+                            width: `${width}%`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="text-[9px] font-semibold text-gray-600 text-left">
+                        {formatNumber(
+                          row.value / 1000000
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
         <div className="mb-5">
           <DetailPiutangTable data={filteredPiutangProdukData} />
         </div>

@@ -188,6 +188,12 @@ const TableMasterPelanggan = ({
 
 
   const [
+    searchKeyword,
+    setSearchKeyword,
+  ] = useState("");
+
+
+  const [
     selectedStatus,
     setSelectedStatus,
   ] = useState("ALL");
@@ -344,7 +350,7 @@ const TableMasterPelanggan = ({
           perPage,
 
         keyword:
-          keyword.trim(),
+          searchKeyword.trim(),
 
         status:
           selectedStatus === "ALL"
@@ -556,24 +562,7 @@ const TableMasterPelanggan = ({
 
   useEffect(() => {
 
-    const timer =
-      setTimeout(
-        () => {
-
-          getDataPelanggan();
-
-        },
-        keyword.trim()
-          ? 400
-          : 0
-      );
-
-
-    return () => {
-
-      clearTimeout(timer);
-
-    };
+    getDataPelanggan();
 
   }, [
 
@@ -581,7 +570,7 @@ const TableMasterPelanggan = ({
 
     perPage,
 
-    keyword,
+    searchKeyword,
 
     selectedStatus,
 
@@ -591,12 +580,31 @@ const TableMasterPelanggan = ({
 
 
   // ===================================================
+  // SEARCH
+  // ===================================================
+
+  const handleSearch = () => {
+
+    setSearchKeyword(
+      keyword.trim()
+    );
+
+    setCurrentPage(
+      1
+    );
+
+  };
+
+
+  // ===================================================
   // RESET FILTER
   // ===================================================
 
   const resetFilter = () => {
 
     setKeyword("");
+
+    setSearchKeyword("");
 
     setSelectedStatus(
       "ALL"
@@ -1026,35 +1034,26 @@ const TableMasterPelanggan = ({
 
         <div
           className="
-            input
-            input-sm
-            input-bordered
             flex
             items-center
-            gap-2
-            bg-white
-            rounded-full
-            border-gray-200
-            shadow-sm
             w-full
             lg:w-[420px]
+            h-10
+            px-1
+            bg-white
+            border
+            border-gray-200
+            rounded-full
+            shadow-sm
+            focus-within:border-primary
+            focus-within:ring-1
+            focus-within:ring-primary/20
           "
         >
 
-          <IoSearch
-            className="
-              text-gray-400
-              text-lg
-            "
-          />
-
-
           <input
             type="text"
-            placeholder="
-              Cari customer / kode / NPWP...
-            "
-            className="grow"
+            placeholder="Cari customer / kode / NPWP..."
             value={
               keyword
             }
@@ -1065,13 +1064,66 @@ const TableMasterPelanggan = ({
                   e.target.value
                 );
 
-                setCurrentPage(
-                  1
-                );
+              }
+            }
+            onKeyDown={
+              (e) => {
+
+                if (
+                  e.key === "Enter"
+                ) {
+
+                  handleSearch();
+
+                }
 
               }
             }
+            className="
+              flex-1
+              min-w-0
+              h-full
+              px-4
+              bg-transparent
+              border-none
+              outline-none
+              text-sm
+              text-gray-700
+              placeholder:text-gray-400
+            "
           />
+
+
+          <button
+            type="button"
+            onClick={
+              handleSearch
+            }
+            title="Cari"
+            className="
+              flex
+              items-center
+              justify-center
+              shrink-0
+              w-8
+              h-8
+              mr-0.5
+              rounded-full
+              bg-primary
+              text-white
+              hover:bg-primary/90
+              active:scale-95
+              transition-all
+            "
+          >
+
+            <IoSearch
+              className="
+                text-[17px]
+              "
+            />
+
+          </button>
 
         </div>
 

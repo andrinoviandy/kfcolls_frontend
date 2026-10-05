@@ -1,17 +1,16 @@
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import {
-  FaEllipsisV,
-  FaHashtag,
+  // FaEllipsisV,
+  // FaHashtag,
   FaBuilding,
   FaCalendarAlt,
   FaMoneyBillWave,
   FaUser,
-  FaEye,
+  // FaEye,
   FaTimes,
   FaSearch,
   FaFilter,
@@ -23,9 +22,59 @@ import {
 } from "react-icons/fa";
 
 import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
 
 import { swal } from "global/helper/swal";
 import storeSchema from "global/store";
+
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input
+      type="checkbox"
+      checked={props.isSelected}
+      readOnly
+      className="checkbox checkbox-primary checkbox-xs mr-2"
+    />
+    {props.label}
+  </selectComponents.Option>
+);
+
+const FilterMultiValue = () => null;
+
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
+
+  return (
+    <selectComponents.ValueContainer {...props}>
+      {selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}
+      {children[1]}
+    </selectComponents.ValueContainer>
+  );
+};
+
+const filterSelectComponents = {
+  Option: FilterOption,
+  MultiValue: FilterMultiValue,
+  ValueContainer: FilterValueContainer,
+};
+
+const filterSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 36,
+    borderRadius: 9999,
+    borderColor: state.isFocused ? "#2563eb" : "#d1d5db",
+    boxShadow: "none",
+    fontSize: "0.875rem",
+    ":hover": { borderColor: "#2563eb" },
+  }),
+  valueContainer: (base) => ({ ...base, padding: "0 10px" }),
+  indicatorsContainer: (base) => ({ ...base, height: 36 }),
+  menu: (base) => ({ ...base, zIndex: 50 }),
+};
+
+const getSelectedFilterOptions = (options, selectedValues) =>
+  options.filter((option) => selectedValues.includes(option.value));
 
 // =====================================================
 // HELPERS
@@ -52,6 +101,31 @@ const formatRupiah = (value) => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(Number(value) || 0);
+};
+
+const formatCompactRupiah = (value) => {
+  const amount = Number(value) || 0;
+  const absoluteAmount = Math.abs(amount);
+
+  if (absoluteAmount >= 1_000_000_000_000) {
+    return `Rp ${new Intl.NumberFormat("id-ID", {
+      maximumFractionDigits: 1,
+    }).format(amount / 1_000_000_000_000)} T`;
+  }
+
+  if (absoluteAmount >= 1_000_000_000) {
+    return `Rp ${new Intl.NumberFormat("id-ID", {
+      maximumFractionDigits: 1,
+    }).format(amount / 1_000_000_000)} M`;
+  }
+
+  if (absoluteAmount >= 1_000_000) {
+    return `Rp ${new Intl.NumberFormat("id-ID", {
+      maximumFractionDigits: 1,
+    }).format(amount / 1_000_000)} Juta`;
+  }
+
+  return formatRupiah(amount);
 };
 
 const formatDate = (value) => {
@@ -95,6 +169,62 @@ const firstNumber = (...values) => {
   }
 
   return 0;
+};
+
+const getInvoiceAmounts = (item) => {
+  const dpp = firstNumber(item?.dpp);
+  const ppn = firstNumber(item?.ppn);
+  const pph = firstNumber(item?.pph);
+  const totalInvoice = dpp + ppn;
+  const collection = firstNumber(
+    item?.collection,
+    item?.dibayar,
+    item?.sudah_dibayar
+  );
+  const saldoValue =
+    item?.saldo_piutang !== null &&
+    item?.saldo_piutang !== undefined &&
+    item?.saldo_piutang !== ""
+      ? item.saldo_piutang
+      : item?.outstanding;
+  const hasSaldoValue =
+    saldoValue !== null &&
+    saldoValue !== undefined &&
+    saldoValue !== "";
+  const saldoPiutang = hasSaldoValue
+    ? firstNumber(saldoValue)
+    : totalInvoice - collection;
+
+  return {
+    dpp,
+    ppn,
+    pph,
+    totalInvoice,
+    collection,
+    saldoPiutang,
+  };
+};
+
+const getPiutangKeterangan = ({ saldoPiutang, ppn, pph }) => {
+  const isSameAmount = (first, second) =>
+    Math.abs(first - second) < 0.01;
+
+  if (ppn > 0 && isSameAmount(saldoPiutang, ppn)) {
+    return "Sisa PPN";
+  }
+
+  if (pph > 0 && isSameAmount(saldoPiutang, pph)) {
+    return "Sisa PPh";
+  }
+
+  if (
+    ppn + pph > 0 &&
+    isSameAmount(saldoPiutang, ppn + pph)
+  ) {
+    return "Sisa PPN + PPh";
+  }
+
+  return "Sisa Piutang";
 };
 
 // =====================================================
@@ -189,29 +319,8 @@ const getDaysToDue = (item) => {
 // =====================================================
 
 const getPiutangStatus = (item) => {
-  const totalPiutang = firstNumber(
-    item?.total_piutang
-  );
-
-  const dibayar = firstNumber(
-    item?.dibayar,
-    item?.sudah_dibayar
-  );
-
-  let outstanding = firstNumber(
-    item?.outstanding
-  );
-
-  // Kalau backend belum memberikan outstanding,
-  // hitung dari total - dibayar
-  if (
-    item?.outstanding === null ||
-    item?.outstanding === undefined ||
-    item?.outstanding === ""
-  ) {
-    outstanding =
-      totalPiutang - dibayar;
-  }
+  const { collection, saldoPiutang } = getInvoiceAmounts(item);
+  const outstanding = saldoPiutang;
 
   // =================================================
   // SUDAH LUNAS
@@ -225,7 +334,7 @@ const getPiutangStatus = (item) => {
   // BELUM ADA PEMBAYARAN
   // =================================================
 
-  if (dibayar <= 0) {
+  if (collection <= 0) {
     return "OUTSTANDING";
   }
 
@@ -373,6 +482,40 @@ const renderStatus = (item) => {
   );
 };
 
+const renderJtoStatus = (item) => {
+  const daysToDue = getDaysToDue(item);
+
+  if (daysToDue === null) {
+    return <span className="text-sm text-gray-400">-</span>;
+  }
+
+  const status = daysToDue < 0
+    ? {
+        label: "Sudah JTO",
+        icon: FaExclamationCircle,
+        className: "bg-red-100 text-red-700",
+      }
+    : daysToDue <= 7
+      ? {
+          label: "Akan JTO",
+          icon: FaClock,
+          className: "bg-yellow-100 text-yellow-700",
+        }
+      : {
+          label: "Belum JTO",
+          icon: FaClock,
+          className: "bg-blue-100 text-blue-700",
+        };
+  const StatusIcon = status.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${status.className}`}>
+      <StatusIcon />
+      {status.label}
+    </span>
+  );
+};
+
 // =====================================================
 // COMPONENT
 // =====================================================
@@ -422,20 +565,23 @@ const TableDataPiutang = ({
   const [keyword, setKeyword] =
     useState("");
 
-  const [filterStatus, setFilterStatus] =
-    useState("ALL");
+  const [searchKeyword, setSearchKeyword] =
+    useState("");
 
   const [filterCabang, setFilterCabang] =
-    useState("ALL");
+    useState([]);
 
   const [filterChannel, setFilterChannel] =
-    useState("ALL");
+    useState([]);
 
   const [filterPrinciple, setFilterPrinciple] =
-    useState("ALL");
+    useState([]);
 
-  const [filterCustomer, setFilterCustomer] =
-    useState("ALL");
+  const [filterStartDate, setFilterStartDate] =
+    useState("");
+
+  const [filterEndDate, setFilterEndDate] =
+    useState("");
 
   const [currentPage, setCurrentPage] =
     useState(1);
@@ -458,29 +604,6 @@ const TableDataPiutang = ({
 
   const [showDetail, setShowDetail] =
     useState(false);
-
-  // ===================================================
-  // STATUS OPTIONS
-  // HANYA 3 STATUS
-  // ===================================================
-
-  const statusOptions = useMemo(
-    () => [
-      {
-        label: "Outstanding",
-        value: "OUTSTANDING",
-      },
-      {
-        label: "Belum Lunas",
-        value: "BELUM_LUNAS",
-      },
-      {
-        label: "Sudah Lunas",
-        value: "LUNAS",
-      },
-    ],
-    []
-  );
 
   // ===================================================
   // GET REFERENSI
@@ -610,22 +733,13 @@ const TableDataPiutang = ({
         limit: perPage,
 
         keyword:
-          keyword.trim(),
+          searchKeyword,
 
-        status:
-          filterStatus,
-
-        sales_office:
-          filterCabang,
-
-        channel:
-          filterChannel,
-
-        principle:
-          filterPrinciple,
-
-        customer:
-          filterCustomer,
+        sales_office: filterCabang.length ? filterCabang : "ALL",
+        channel: filterChannel.length ? filterChannel : "ALL",
+        principle: filterPrinciple.length ? filterPrinciple : "ALL",
+        start_date: filterStartDate,
+        end_date: filterEndDate,
       };
 
       const res =
@@ -825,28 +939,16 @@ const TableDataPiutang = ({
   // ===================================================
 
   useEffect(() => {
-    const timer =
-      setTimeout(
-        () => {
-          getDataPiutang();
-        },
-        keyword.trim()
-          ? 400
-          : 0
-      );
-
-    return () =>
-      clearTimeout(timer);
-
+    getDataPiutang();
   }, [
     currentPage,
     perPage,
-    keyword,
-    filterStatus,
+    searchKeyword,
     filterCabang,
     filterChannel,
     filterPrinciple,
-    filterCustomer,
+    filterStartDate,
+    filterEndDate,
   ]);
 
   // ===================================================
@@ -876,13 +978,19 @@ const TableDataPiutang = ({
   // RESET FILTER
   // ===================================================
 
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchKeyword(keyword.trim());
+  };
+
   const resetFilter = () => {
     setKeyword("");
-    setFilterStatus("ALL");
-    setFilterCabang("ALL");
-    setFilterChannel("ALL");
-    setFilterPrinciple("ALL");
-    setFilterCustomer("ALL");
+    setSearchKeyword("");
+    setFilterCabang([]);
+    setFilterChannel([]);
+    setFilterPrinciple([]);
+    setFilterStartDate("");
+    setFilterEndDate("");
 
     setCurrentPage(1);
   };
@@ -907,12 +1015,12 @@ const TableDataPiutang = ({
   // DETAIL
   // ===================================================
 
-  const handleDetail = (
+  /* const handleDetail = (
     item
   ) => {
     setSelectedData(item);
     setShowDetail(true);
-  };
+  }; */
 
   const closeDetail = () => {
     setShowDetail(false);
@@ -951,24 +1059,30 @@ const TableDataPiutang = ({
 
         <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
 
-          <div className="input input-sm input-bordered flex items-center gap-2 bg-white rounded-full border-gray-200 shadow-sm w-full lg:w-[460px]">
-
-            <FaSearch className="text-gray-400" />
-
+          <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+            <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
             <input
               type="text"
               placeholder="Cari billing / customer / sales..."
-              className="grow"
+              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
               value={keyword}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
               onChange={(e) => {
-                setCurrentPage(1);
-
-                setKeyword(
-                  e.target.value
-                );
+                setKeyword(e.target.value);
               }}
             />
 
+            <button
+              type="button"
+              onClick={handleSearch}
+              title="Cari"
+              aria-label="Cari"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:opacity-90"
+            >
+              <FaSearch className="text-sm" />
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1001,160 +1115,115 @@ const TableDataPiutang = ({
 
         <div className="flex flex-wrap items-center gap-3">
 
-          {/* STATUS */}
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Cabang
+            </label>
+            <Select
+              isMulti
+              options={options?.cabang || []}
+              value={getSelectedFilterOptions(options?.cabang || [], filterCabang)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterCabang((selected || []).map((item) => item.value));
+              }}
+              placeholder="Semua Cabang"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
 
-          <select
-            className="select select-sm select-bordered rounded-full bg-white min-w-[200px]"
-            value={filterStatus}
-            onChange={(e) => {
-              setCurrentPage(1);
+          <div className="w-full min-w-[180px] sm:w-[210px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Channel
+            </label>
+            <Select
+              isMulti
+              options={options?.channel || []}
+              value={getSelectedFilterOptions(options?.channel || [], filterChannel)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterChannel((selected || []).map((item) => item.value));
+              }}
+              placeholder="Semua Channel"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
 
-              setFilterStatus(
-                e.target.value
-              );
-            }}
-          >
+          <div className="w-full min-w-[180px] sm:w-[210px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Principle
+            </label>
+            <Select
+              isMulti
+              options={options?.principle || []}
+              value={getSelectedFilterOptions(options?.principle || [], filterPrinciple)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterPrinciple((selected || []).map((item) => item.value));
+              }}
+              placeholder="Semua Principle"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
 
-            <option value="ALL">
-              Semua Status
-            </option>
-
-            {statusOptions.map(
-              (item) => (
-                <option
-                  key={
-                    item.value
-                  }
-                  value={
-                    item.value
-                  }
-                >
-                  {item.label}
-                </option>
-              )
-            )}
-
-          </select>
-
-          {/* CABANG */}
-
-          <select
-            className="select select-sm select-bordered rounded-full bg-white min-w-[190px]"
-            value={filterCabang}
-            onChange={(e) => {
-              setCurrentPage(1);
-
-              setFilterCabang(
-                e.target.value
-              );
-            }}
-          >
-
-            <option value="ALL">
-              Semua Cabang
-            </option>
-
-            {options?.cabang?.map(
-              (item) => (
-                <option
-                  key={
-                    item?.value
-                  }
-                  value={
-                    item?.value
-                  }
-                >
-                  {item?.label}
-                </option>
-              )
-            )}
-
-          </select>
-
-          {/* CHANNEL */}
-
-          <select
-            className="select select-sm select-bordered rounded-full bg-white min-w-[180px]"
-            value={filterChannel}
-            onChange={(e) => {
-              setCurrentPage(1);
-
-              setFilterChannel(
-                e.target.value
-              );
-            }}
-          >
-
-            <option value="ALL">
-              Semua Channel
-            </option>
-
-            {options?.channel?.map(
-              (item) => (
-                <option
-                  key={
-                    item?.value
-                  }
-                  value={
-                    item?.value
-                  }
-                >
-                  {item?.label}
-                </option>
-              )
-            )}
-
-          </select>
-
-          {/* PRINCIPLE */}
-
-          <select
-            className="select select-sm select-bordered rounded-full bg-white min-w-[200px]"
-            value={filterPrinciple}
-            onChange={(e) => {
-              setCurrentPage(1);
-
-              setFilterPrinciple(
-                e.target.value
-              );
-            }}
-          >
-
-            <option value="ALL">
-              Semua Principle
-            </option>
-
-            {options?.principle?.map(
-              (item) => (
-                <option
-                  key={
-                    item?.value
-                  }
-                  value={
-                    item?.value
-                  }
-                >
-                  {item?.label}
-                </option>
-              )
-            )}
-
-          </select>
-
-          {/* CUSTOMER */}
-
-          <select
-            className="select select-sm select-bordered rounded-full bg-gray-100 min-w-[200px] text-gray-400 cursor-not-allowed"
-            value={filterCustomer}
-            disabled
-            title="Filter Customer belum diaktifkan"
-          >
-
-            <option value="ALL">
+          <div className="w-full min-w-[180px] sm:w-[210px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
               Customer
-            </option>
+            </label>
+            <Select
+              isMulti
+              isDisabled
+              options={[]}
+              value={[]}
+              placeholder="Customer"
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
 
-          </select>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Document Date
+            </label>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+              <FaCalendarAlt className="text-primary text-sm" />
+
+              <input
+                type="date"
+                value={filterStartDate}
+                max={filterEndDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterStartDate(e.target.value);
+                }}
+                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+                title="Tanggal mulai"
+              />
+
+              <span className="text-gray-300">-</span>
+
+              <input
+                type="date"
+                value={filterEndDate}
+                min={filterStartDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterEndDate(e.target.value);
+                }}
+                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+                title="Tanggal akhir"
+              />
+            </div>
+          </div>
 
         </div>
 
@@ -1179,7 +1248,7 @@ const TableDataPiutang = ({
               </p>
 
               <p className="text-xl font-bold text-blue-900">
-                {formatRupiah(
+                {formatCompactRupiah(
                   summaryData.total_piutang
                 )}
               </p>
@@ -1213,11 +1282,11 @@ const TableDataPiutang = ({
             <div>
 
               <p className="text-sm text-green-700">
-                Sudah Dibayar
+                Collections
               </p>
 
               <p className="text-xl font-bold text-green-900">
-                {formatRupiah(
+                {formatCompactRupiah(
                   summaryData.sudah_dibayar
                 )}
               </p>
@@ -1251,7 +1320,7 @@ const TableDataPiutang = ({
               </p>
 
               <p className="text-xl font-bold text-purple-900">
-                {formatRupiah(
+                {formatCompactRupiah(
                   summaryData.outstanding
                 )}
               </p>
@@ -1288,7 +1357,7 @@ const TableDataPiutang = ({
               </p>
 
               <p className="text-xl font-bold text-green-900">
-                {formatRupiah(
+                {formatCompactRupiah(
                   summaryData.not_due_amount
                 )}
               </p>
@@ -1325,7 +1394,7 @@ const TableDataPiutang = ({
               </p>
 
               <p className="text-xl font-bold text-yellow-900">
-                {formatRupiah(
+                {formatCompactRupiah(
                   summaryData.akan_jatuh_tempo_amount
                 )}
               </p>
@@ -1362,7 +1431,7 @@ const TableDataPiutang = ({
               </p>
 
               <p className="text-xl font-bold text-red-900">
-                {formatRupiah(
+                {formatCompactRupiah(
                   summaryData.overdue_amount
                 )}
               </p>
@@ -1433,42 +1502,58 @@ const TableDataPiutang = ({
               <thead className="bg-primary text-white sticky top-0 text-[13px] z-10">
 
                 <tr>
-                  <th className="px-4 py-3 whitespace-nowrap text-center">
+                  {/* <th className="px-4 py-3 whitespace-nowrap text-center">
                     Aksi
-                  </th>
+                  </th> */}
 
-                  <th className="px-4 py-3 whitespace-nowrap">
+                  {/* <th className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2 font-semibold">
                       <FaHashtag />
                       No
                     </div>
-                  </th>
+                  </th> */}
 
                   <th className="px-4 py-3 whitespace-nowrap">
                     No. Billing
                   </th>
 
-                  <th className="px-4 py-3 whitespace-nowrap">
+                  {/* <th className="px-4 py-3 whitespace-nowrap">
                     No. Faktur
-                  </th>
+                  </th> */}
 
                   <th className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <FaCalendarAlt />
-                      Tanggal Faktur
+                      Document Date
                     </div>
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap">
-                    Customer
+                    Document Type
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap">
-                    Sales
+                    Kode Customer
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap">
-                    Sales Office
+                    Nama Customer
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap">
+                    Salesman
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap">
+                    Nama Sales
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap">
+                    Profit Center
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap">
+                    Cabang
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap">
@@ -1476,7 +1561,11 @@ const TableDataPiutang = ({
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap">
-                    Principle
+                    Kode Principle
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap">
+                    Nama Principle
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap">
@@ -1502,15 +1591,31 @@ const TableDataPiutang = ({
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap text-right">
-                    Total Piutang
+                    DPP
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap text-right">
-                    Dibayar
+                    PPN
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap text-right">
-                    Outstanding
+                    PPh
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap text-right">
+                    Total Invoice
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap text-right">
+                    Collection
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap text-right">
+                    Saldo Piutang
+                  </th>
+
+                  <th className="px-4 py-3 whitespace-nowrap">
+                    Keterangan Outstanding
                   </th>
 
                   <th className="px-4 py-3 whitespace-nowrap text-center">
@@ -1536,7 +1641,7 @@ const TableDataPiutang = ({
                   <tr>
 
                     <td
-                      colSpan={19}
+                      colSpan={24}
                       className="text-center py-16 text-gray-500"
                     >
 
@@ -1563,31 +1668,8 @@ const TableDataPiutang = ({
                   tableData.map(
                     (item, index) => {
 
-                      const rowNumber =
-                        (currentPage - 1) *
-                        perPage +
-                        index +
-                        1;
-
-                      const status =
-                        getPiutangStatus(
-                          item
-                        );
-
-                      const akanJatuhTempo =
-                        isAkanJatuhTempo(
-                          item
-                        );
-
-                      const sudahJatuhTempo =
-                        isSudahJatuhTempo(
-                          item
-                        );
-
-                      const daysToDue =
-                        getDaysToDue(
-                          item
-                        );
+                      const invoiceAmounts = getInvoiceAmounts(item);
+                      const keterangan = getPiutangKeterangan(invoiceAmounts);
 
                       return (
 
@@ -1602,7 +1684,7 @@ const TableDataPiutang = ({
                           {/* AKSI */}
                           {/* ================================= */}
 
-                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                          {/* <td className="px-4 py-3 whitespace-nowrap text-center">
 
                             <div className="dropdown dropdown-right">
 
@@ -1644,15 +1726,15 @@ const TableDataPiutang = ({
 
                             </div>
 
-                          </td>
+                          </td> */}
 
                           {/* ================================= */}
                           {/* NO */}
                           {/* ================================= */}
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {/* <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {rowNumber}
-                          </td>
+                          </td> */}
 
                           {/* ================================= */}
                           {/* BILLING */}
@@ -1660,19 +1742,12 @@ const TableDataPiutang = ({
 
                           <td className="px-4 py-3 whitespace-nowrap">
 
-                            <div>
-
-                              <p className="font-semibold text-gray-700">
-                                {displayValue(
-                                  item?.billing_no
-                                )}
-                              </p>
-
-                              <p className="text-[11px] text-gray-400 mt-0.5">
-                                Billing
-                              </p>
-
-                            </div>
+                            <p className="font-semibold text-gray-700">
+                              {displayValue(
+                                item?.billing_no ??
+                                item?.no_billing
+                              )}
+                            </p>
 
                           </td>
 
@@ -1680,9 +1755,11 @@ const TableDataPiutang = ({
                           {/* NO FAKTUR */}
                           {/* ================================= */}
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            -
-                          </td>
+                          {/* <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {displayValue(
+                              item?.no_faktur
+                            )}
+                          </td> */}
 
                           {/* ================================= */}
                           {/* TANGGAL FAKTUR */}
@@ -1691,114 +1768,111 @@ const TableDataPiutang = ({
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2 text-sm text-gray-500">
                               <FaCalendarAlt className="text-gray-400" />
-                              -
+                              {formatDate(
+                                item?.document_date ||
+                                item?.documentDate ||
+                                item?.doc_date ||
+                                item?.tanggal_dokumen ||
+                                item?.DOCUMENT_DATE ||
+                                item?.posting_date
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {displayValue(
+                              item?.document_type
+                            )}
+                          </td>
+
+                          {/* ================================= */}
+                          {/* KODE CUSTOMER */}
+                          {/* ================================= */}
+
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-blue-50 text-primary flex items-center justify-center shrink-0">
+                                <FaBuilding className="text-xs" />
+                              </div>
+
+                              <span className="font-semibold text-gray-700 text-sm">
+                                {displayValue(
+                                  item?.customer
+                                )}
+                              </span>
                             </div>
                           </td>
 
                           {/* ================================= */}
-                          {/* CUSTOMER */}
-                          {/* ================================= */}
-
-                          <td className="px-4 py-3 min-w-[240px]">
-
-                            <div className="flex items-start gap-2">
-
-                              <div className="w-9 h-9 rounded-full bg-blue-50 text-primary flex items-center justify-center shrink-0">
-
-                                <FaBuilding className="text-sm" />
-
-                              </div>
-
-                              <div className="min-w-0">
-
-                                <p
-                                  className="font-semibold text-gray-700 truncate max-w-[240px]"
-                                  title={String(
-                                    item?.name_bill_to ||
-                                    "-"
-                                  )}
-                                >
-
-                                  {displayValue(
-                                    item?.name_bill_to
-                                  )}
-
-                                </p>
-
-                                <p className="text-xs text-gray-400 mt-0.5">
-
-                                  {displayValue(
-                                    item?.bill_to_party
-                                  )}
-
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                          </td>
-
-                          {/* ================================= */}
-                          {/* SALES */}
+                          {/* NAMA CUSTOMER */}
                           {/* ================================= */}
 
                           <td className="px-4 py-3 min-w-[220px]">
-
-                            <div className="flex items-start gap-2">
-
-                              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-
-                                <FaUser className="text-gray-400 text-xs" />
-
-                              </div>
-
-                              <div>
-
-                                <p className="font-semibold text-gray-700 text-sm">
-
-                                  {displayValue(
-                                    item?.name_salesman
-                                  )}
-
-                                </p>
-
-                                <p className="text-xs text-gray-400">
-
-                                  {displayValue(
-                                    item?.salesman
-                                  )}
-
-                                </p>
-
-                              </div>
-
-                            </div>
-
+                            <p
+                              className="font-semibold text-gray-700 text-sm truncate max-w-[240px]"
+                              title={String(
+                                item?.customer_name ||
+                                "-"
+                              )}
+                            >
+                              {displayValue(
+                                item?.customer_name
+                              )}
+                            </p>
                           </td>
 
                           {/* ================================= */}
-                          {/* SALES OFFICE */}
+                          {/* KODE SALES */}
+                          {/* ================================= */}
+
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                <FaUser className="text-gray-400 text-xs" />
+                              </div>
+
+                              <span className="font-semibold text-gray-700 text-sm">
+                                {displayValue(
+                                  item?.sales
+                                )}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* ================================= */}
+                          {/* NAMA SALES */}
+                          {/* ================================= */}
+
+                          <td className="px-4 py-3 min-w-[200px]">
+                            <p className="font-semibold text-gray-700 text-sm truncate max-w-[220px]">
+                              {displayValue(
+                                item?.nama_sales
+                              )}
+                            </p>
+                          </td>
+
+                          {/* ================================= */}
+                          {/* PROFIT CENTER */}
+                          {/* ================================= */}
+
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-semibold text-gray-700 text-sm">
+                              {displayValue(
+                                item?.cabang
+                              )}
+                            </span>
+                          </td>
+
+                          {/* ================================= */}
+                          {/* CABANG */}
                           {/* ================================= */}
 
                           <td className="px-4 py-3 min-w-[180px]">
-
-                            <p className="font-semibold text-gray-700 text-sm">
-
+                            <span className="font-semibold text-gray-700 text-sm">
                               {displayValue(
-                                item?.desc_s_office
+                                item?.name_cabang || ''
                               )}
-
-                            </p>
-
-                            <p className="text-xs text-gray-400">
-
-                              {displayValue(
-                                item?.sales_office
-                              )}
-
-                            </p>
-
+                            </span>
                           </td>
 
                           {/* ================================= */}
@@ -1818,27 +1892,27 @@ const TableDataPiutang = ({
                           </td>
 
                           {/* ================================= */}
-                          {/* PRINCIPLE */}
+                          {/* KODE PRINCIPLE */}
                           {/* ================================= */}
 
-                          <td className="px-4 py-3 min-w-[180px]">
-
-                            <p className="font-semibold text-gray-700 text-sm">
-
-                              {displayValue(
-                                item?.name_principle
-                              )}
-
-                            </p>
-
-                            <p className="text-xs text-gray-400">
-
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-semibold text-gray-700 text-sm">
                               {displayValue(
                                 item?.principle
                               )}
+                            </span>
+                          </td>
 
-                            </p>
+                          {/* ================================= */}
+                          {/* NAMA PRINCIPLE */}
+                          {/* ================================= */}
 
+                          <td className="px-4 py-3 min-w-[200px]">
+                            <span className="font-semibold text-gray-700 text-sm truncate max-w-[220px] block">
+                              {displayValue(
+                                item?.name_principle
+                              )}
+                            </span>
                           </td>
 
                           {/* ================================= */}
@@ -1880,124 +1954,57 @@ const TableDataPiutang = ({
                           {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap">
-
-                            <div>
-
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-
-                                <FaCalendarAlt className="text-primary" />
-
-                                {formatDate(
-                                  item?.jatuh_tempo
-                                )}
-
-                              </div>
-
-                              {/* ================================= */}
-                              {/* AKAN JATUH TEMPO */}
-                              {/* ================================= */}
-
-                              {akanJatuhTempo && (
-                                <div className="flex items-center gap-1 mt-1">
-
-                                  <FaClock className="text-yellow-500 text-[10px]" />
-
-                                  <span className="text-[10px] font-semibold text-yellow-600">
-
-                                    Akan Jatuh Tempo
-
-                                    {daysToDue !==
-                                      null && (
-                                        <>
-                                          {" "}
-                                          (
-                                          {daysToDue}{" "}
-                                          hari)
-                                        </>
-                                      )}
-
-                                  </span>
-
-                                </div>
-                              )}
-
-                              {/* ================================= */}
-                              {/* SUDAH JATUH TEMPO */}
-                              {/* ================================= */}
-
-                              {sudahJatuhTempo && (
-                                <div className="flex items-center gap-1 mt-1">
-
-                                  <FaExclamationCircle className="text-red-500 text-[10px]" />
-
-                                  <span className="text-[10px] font-semibold text-red-600">
-
-                                    Sudah Jatuh Tempo
-
-                                  </span>
-
-                                </div>
-                              )}
-
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <FaCalendarAlt className="text-primary" />
+                              {formatDate(item?.jatuh_tempo)}
                             </div>
-
                           </td>
 
-                          {/* ================================= */}
-                          {/* TOTAL PIUTANG */}
-                          {/* ================================= */}
-
+                          {/* DPP */}
                           <td className="px-4 py-3 whitespace-nowrap text-right">
-
                             <span className="font-bold text-gray-700">
-
-                              {formatRupiah(
-                                item?.total_piutang
-                              )}
-
+                              {formatRupiah(invoiceAmounts.dpp)}
                             </span>
-
                           </td>
 
-                          {/* ================================= */}
-                          {/* DIBAYAR */}
-                          {/* ================================= */}
-
+                          {/* PPN */}
                           <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="font-bold text-gray-700">
+                              {formatRupiah(invoiceAmounts.ppn)}
+                            </span>
+                          </td>
 
+                          {/* PPH */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="font-bold text-gray-700">
+                              {formatRupiah(invoiceAmounts.pph)}
+                            </span>
+                          </td>
+
+                          {/* TOTAL INVOICE */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <span className="font-bold text-gray-700">
+                              {formatRupiah(invoiceAmounts.totalInvoice)}
+                            </span>
+                          </td>
+
+                          {/* COLLECTION */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
                             <span className="font-bold text-green-600">
-
-                              {formatRupiah(
-                                item?.dibayar ??
-                                item?.sudah_dibayar
-                              )}
-
+                              {formatRupiah(invoiceAmounts.collection)}
                             </span>
-
                           </td>
 
-                          {/* ================================= */}
-                          {/* OUTSTANDING */}
-                          {/* ================================= */}
-
+                          {/* SALDO PIUTANG */}
                           <td className="px-4 py-3 whitespace-nowrap text-right">
-
-                            <span
-                              className={`font-bold ${Number(
-                                item?.outstanding ||
-                                0
-                              ) > 0
-                                ? "text-red-600"
-                                : "text-gray-500"
-                                }`}
-                            >
-
-                              {formatRupiah(
-                                item?.outstanding
-                              )}
-
+                            <span className={`font-bold ${invoiceAmounts.saldoPiutang > 0 ? "text-red-600" : "text-gray-500"}`}>
+                              {formatRupiah(invoiceAmounts.saldoPiutang)}
                             </span>
+                          </td>
 
+                          {/* KETERANGAN */}
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {keterangan}
                           </td>
 
                           {/* ================================= */}
@@ -2050,11 +2057,7 @@ const TableDataPiutang = ({
                           {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap text-center">
-
-                            {renderStatus(
-                              item
-                            )}
-
+                            {renderJtoStatus(item)}
                           </td>
 
                         </tr>
