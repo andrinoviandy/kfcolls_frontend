@@ -1386,91 +1386,95 @@ const PiutangGaugeCard = ({
   color = '#3b82f6',
   targetLabel,
   icon,
+  iconBg = 'bg-blue-50',
+  iconColor = 'text-blue-600',
+  valueColor = 'text-slate-800',
 }) => {
   const numericAchievement = Number(achievement) || 0;
-  const gaugePercent = Math.min(
-    100,
-    Math.max(0, numericAchievement)
-  );
+  const gaugePercent = Math.min(100, Math.max(0, numericAchievement));
   const gaugeAngle = gaugePercent * 1.8;
+  const targetValue = Number(target) || 0;
+  const isAboveTarget = targetValue > 0 && numericAchievement >= targetValue;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-      <div className="px-4 py-2 border-b border-gray-200">
-        <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
-          {title}
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
+      <div
+        className="absolute left-0 right-0 top-0 h-1"
+        style={{ background: `linear-gradient(90deg, ${color}, ${color}88)` }}
+      />
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-60" style={{ background: `${color}10` }} />
+
+      <div className="relative flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${iconBg} ${iconColor} shadow-sm`}>
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-700">
+              {title}
+            </div>
+            <div className="mt-0.5 text-[9px] font-medium text-slate-400">
+              {targetLabel || `% Ach ${title}`}
+            </div>
+          </div>
+        </div>
+
+        <div className={`rounded-full px-2 py-1 text-[9px] font-bold ${isAboveTarget ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+          {isAboveTarget ? 'On Target' : `Target ${target}%`}
         </div>
       </div>
 
-      <div className="px-4 pt-3">
-        <div className="text-2xl font-bold text-blue-800 leading-none">
-          {value}
+      <div className="relative px-4 pt-3">
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <div className={`text-[25px] font-extrabold leading-none tracking-tight ${valueColor}`}>
+              {value}
+            </div>
+            {delta && (
+              <div className="mt-2 text-[9px] font-semibold text-slate-500">
+                {delta}
+              </div>
+            )}
+          </div>
+          <div className="rounded-lg bg-slate-50 px-2 py-1.5 text-right">
+            <div className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">Achievement</div>
+            <div className="text-sm font-extrabold" style={{ color }}>
+              {numericAchievement.toFixed(1)}%
+            </div>
+          </div>
         </div>
 
-        {delta && (
-          <div className="text-[10px] text-gray-500 mt-2 whitespace-nowrap">
-            {delta}
-          </div>
-        )}
-
-        <div className="mt-3 text-xs font-semibold text-gray-600">
+        <div className="mt-2 text-center text-[9px] font-semibold text-slate-400">
           {targetLabel || `% Ach ${title}`}
         </div>
 
-        <div className="relative flex justify-center mt-1">
-          <div className="relative w-[150px] h-[76px] overflow-hidden">
+        <div className="relative mt-1 flex justify-center">
+          <div className="relative h-[82px] w-[164px] overflow-hidden">
             <div
-              className="absolute left-0 top-0 w-[150px] h-[150px] rounded-full"
+              className="absolute left-0 top-0 h-[164px] w-[164px] rounded-full"
               style={{
-                background: `conic-gradient(
-                  from 270deg,
-                  ${color} 0deg,
-                  ${color} ${gaugeAngle}deg,
-                  #e5e7eb ${gaugeAngle}deg,
-                  #e5e7eb 180deg,
-                  transparent 180deg
-                )`,
+                background: `conic-gradient(from 270deg, ${color} 0deg, ${color} ${gaugeAngle}deg, #e8edf3 ${gaugeAngle}deg, #e8edf3 180deg, transparent 180deg)`,
               }}
             />
-
-            <div className="absolute left-[18px] top-[18px] w-[114px] h-[114px] rounded-full bg-white" />
+            <div className="absolute left-[19px] top-[19px] h-[126px] w-[126px] rounded-full bg-white" />
 
             <div
-              className="absolute left-1/2 bottom-0 w-[2px] h-[55px] origin-bottom rounded-full bg-gray-700"
+              className="absolute bottom-0 left-1/2 h-[59px] w-[3px] origin-bottom rounded-full bg-slate-700 shadow-sm"
               style={{
-                transform: `translateX(-50%) rotate(${Math.max(
-                  -90,
-                  Math.min(90, gaugeAngle - 90)
-                )}deg)`,
+                transform: `translateX(-50%) rotate(${Math.max(-90, Math.min(90, gaugeAngle - 90))}deg)`,
               }}
             />
+            <div className="absolute bottom-[-4px] left-1/2 h-3.5 w-3.5 -translate-x-1/2 rounded-full border-2 border-white bg-slate-700 shadow-md" />
 
-            <div className="absolute left-1/2 bottom-[-4px] w-3 h-3 -translate-x-1/2 rounded-full bg-gray-700 border-2 border-white shadow-sm" />
-
-            <div className="absolute left-1 bottom-[-1px] text-[9px] font-semibold text-gray-500">
-              0%
-            </div>
-
-            <div className="absolute right-1 bottom-[-1px] text-[9px] font-semibold text-gray-500">
-              100%
-            </div>
+            <div className="absolute bottom-0 left-1 text-[8px] font-bold text-slate-400">0%</div>
+            <div className="absolute bottom-0 right-1 text-[8px] font-bold text-slate-400">100%</div>
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-1 -mt-1 pb-2 text-[11px]">
-          <span className="font-bold text-gray-800">
-            {numericAchievement.toFixed(1)}%
-          </span>
-
-          <span className="text-gray-400">
-            | Target {target}%
-          </span>
-        </div>
       </div>
     </div>
   );
 };
-
 
 const PiutangKpiSimpleCard = ({
   title,
@@ -1478,41 +1482,47 @@ const PiutangKpiSimpleCard = ({
   delta,
   footer,
   icon,
+  iconBg = 'bg-blue-50',
+  iconColor = 'text-blue-600',
+  valueColor = 'text-slate-800',
+  accentColor = '#3b82f6',
 }) => {
   return (
-    <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-      <div className="px-4 py-2 border-b border-gray-200">
-        <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
-          {title}
-        </div>
-      </div>
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 pt-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+      <div
+        className="absolute left-0 right-0 top-0 h-1"
+        style={{ background: `linear-gradient(90deg, ${accentColor}, ${accentColor}88)` }}
+      />
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-slate-50" />
 
-      <div className="px-4 py-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-2xl font-bold text-blue-800 leading-none">
-              {value}
-            </div>
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+            {title}
+          </p>
 
-            {delta && (
-              <div className="text-[10px] text-gray-500 mt-3">
-                {delta}
-              </div>
-            )}
-
-            {footer && (
-              <div className="text-[10px] text-gray-500 mt-1">
-                {footer}
-              </div>
-            )}
+          <div className={`mt-2 text-2xl font-extrabold tracking-tight ${valueColor}`}>
+            {value}
           </div>
 
-          {icon && (
-            <div className="text-blue-700 opacity-80">
-              {icon}
+          {delta && (
+            <div className="mt-3 text-[10px] font-semibold text-slate-500">
+              {delta}
+            </div>
+          )}
+
+          {footer && (
+            <div className="mt-1 text-[9px] text-slate-400">
+              {footer}
             </div>
           )}
         </div>
+
+        {icon && (
+          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${iconBg} ${iconColor} transition-transform duration-300 group-hover:scale-105`}>
+            {icon}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1975,8 +1985,8 @@ const Dashboard = () => {
         percentageSdhJto:
           totalOutstanding > 0
             ? ((acc.sdhJto2026 + row.sdhJto2026) /
-                totalOutstanding) *
-              100
+              totalOutstanding) *
+            100
             : 0,
       }),
       {
@@ -1995,6 +2005,71 @@ const Dashboard = () => {
     return [...rows, totalRow];
   }, [filteredData]);
 
+
+
+  /* =========================================================
+     DUMMY ROW CHANNEL UNTUK KEBUTUHAN TAMPILAN TABLE
+
+     Data dummy ini hanya menambah baris pada tabel Channel agar
+     area table memenuhi tinggi card dan dapat diuji dengan
+     vertical overflow.
+
+     Perhitungan dashboard dan TOTAL tetap menggunakan
+     channelSummaryData asli.
+  ========================================================= */
+
+  const channelTableRows = useMemo(() => {
+    const actualRows = channelSummaryData.filter(
+      (row) => row.channel !== 'TOTAL'
+    );
+
+    const dummyRows = [];
+
+    const dummyConfig = [
+      { source: 0, suffix: ' - Dummy 1', factor: 0.92 },
+      { source: 1, suffix: ' - Dummy 1', factor: 0.88 },
+      { source: 2, suffix: ' - Dummy 1', factor: 0.84 },
+      { source: 0, suffix: ' - Dummy 2', factor: 0.76 },
+      { source: 1, suffix: ' - Dummy 2', factor: 0.71 },
+      { source: 2, suffix: ' - Dummy 2', factor: 0.67 },
+    ];
+
+    dummyConfig.forEach((config) => {
+      const sourceRow = actualRows[config.source];
+
+      if (!sourceRow) return;
+
+      const factor = config.factor;
+
+      dummyRows.push({
+        ...sourceRow,
+        channel: `${sourceRow.channel}${config.suffix}`,
+        total: Math.round(sourceRow.total * factor),
+        percentage: Number(
+          (sourceRow.percentage * factor).toFixed(1)
+        ),
+        blmJto2026: Math.round(
+          sourceRow.blmJto2026 * factor
+        ),
+        sdhJto2026: Math.round(
+          sourceRow.sdhJto2026 * factor
+        ),
+        blmJto2025: Math.round(
+          sourceRow.blmJto2025 * factor
+        ),
+        sdhJto2025: Math.round(
+          sourceRow.sdhJto2025 * factor
+        ),
+        sdhJtoBefore2025: Math.round(
+          sourceRow.sdhJtoBefore2025 * factor
+        ),
+        percentageSdhJto: sourceRow.percentageSdhJto,
+        isDummy: true,
+      });
+    });
+
+    return [...actualRows, ...dummyRows];
+  }, [channelSummaryData]);
 
 
   const collectionRatio =
@@ -3975,8 +4050,8 @@ const Dashboard = () => {
         score: Math.round(
           105 -
           (item.overdue - minOverdue) /
-            range *
-            88
+          range *
+          88
         ),
       }))
       .sort((a, b) => {
@@ -4798,14 +4873,16 @@ const Dashboard = () => {
             KPI PIUTANG - 2 BARIS
         ================================================= */}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-
-          {/* BARIS 1 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
 
           <PiutangKpiSimpleCard
             title="TOTAL PIUTANG"
             value={formatNumber(summary.totalPiutang)}
             delta="▼ Rp58 M | 44% dari bulan lalu"
+            icon={<FaMoneyBillWave size={18} />}
+            iconBg="bg-blue-50"
+            iconColor="text-blue-600"
+            accentColor="#3b82f6"
           />
 
           <PiutangKpiSimpleCard
@@ -4813,6 +4890,10 @@ const Dashboard = () => {
             value="60"
             delta="▲ 1 Hari dari bulan lalu"
             footer="Days Outstanding Average Receivable"
+            icon={<FaClock size={18} />}
+            iconBg="bg-indigo-50"
+            iconColor="text-indigo-600"
+            accentColor="#6366f1"
           />
 
           <PiutangKpiSimpleCard
@@ -4820,14 +4901,16 @@ const Dashboard = () => {
             value="103"
             delta="▲ 1 Point dari bulan lalu"
             footer="Rank 6/44 Cabang"
+            icon={<FaChartLine size={18} />}
+            iconBg="bg-purple-50"
+            iconColor="text-purple-600"
+            accentColor="#8b5cf6"
           />
 
         </div>
 
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-
-          {/* BARIS 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
 
           <PiutangGaugeCard
             title="PENCAIRAN (MTD)"
@@ -4835,8 +4918,11 @@ const Dashboard = () => {
             delta="▼ Rp119 M | 59% dari bulan lalu"
             achievement={133.1}
             target={100}
-            color="#5b9bd5"
+            color="#10b981"
             targetLabel="% Ach Pencairan Piutang"
+            icon={<FaMoneyBillWave size={18} />}
+            iconBg="bg-emerald-50"
+            iconColor="text-emerald-600"
           />
 
           <PiutangGaugeCard
@@ -4849,8 +4935,11 @@ const Dashboard = () => {
             delta="▼ Rp01 M | 10% dari bulan lalu"
             achievement={12.9}
             target={15}
-            color="#e1261c"
+            color="#f59e0b"
             targetLabel="% Piutang Jatuh Tempo"
+            icon={<FaExclamationTriangle size={18} />}
+            iconBg="bg-orange-50"
+            iconColor="text-orange-600"
           />
 
           <PiutangGaugeCard
@@ -4869,8 +4958,11 @@ const Dashboard = () => {
             delta="▲ Rp105,019 Jt | 03% dari bulan lalu"
             achievement={5.7}
             target={0}
-            color="#d90000"
+            color="#ef4444"
             targetLabel="% Piutang >360 Hari"
+            icon={<FaExclamationTriangle size={18} />}
+            iconBg="bg-red-50"
+            iconColor="text-red-600"
           />
 
         </div>
@@ -4885,15 +4977,23 @@ const Dashboard = () => {
           {/* TREND SALDO PIUTANG & SALDO OVERDUE */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
 
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-bold text-gray-800">
-                  Trend Saldo Piutang & Saldo Overdue
-                </h3>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Nominal dalam Rp juta dan persentase overdue
-                </p>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <FaChartLine size={17} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Trend Saldo Piutang &amp; Saldo Overdue
+                  </h3>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Nominal dalam Rp juta dan persentase overdue
+                  </p>
+                </div>
               </div>
+              <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[9px] font-semibold text-slate-500">
+                Rp Juta
+              </span>
             </div>
 
             <div className="w-full h-[270px]">
@@ -5034,15 +5134,23 @@ const Dashboard = () => {
           {/* TREND PENCAIRAN PIUTANG */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
 
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-bold text-gray-800">
-                  Trend Pencairan Piutang (Rp juta) dan % Ach Pencairan
-                </h3>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Realisasi pencairan dan achievement pencairan
-                </p>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <FaMoneyBillWave size={17} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Trend Pencairan Piutang (Rp juta)
+                  </h3>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Realisasi pencairan dan % achievement
+                  </p>
+                </div>
               </div>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-bold text-emerald-600">
+                MTD
+              </span>
             </div>
 
             <div className="w-full h-[270px]">
@@ -5172,12 +5280,20 @@ const Dashboard = () => {
               SALDO PIUTANG BY AGING & CHANNEL
           =============================================== */}
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 h-[350px]">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px]">
 
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-bold text-gray-800">
-                Saldo Piutang by Aging &amp; Channel
-              </h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+                  <FaChartBar size={17} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Saldo Piutang by Aging &amp; Channel
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Distribusi saldo berdasarkan aging</p>
+                </div>
+              </div>
             </div>
 
             <div className="w-full h-[285px]">
@@ -5254,8 +5370,8 @@ const Dashboard = () => {
                       formatter={(value) =>
                         value > 0
                           ? new Intl.NumberFormat('id-ID', {
-                              maximumFractionDigits: 0,
-                            }).format(value)
+                            maximumFractionDigits: 0,
+                          }).format(value)
                           : ''
                       }
                       style={{
@@ -5278,8 +5394,8 @@ const Dashboard = () => {
                       formatter={(value) =>
                         value > 0
                           ? new Intl.NumberFormat('id-ID', {
-                              maximumFractionDigits: 0,
-                            }).format(value)
+                            maximumFractionDigits: 0,
+                          }).format(value)
                           : ''
                       }
                       style={{
@@ -5302,8 +5418,8 @@ const Dashboard = () => {
                       formatter={(value) =>
                         value > 0
                           ? new Intl.NumberFormat('id-ID', {
-                              maximumFractionDigits: 0,
-                            }).format(value)
+                            maximumFractionDigits: 0,
+                          }).format(value)
                           : ''
                       }
                       style={{
@@ -5321,165 +5437,263 @@ const Dashboard = () => {
 
           {/* ===============================================
               TABEL CHANNEL
-              TBODY SCROLL
+              TBODY SAJA YANG SCROLL
           =============================================== */}
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 h-[350px] flex flex-col">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px] flex flex-col">
 
-            <div className="flex items-center justify-between mb-2 flex-shrink-0">
-              <h3 className="text-sm font-bold text-gray-800">
-                Channel
-              </h3>
+            <div className="mb-3 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <FaBuilding size={16} />
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Channel
+                  </h3>
+
+                  <p className="text-[10px] text-slate-400">
+                    Ringkasan piutang berdasarkan channel
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="flex-1 min-h-0 border border-gray-200 rounded-lg overflow-hidden">
+            {/* TABLE AREA */}
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
 
-              <table className="w-full text-[10px] border-collapse">
+              {/* 
+      Wrapper ini yang mengatur:
+      - vertical overflow
+      - horizontal overflow
+      - tinggi mengikuti sisa card
+    */}
+              <div className="h-full overflow-auto">
 
-                <thead className="sticky top-0 z-10 bg-blue-700 text-white">
+                <table className="min-w-max border-collapse text-[10px]">
 
-                  <tr>
-                    <th
-                      rowSpan={2}
-                      className="px-2 py-2 text-left border-r border-blue-500 whitespace-nowrap"
-                    >
-                      Channel
-                    </th>
+                  {/* =========================
+            HEADER
+        ========================= */}
+                  <thead className="sticky top-0 z-20 bg-slate-50 text-slate-500">
 
-                    <th
-                      rowSpan={2}
-                      className="px-2 py-2 text-right border-r border-blue-500 whitespace-nowrap"
-                    >
-                      TOTAL
-                    </th>
-
-                    <th
-                      rowSpan={2}
-                      className="px-2 py-2 text-right border-r border-blue-500 whitespace-nowrap"
-                    >
-                      %
-                    </th>
-
-                    <th
-                      colSpan={2}
-                      className="px-2 py-1 text-center border-r border-blue-500"
-                    >
-                      2026
-                    </th>
-
-                    <th
-                      colSpan={2}
-                      className="px-2 py-1 text-center border-r border-blue-500"
-                    >
-                      2025
-                    </th>
-
-                    <th
-                      rowSpan={2}
-                      className="px-2 py-2 text-right border-r border-blue-500 whitespace-nowrap"
-                    >
-                      &lt; 2024
-                      <br />
-                      SDH JTO
-                    </th>
-
-                    <th
-                      rowSpan={2}
-                      className="px-2 py-2 text-right whitespace-nowrap"
-                    >
-                      % SDH
-                      <br />
-                      JTO
-                    </th>
-                  </tr>
-
-                  <tr>
-                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-blue-600">
-                      BLM JTO
-                    </th>
-
-                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-red-600">
-                      SDH JTO
-                    </th>
-
-                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-blue-600">
-                      BLM JTO
-                    </th>
-
-                    <th className="px-2 py-1 text-right border-r border-blue-500 bg-red-600">
-                      SDH JTO
-                    </th>
-                  </tr>
-
-                </thead>
-
-                <tbody className="divide-y divide-gray-200">
-
-                  {channelSummaryData.map((row) => {
-
-                    const isTotal =
-                      row.channel === 'TOTAL';
-
-                    return (
-                      <tr
-                        key={row.channel}
-                        className={
-                          isTotal
-                            ? 'font-bold bg-blue-50'
-                            : 'hover:bg-gray-50'
-                        }
+                    <tr>
+                      <th
+                        rowSpan={2}
+                        className="px-3 py-2 text-left border-r border-slate-200 whitespace-nowrap bg-slate-50"
                       >
+                        Channel
+                      </th>
 
-                        <td className="px-2 py-2 font-semibold whitespace-nowrap border-r border-gray-200">
-                          {row.channel}
-                        </td>
+                      <th
+                        rowSpan={2}
+                        className="px-3 py-2 text-right border-r border-slate-200 whitespace-nowrap bg-slate-50"
+                      >
+                        TOTAL
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
-                          {formatNumber(row.total)}
-                        </td>
+                      <th
+                        rowSpan={2}
+                        className="px-3 py-2 text-right border-r border-slate-200 whitespace-nowrap bg-slate-50"
+                      >
+                        %
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
-                          {row.percentage.toFixed(1)}%
-                        </td>
+                      <th
+                        colSpan={2}
+                        className="px-3 py-1 text-center border-r border-slate-200 whitespace-nowrap bg-slate-50"
+                      >
+                        2026
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
-                          {formatNumber(row.blmJto2026)}
-                        </td>
+                      <th
+                        colSpan={2}
+                        className="px-3 py-1 text-center border-r border-slate-200 whitespace-nowrap bg-slate-50"
+                      >
+                        2025
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap text-red-600 border-r border-gray-200">
-                          {row.sdhJto2026 > 0
-                            ? `(${formatNumber(row.sdhJto2026)})`
-                            : '-'}
-                        </td>
+                      <th
+                        rowSpan={2}
+                        className="px-3 py-2 text-right border-r border-slate-200 whitespace-nowrap bg-slate-50"
+                      >
+                        &lt; 2024
+                        <br />
+                        SDH JTO
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
-                          {formatNumber(row.blmJto2025)}
-                        </td>
+                      <th
+                        rowSpan={2}
+                        className="px-3 py-2 text-right whitespace-nowrap bg-slate-50"
+                      >
+                        % SDH
+                        <br />
+                        JTO
+                      </th>
+                    </tr>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap text-red-600 border-r border-gray-200">
-                          {row.sdhJto2025 > 0
-                            ? `(${formatNumber(row.sdhJto2025)})`
-                            : '-'}
-                        </td>
+                    <tr>
+                      <th
+                        className="px-3 py-1 text-right border-r border-slate-200 bg-slate-100 whitespace-nowrap"
+                      >
+                        BLM JTO
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap border-r border-gray-200">
-                          {formatNumber(row.sdhJtoBefore2025)}
-                        </td>
+                      <th
+                        className="px-3 py-1 text-right border-r border-slate-200 bg-red-50 text-red-600 whitespace-nowrap"
+                      >
+                        SDH JTO
+                      </th>
 
-                        <td className="px-2 py-2 text-right whitespace-nowrap">
-                          {row.percentageSdhJto.toFixed(1)}%
-                        </td>
+                      <th
+                        className="px-3 py-1 text-right border-r border-slate-200 bg-slate-100 whitespace-nowrap"
+                      >
+                        BLM JTO
+                      </th>
 
-                      </tr>
-                    );
-                  })}
+                      <th
+                        className="px-3 py-1 text-right border-r border-slate-200 bg-red-50 text-red-600 whitespace-nowrap"
+                      >
+                        SDH JTO
+                      </th>
+                    </tr>
 
-                </tbody>
+                  </thead>
 
-              </table>
+
+                  {/* =========================
+            BODY
+        ========================= */}
+                  <tbody className="divide-y divide-slate-100">
+
+                    {channelTableRows.map((row) => {
+
+                        return (
+                          <tr
+                            key={row.channel}
+                            className={`transition ${
+                              row.isDummy
+                                ? 'bg-slate-50/60 hover:bg-slate-100'
+                                : 'hover:bg-slate-50'
+                            }`}
+                          >
+
+                            <td className="px-3 py-2 font-semibold whitespace-nowrap border-r border-slate-100">
+                              {row.channel}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap border-r border-slate-100">
+                              {formatNumber(row.total)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap border-r border-slate-100">
+                              {row.percentage.toFixed(1)}%
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap border-r border-slate-100">
+                              {formatNumber(row.blmJto2026)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap text-red-600 border-r border-slate-100">
+                              {row.sdhJto2026 > 0
+                                ? `(${formatNumber(row.sdhJto2026)})`
+                                : '-'}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap border-r border-slate-100">
+                              {formatNumber(row.blmJto2025)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap text-red-600 border-r border-slate-100">
+                              {row.sdhJto2025 > 0
+                                ? `(${formatNumber(row.sdhJto2025)})`
+                                : '-'}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap border-r border-slate-100">
+                              {formatNumber(row.sdhJtoBefore2025)}
+                            </td>
+
+                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                              {row.percentageSdhJto.toFixed(1)}%
+                            </td>
+
+                          </tr>
+                        );
+                      })}
+
+                  </tbody>
+
+
+                  {/* =========================
+            TOTAL FOOTER
+        ========================= */}
+                  <tfoot className="sticky bottom-0 z-30">
+
+                    {channelSummaryData
+                      .filter((row) => row.channel === 'TOTAL')
+                      .map((row) => (
+
+                        <tr
+                          key={row.channel}
+                          className="font-bold bg-blue-50 border-t-2 border-blue-200"
+                        >
+
+                          <td className="px-3 py-2 font-extrabold whitespace-nowrap border-r border-blue-100 text-blue-900">
+                            {row.channel}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap border-r border-blue-100 text-blue-900">
+                            {formatNumber(row.total)}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap border-r border-blue-100 text-blue-900">
+                            {row.percentage.toFixed(1)}%
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap border-r border-blue-100 text-blue-900">
+                            {formatNumber(row.blmJto2026)}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap text-red-600 border-r border-blue-100">
+                            {row.sdhJto2026 > 0
+                              ? `(${formatNumber(row.sdhJto2026)})`
+                              : '-'}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap border-r border-blue-100 text-blue-900">
+                            {formatNumber(row.blmJto2025)}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap text-red-600 border-r border-blue-100">
+                            {row.sdhJto2025 > 0
+                              ? `(${formatNumber(row.sdhJto2025)})`
+                              : '-'}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap border-r border-blue-100 text-blue-900">
+                            {formatNumber(row.sdhJtoBefore2025)}
+                          </td>
+
+                          <td className="px-3 py-2 text-right font-extrabold whitespace-nowrap text-blue-900">
+                            {row.percentageSdhJto.toFixed(1)}%
+                          </td>
+
+                        </tr>
+
+                      ))}
+
+                  </tfoot>
+
+                </table>
+
+              </div>
 
             </div>
+
           </div>
+
 
         </div>
 
@@ -5507,8 +5721,14 @@ const Dashboard = () => {
             flex-col
           ">
 
-            <div className="px-4 py-3 bg-blue-700 text-white text-center font-bold text-xs flex-shrink-0">
-              Top Piutang Jatuh Tempo berdasarkan Channel (Rp Ribu)
+            <div className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3 flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                <FaExclamationTriangle size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-800">Top Piutang Jatuh Tempo</h3>
+                <p className="text-[9px] text-slate-400">Berdasarkan Channel · Rp Ribu</p>
+              </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
@@ -5517,35 +5737,28 @@ const Dashboard = () => {
                 (group) => (
                   <div key={group.label}>
 
-                    <div className="
-                      bg-red-700
-                      text-white
-                      text-[10px]
-                      font-bold
-                      px-3
-                      py-1.5
-                    ">
+                    <div className="mx-3 my-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-bold text-red-600">
                       Total Overdue: Rp{' '}
                       {formatNumber(
                         group.total / 1000
                       )}{' '}
                       ({filteredData.length > 0
                         ? (
-                            (group.total /
-                              Math.max(
-                                filteredData.reduce(
-                                  (sum, item) =>
-                                    sum +
-                                    Number(
-                                      item.outstanding ||
-                                        0
-                                    ),
-                                  0
-                                ),
-                                1
-                              )) *
-                            100
-                          ).toFixed(0)
+                          (group.total /
+                            Math.max(
+                              filteredData.reduce(
+                                (sum, item) =>
+                                  sum +
+                                  Number(
+                                    item.outstanding ||
+                                    0
+                                  ),
+                                0
+                              ),
+                              1
+                            )) *
+                          100
+                        ).toFixed(0)
                         : 0}
                       % dari total Piutang)
                     </div>
@@ -5553,8 +5766,8 @@ const Dashboard = () => {
                     <div className="
                       grid
                       grid-cols-[minmax(0,1fr)_48px_75px_60px]
-                      bg-blue-700
-                      text-white
+                      bg-slate-100
+                      text-slate-500
                       text-[9px]
                       font-bold
                       px-2
@@ -5586,21 +5799,19 @@ const Dashboard = () => {
                               gap-1
                               text-[9px]
                               border-b
-                              border-blue-100
-                              ${
-                                index % 2 === 0
-                                  ? 'bg-white'
-                                  : 'bg-blue-50'
+                              border-slate-100
+                              ${index % 2 === 0
+                                ? 'bg-white'
+                                : 'bg-slate-50'
                               }
                             `}
                           >
                             <div
                               className={`
                                 truncate
-                                ${
-                                  critical
-                                    ? 'text-red-600 font-bold'
-                                    : 'text-gray-700'
+                                ${critical
+                                  ? 'text-red-600 font-bold'
+                                  : 'text-gray-700'
                                 }
                               `}
                               title={row.customer}
@@ -5611,10 +5822,9 @@ const Dashboard = () => {
                             <div
                               className={`
                                 text-center
-                                ${
-                                  critical
-                                    ? 'text-red-600 font-bold'
-                                    : 'text-gray-600'
+                                ${critical
+                                  ? 'text-red-600 font-bold'
+                                  : 'text-gray-600'
                                 }
                               `}
                             >
@@ -5625,10 +5835,9 @@ const Dashboard = () => {
                               className={`
                                 text-right
                                 font-semibold
-                                ${
-                                  critical
-                                    ? 'text-red-600'
-                                    : 'text-gray-700'
+                                ${critical
+                                  ? 'text-red-600'
+                                  : 'text-gray-700'
                                 }
                               `}
                             >
@@ -5640,10 +5849,9 @@ const Dashboard = () => {
                             <div
                               className={`
                                 text-right
-                                ${
-                                  critical
-                                    ? 'text-red-600 font-bold'
-                                    : 'text-gray-600'
+                                ${critical
+                                  ? 'text-red-600 font-bold'
+                                  : 'text-gray-600'
                                 }
                               `}
                             >
@@ -5686,18 +5894,15 @@ const Dashboard = () => {
             flex-col
           ">
 
-            <h3 className="
-              text-sm
-              font-semibold
-              text-gray-700
-              text-center
-              mb-2
-              flex-shrink-0
-            ">
-              Peringkat Cabang berdasarkan Skor
-              <br />
-              Kinerja Piutang
-            </h3>
+            <div className="mb-3 flex items-center gap-3 flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <FaChartLine size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Peringkat Cabang</h3>
+                <p className="text-[10px] text-slate-400">Berdasarkan Skor Kinerja Piutang</p>
+              </div>
+            </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1">
               <div className="w-full space-y-1">
@@ -5778,26 +5983,25 @@ const Dashboard = () => {
             flex-col
           ">
 
-            <h3 className="
-              text-sm
-              font-semibold
-              text-gray-700
-              text-center
-              mb-2
-              flex-shrink-0
-            ">
-              Saldo Piutang &gt;360 (Rp juta)
-            </h3>
+            <div className="mb-3 flex items-center gap-3 flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                <FaExclamationTriangle size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Saldo Piutang &gt;360</h3>
+                <p className="text-[10px] text-slate-400">Dalam Rp juta</p>
+              </div>
+            </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1">
               <div className="w-full space-y-1">
                 {piutang360BranchData.map((row) => {
                   const maxValue = Math.max(
-                          ...piutang360BranchData.map(
-                            (item) => item.value
-                          ),
-                          1
-                        );
+                    ...piutang360BranchData.map(
+                      (item) => item.value
+                    ),
+                    1
+                  );
 
                   const width = Math.max(
                     1,
