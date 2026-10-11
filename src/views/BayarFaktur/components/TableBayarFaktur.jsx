@@ -22,6 +22,11 @@ import {
   FaCamera,
   FaTimes,
   FaCreditCard,
+  FaSearch,
+  FaFilter,
+  FaSyncAlt,
+  FaChevronDown,
+  FaChevronUp,
 } from "react-icons/fa";
 
 import {
@@ -29,6 +34,9 @@ import {
 } from "react-icons/io5";
 
 import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
+import { swal } from "global/helper/swal";
+import storeSchema from "global/store";
 
 
 // =====================================================
@@ -126,252 +134,194 @@ const formatInputNominal = (value) => {
 
 
 // =====================================================
-// DUMMY DATA
+// DATA HELPER
 // =====================================================
 
-const dummyData = [
+const firstValue = (item, ...keys) => {
+  for (const key of keys) {
+    if (item?.[key] !== undefined && item?.[key] !== null && item?.[key] !== "") return item[key];
+  }
+  return null;
+};
 
-  {
-    id: 1,
-    no_faktur: "10000271521",
-    customer_id: "CUST001",
-    nama_customer: "Dinas Kesehatan Kota Medan",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Gatot Subroto No. 125, Medan",
+const normalizeStatus = (item, saldoPiutang = 0, dpp = 0) => {
+  if (saldoPiutang <= 0) return "SUDAH_DIBAYAR";
+  if (saldoPiutang >= 0 && saldoPiutang < dpp) return "SUDAH_DIBAYAR";
+  return "BELUM_DIBAYAR";
+};
 
-    nominal_tagihan: 140000000,
-    total_dibayar: 0,
-    sisa_tagihan: 140000000,
+const normalizeBayarFakturRow = (item, index, page = 1, limit = 10) => {
+  const dpp = Number(item?.dpp || 0);
+  const collections = Number(item?.collections ?? item?.total_dibayar ?? 0);
+  const saldoPiutang = Number(item?.saldo_piutang ?? (dpp - collections));
+  const status = normalizeStatus(item, saldoPiutang, dpp);
+  const statusLunas = saldoPiutang <= 0 ? "SUDAH_LUNAS" : "BELUM_LUNAS";
+  const statusLunasLabel = saldoPiutang <= 0 ? "Sudah Lunas" : "Belum Lunas";
 
-    posting_date: "2026-08-01",
-    due_date: "2026-08-22",
+  return {
+    ...item,
+    id: item?.piutang_id ?? `${page}-${index}`,
+    piutang_id: item?.piutang_id ?? null,
+    no_faktur: item?.no_faktur || "-",
+    no_billing: item?.no_billing || "-",
+    customer: item?.customer || "",
+    customer_id: item?.customer || "",
+    nama_customer: item?.nama_customer || "-",
+    petugas: item?.petugas || "-",
+    nama_penagih: item?.petugas || "-",
+    cabang: item?.cabang || "",
+    nama_cabang: item?.nama_cabang || "-",
+    principle: item?.principle || "",
+    nama_principle: item?.nama_principle || "-",
+    collections,
+    total_dibayar: collections,
+    saldo_piutang: saldoPiutang,
+    sisa_tagihan: saldoPiutang,
+    posting_date: item?.posting_date || null,
+    due_date: item?.jatuh_tempo || null,
+    jatuh_tempo: item?.jatuh_tempo || null,
+    sales: item?.sales || "-",
+    status,
+    status_label: status === "BELUM_DIBAYAR" ? "Belum Dibayar" : "Sudah Dibayar",
+    status_lunas: statusLunas,
+    status_lunas_label: statusLunasLabel,
+  };
+};
 
-    sales: "Andri Noviandy",
+const getHistoryPembayaran = (item) => {
+  const history = item?.h_pembayaran ?? item?.history_pembayaran ?? [];
+  const result = [];
 
-    status: "MENUNGGU_PEMBAYARAN",
-  },
+  const addHistory = (rows, source) => {
+    if (!Array.isArray(rows)) return;
+    rows.forEach((row, index) => {
+      if (!row) return;
+      const tanggal = firstValue(row, "tanggal_pembayaran", "tanggal_bayar", "tanggal", "payment_date", "created_at", "tgl_bayar");
+      const nominal = firstValue(row, "nominal_bayar", "nominal_pembayaran", "nominal", "amount", "nominal_billing");
+      const metode = source === "COD"
+        ? "COD"
+        : firstValue(row, "metode_pembayaran", "payment_method", "metode", "method") || "-";
+      const statusVerifikasi = firstValue(row, "status_verifikasi", "verification_status", "status_verifikasi_pembayaran", "status") || "-";
+      const tanggalVerifikasi = firstValue(row, "tanggal_verifikasi", "verification_date", "verified_at");
 
-  {
-    id: 2,
-    no_faktur: "10000271522",
-    customer_id: "CUST002",
-    nama_customer: "Apotek Maju Djaya",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Sisingamangaraja No. 88, Medan",
+      result.push({
+        id: row?.id ?? row?.pembayaran_id ?? `${source}-${index}`,
+        tanggal,
+        nominal: Number(nominal || 0),
+        metode,
+        status_verifikasi: statusVerifikasi,
+        tanggal_verifikasi: tanggalVerifikasi,
+        source,
+      });
+    });
+  };
 
-    nominal_tagihan: 85000000,
-    total_dibayar: 0,
-    sisa_tagihan: 85000000,
+  if (Array.isArray(history)) {
+    history.forEach((row, index) => {
+      if (!row) return;
 
-    posting_date: "2026-08-02",
-    due_date: "2026-08-25",
+      const source = String(
+        firstValue(row, "source", "asal", "jenis", "sumber", "table", "from") || ""
+      ).toUpperCase();
 
-    sales: "Budi Santoso",
+      if (source === "COD" || source === "D_COD") {
+        addHistory([row], "COD");
+      } else {
+        addHistory([row], "D_PEMBAYARAN");
+      }
+    });
+  } else if (history && typeof history === "object") {
+    addHistory(history?.d_cod, "COD");
+    addHistory(history?.d_pembayaran, "D_PEMBAYARAN");
+    addHistory(history?.cod, "COD");
+    addHistory(history?.pembayaran, "D_PEMBAYARAN");
 
-    status: "MENUNGGU_PEMBAYARAN",
-  },
+    if (result.length === 0 && Array.isArray(history?.data)) {
+      history.data.forEach((row, index) => {
+        const source = String(
+          firstValue(row, "source", "asal", "jenis", "sumber", "table", "from") || ""
+        ).toUpperCase();
+        addHistory([row], source === "COD" || source === "D_COD" ? "COD" : "D_PEMBAYARAN");
+      });
+    }
+  }
 
-  {
-    id: 3,
-    no_faktur: "10000271523",
-    customer_id: "CUST001",
-    nama_customer: "Dinas Kesehatan Kota Medan",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Gatot Subroto No. 125, Medan",
+  return result;
+};
 
-    nominal_tagihan: 140000000,
-    total_dibayar: 0,
-    sisa_tagihan: 140000000,
+const getDisplayInvoiceAmounts = (item) => {
+  const dpp = Number(item?.dpp || 0);
+  const ppn = Number(item?.ppn || 0);
+  const pph = Number(item?.pph || 0);
+  const totalInvoice = dpp + ppn;
 
-    posting_date: "2026-08-03",
-    due_date: "2026-08-27",
+  return {
+    dpp,
+    ppn,
+    pph,
+    totalInvoice,
+  };
+};
 
-    sales: "Citra Lestari",
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input
+      type="checkbox"
+      checked={props.isSelected}
+      readOnly
+      className="checkbox checkbox-primary checkbox-xs mr-2"
+    />
+    {props.label}
+  </selectComponents.Option>
+);
 
-    status: "MENUNGGU_PEMBAYARAN",
-  },
+const FilterMultiValue = () => null;
 
-  {
-    id: 4,
-    no_faktur: "10000271524",
-    customer_id: "CUST003",
-    nama_customer: "RSUD Pasuruan",
-    nama_penagih: "KFTD Pasuruan",
-    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
 
-    nominal_tagihan: 175000000,
-    total_dibayar: 0,
-    sisa_tagihan: 175000000,
+  return (
+    <selectComponents.ValueContainer {...props}>
+      {selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}
+      {children[1]}
+    </selectComponents.ValueContainer>
+  );
+};
 
-    posting_date: "2026-08-04",
-    due_date: "2026-08-29",
+const filterSelectComponents = {
+  Option: FilterOption,
+  MultiValue: FilterMultiValue,
+  ValueContainer: FilterValueContainer,
+};
 
-    sales: "Dimas Pratama",
+const filterSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 36,
+    borderRadius: 9999,
+    borderColor: state.isFocused ? "#2563eb" : "#d1d5db",
+    boxShadow: "none",
+    fontSize: ".875rem",
+    ":hover": {
+      borderColor: "#2563eb",
+    },
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: "0 10px",
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    height: 36,
+  }),
+  menu: (base) => ({
+    ...base,
+    zIndex: 50,
+  }),
+};
 
-    status: "MENUNGGU_PEMBAYARAN",
-  },
-
-  {
-    id: 5,
-    no_faktur: "10000271525",
-    customer_id: "CUST004",
-    nama_customer: "RS Hermina Medan",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Asrama No. 12, Medan",
-
-    nominal_tagihan: 95000000,
-    total_dibayar: 0,
-    sisa_tagihan: 95000000,
-
-    posting_date: "2026-08-05",
-    due_date: "2026-08-30",
-
-    sales: "Andri Noviandy",
-
-    status: "MENUNGGU_PEMBAYARAN",
-  },
-
-  {
-    id: 6,
-    no_faktur: "10000271526",
-    customer_id: "CUST003",
-    nama_customer: "RSUD Pasuruan",
-    nama_penagih: "KFTD Pasuruan",
-    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-
-    nominal_tagihan: 65000000,
-    total_dibayar: 0,
-    sisa_tagihan: 65000000,
-
-    posting_date: "2026-08-06",
-    due_date: "2026-09-01",
-
-    sales: "Budi Santoso",
-
-    status: "MENUNGGU_PEMBAYARAN",
-  },
-
-  {
-    id: 7,
-    no_faktur: "10000271527",
-    customer_id: "CUST004",
-    nama_customer: "RS Hermina Medan",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Asrama No. 12, Medan",
-
-    nominal_tagihan: 72500000,
-    total_dibayar: 0,
-    sisa_tagihan: 72500000,
-
-    posting_date: "2026-08-07",
-    due_date: "2026-09-03",
-
-    sales: "Citra Lestari",
-
-    status: "BELUM_DIBAYAR",
-  },
-
-  {
-    id: 8,
-    no_faktur: "10000271528",
-    customer_id: "CUST001",
-    nama_customer: "Dinas Kesehatan Kota Medan",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Gatot Subroto No. 125, Medan",
-
-    nominal_tagihan: 210000000,
-    total_dibayar: 0,
-    sisa_tagihan: 210000000,
-
-    posting_date: "2026-08-08",
-    due_date: "2026-09-05",
-
-    sales: "Dimas Pratama",
-
-    status: "BELUM_DIBAYAR",
-  },
-
-  {
-    id: 9,
-    no_faktur: "10000271529",
-    customer_id: "CUST003",
-    nama_customer: "RSUD Pasuruan",
-    nama_penagih: "KFTD Pasuruan",
-    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-
-    nominal_tagihan: 125000000,
-    total_dibayar: 0,
-    sisa_tagihan: 125000000,
-
-    posting_date: "2026-08-09",
-    due_date: "2026-09-07",
-
-    sales: "Andri Noviandy",
-
-    status: "BELUM_DIBAYAR",
-  },
-
-  {
-    id: 10,
-    no_faktur: "10000271530",
-    customer_id: "CUST004",
-    nama_customer: "RS Hermina Medan",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Asrama No. 12, Medan",
-
-    nominal_tagihan: 45000000,
-    total_dibayar: 0,
-    sisa_tagihan: 45000000,
-
-    posting_date: "2026-08-10",
-    due_date: "2026-09-10",
-
-    sales: "Budi Santoso",
-
-    status: "BELUM_DIBAYAR",
-  },
-
-  {
-    id: 11,
-    no_faktur: "10000271531",
-    customer_id: "CUST002",
-    nama_customer: "Apotek Maju Djaya",
-    nama_penagih: "KFTD Medan",
-    alamat: "Jl. Sisingamangaraja No. 88, Medan",
-
-    nominal_tagihan: 185000000,
-    total_dibayar: 0,
-    sisa_tagihan: 185000000,
-
-    posting_date: "2026-08-11",
-    due_date: "2026-09-12",
-
-    sales: "Citra Lestari",
-
-    status: "BELUM_DIBAYAR",
-  },
-
-  {
-    id: 12,
-    no_faktur: "10000271532",
-    customer_id: "CUST003",
-    nama_customer: "RSUD Pasuruan",
-    nama_penagih: "KFTD Pasuruan",
-    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-
-    nominal_tagihan: 55000000,
-    total_dibayar: 0,
-    sisa_tagihan: 55000000,
-
-    posting_date: "2026-08-12",
-    due_date: "2026-09-15",
-
-    sales: "Dimas Pratama",
-
-    status: "BELUM_DIBAYAR",
-  },
-
-];
+const getSelectedFilterOptions = (options, selectedValues) =>
+  options.filter((option) => selectedValues.includes(option.value));
 
 
 // =====================================================
@@ -426,26 +376,32 @@ const TableBayarFaktur = ({
   // STATE
   // ===================================================
 
-  const [allData, setAllData] =
-    useState(dummyData);
-
-  const [keyword, setKeyword] =
-    useState("");
-
-  const [selectedStatus, setSelectedStatus] =
-    useState("ALL");
-
-  const [currentPage, setCurrentPage] =
-    useState(1);
-
-  const [perPage, setPerPage] =
-    useState(10);
+  const [allData, setAllData] = useState([]);
+  const [summaryData, setSummaryData] = useState({ total: 0, belum_dibayar: 0, partial: 0, menunggu_pembayaran: 0, sudah_dibayar: 0, total_nominal: 0, total_collections: 0, total_saldo_piutang: 0 });
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
+  const [keyword, setKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [filterCabang, setFilterCabang] = useState([]);
+  const [filterCustomer, setFilterCustomer] = useState([]);
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [selectedStatusVerifikasi, setSelectedStatusVerifikasi] = useState("ALL");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [cabangOptions, setCabangOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
 
   const [selectedData, setSelectedData] =
     useState(null);
 
   const [selectedIds, setSelectedIds] =
     useState([]);
+
+  const [expandedRows, setExpandedRows] =
+    useState({});
 
   const [paymentMethod, setPaymentMethod] =
     useState("DIRECT_TRANSFER");
@@ -515,279 +471,186 @@ const TableBayarFaktur = ({
     setSelectedCustomerId
   ] = useState("");
 
+  const [
+    partialInvoiceData,
+    setPartialInvoiceData
+  ] = useState([]);
+
 
   // ===================================================
   // CUSTOMER OPTIONS FOR PARTIAL PAYMENT
   // ===================================================
 
-  const partialCustomerOptions =
-    useMemo(() => {
+  const partialCustomerOptions = customerOptions;
 
-      const customers =
-        allData.filter(
-          item =>
-            (
-              item.status ===
-              "BELUM_DIBAYAR"
-              ||
-              item.status ===
-              "PARTIAL"
-            )
-            &&
-            Number(
-              item.sisa_tagihan ??
-              item.nominal_tagihan ??
-              0
-            ) > 0
-        );
 
-      const map =
-        new Map();
+  // ===================================================
+  // API DATA + FILTER
+  // ===================================================
 
-      customers.forEach(
-        item => {
+  const getReferensi = async () => {
+    try {
+      const refCabang = await storeSchema.actions.getReferensiByJenis("cabang_id");
+      if (refCabang?.status === true) {
+        setCabangOptions((refCabang?.data || []).map((item) => ({ label: item?.ur_ref, value: item?.kd_ref })));
+      }
+    } catch (error) {
+      console.error("ERROR GET REFERENSI CABANG:", error);
+    }
+  };
 
-          if (
-            !map.has(
-              item.customer_id
-            )
-          ) {
+  const loadCustomerOptions = async () => {
+    try {
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: "ALL",
+        customer: "ALL",
+        status: "ALL",
+        start_date: "",
+        end_date: "",
+      });
+      if (res?.status === true) {
+        const list = (res?.data?.list_data || []).map((item, index) => normalizeBayarFakturRow(item, index, 1, 9999));
+        const map = new Map();
 
-            map.set(
-              item.customer_id,
-              {
-                customer_id:
-                  item.customer_id,
+        list.forEach((item) => {
+          const value = item?.customer || "";
+          const label = item?.nama_customer || value;
+          if (!value) return;
 
-                nama_customer:
-                  item.nama_customer,
-
-                nama_penagih:
-                  item.nama_penagih,
-
-                jumlah_faktur: 0,
-
-                total_sisa_tagihan: 0,
-              }
-            );
-
+          if (!map.has(String(value))) {
+            map.set(String(value), {
+              label: label || "-",
+              value,
+              customer_id: value,
+              nama_customer: label || "-",
+              jumlah_faktur: 0,
+              total_saldo_piutang: 0,
+            });
           }
 
-          const customer =
-            map.get(
-              item.customer_id
-            );
+          const customer = map.get(String(value));
+          customer.jumlah_faktur += 1;
+          customer.total_saldo_piutang += Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+        });
 
-          customer.jumlah_faktur +=
-            1;
+        setCustomerOptions(Array.from(map.values()));
+      }
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER OPTIONS:", error);
+    }
+  };
 
-          customer.total_sisa_tagihan +=
-            Number(
-              item.sisa_tagihan ??
-              item.nominal_tagihan ??
-              0
-            );
-
-        }
-      );
-
-      return Array.from(
-        map.values()
-      );
-
-    }, [
-      allData
-    ]);
-
-
-  // ===================================================
-  // SUMMARY
-  // ===================================================
-
-  const summaryData =
-    useMemo(() => {
-
-      const belumDibayar =
-        allData.filter(
-          x =>
-            x.status ===
-            "BELUM_DIBAYAR"
-        );
-
-      const partial =
-        allData.filter(
-          x =>
-            x.status ===
-            "PARTIAL"
-        );
-
-      const sudahDibayar =
-        allData.filter(
-          x =>
-            x.status ===
-            "SUDAH_DIBAYAR"
-        );
-
-      return {
-
-        total:
-          allData.length,
-
-        belum_dibayar:
-          belumDibayar.length,
-
-        partial:
-          partial.length,
-
-        sudah_dibayar:
-          sudahDibayar.length,
-
-        total_nominal:
-          allData
-            .filter(
-              x =>
-                x.status !==
-                "SUDAH_DIBAYAR"
-            )
-            .reduce(
-              (
-                sum,
-                x
-              ) =>
-                sum +
-                Number(
-                  x.sisa_tagihan ??
-                  x.nominal_tagihan ??
-                  0
-                ),
-              0
-            ),
-
+  const getDataBayarFaktur = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        page: currentPage,
+        limit: perPage,
+        keyword: searchKeyword,
+        sales_office: filterCabang.length ? filterCabang : "ALL",
+        customer: filterCustomer.length ? filterCustomer : "ALL",
+        status: selectedStatus,
+        status_verifikasi: selectedStatusVerifikasi,
+        start_date: filterStartDate,
+        end_date: filterEndDate,
       };
+      const res = await storeSchema.actions.getDataBayarFaktur(payload);
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data Bayar Faktur");
+      const responseData = res?.data || {};
+      const list = responseData?.list_data || [];
+      const normalized = list.map((item, index) => normalizeBayarFakturRow(item, index, currentPage, perPage));
+      setAllData(normalized);
+      setSelectedIds([]);
+      setExpandedRows({});
+      const totalDataResponse = Number(responseData?.total_data || 0);
+      setTotalData(totalDataResponse);
+      setTotalPage(Number(responseData?.total_halaman || Math.ceil(totalDataResponse / perPage) || 0));
+      const summary = responseData?.summary || {};
+      setSummaryData({
+        total: Number(summary?.total_faktur ?? summary?.total ?? totalDataResponse),
+        belum_dibayar: Number(summary?.belum_dibayar ?? summary?.belum ?? 0),
+        partial: Number(summary?.partial ?? summary?.partial_payment ?? 0),
+        menunggu_pembayaran: Number(summary?.menunggu_pembayaran ?? summary?.menunggu ?? 0),
+        sudah_dibayar: Number(summary?.sudah_dibayar ?? summary?.sudah ?? 0),
+        total_nominal: Number(summary?.total_dpp ?? 0),
+        total_collections: Number(summary?.total_collections ?? 0),
+        total_saldo_piutang: Number(summary?.total_saldo_piutang ?? 0),
+      });
+    } catch (error) {
+      console.error("ERROR GET DATA BAYAR FAKTUR:", error);
+      setAllData([]);
+      setTotalData(0);
+      setTotalPage(0);
+      setSummaryData({ total: 0, belum_dibayar: 0, partial: 0, menunggu_pembayaran: 0, sudah_dibayar: 0, total_nominal: 0, total_collections: 0, total_saldo_piutang: 0 });
+      await swal.error(error?.message || "Gagal mengambil data Bayar Faktur");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    }, [
-      allData
-    ]);
+  useEffect(() => {
+    getReferensi();
+    loadCustomerOptions();
+  }, []);
 
+  useEffect(() => {
+    getDataBayarFaktur();
+  }, [currentPage, perPage, searchKeyword, filterCabang, filterCustomer, selectedStatus, selectedStatusVerifikasi, filterStartDate, filterEndDate]);
 
-  // ===================================================
-  // FILTER
-  // ===================================================
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchKeyword(keyword.trim());
+  };
 
-  const filteredData =
-    useMemo(() => {
+  const resetFilter = () => {
+    setKeyword("");
+    setSearchKeyword("");
+    setFilterCabang([]);
+    setFilterCustomer([]);
+    setSelectedStatus("ALL");
+    setSelectedStatusVerifikasi("ALL");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setCurrentPage(1);
+  };
 
-      let data =
-        [...allData];
-
-
-      if (
-        selectedStatus !==
-        "ALL"
-      ) {
-
-        data =
-          data.filter(
-            item =>
-              item.status ===
-              selectedStatus
-          );
-
-      }
-
-
-      if (
-        keyword.trim()
-      ) {
-
-        const search =
-          keyword.toLowerCase();
-
-
-        data =
-          data.filter(
-            item =>
-
-              item.no_faktur
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.nama_customer
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.nama_penagih
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.sales
-                ?.toLowerCase()
-                .includes(search)
-
-          );
-
-      }
-
-
-      return data;
-
-    }, [
-      allData,
-      selectedStatus,
-      keyword,
-    ]);
-
+  const handleRefresh = () => {
+    if (currentPage === 1) getDataBayarFaktur();
+    else setCurrentPage(1);
+  };
 
   // ===================================================
   // PAGINATION
   // ===================================================
 
-  const totalData =
-    filteredData.length;
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) *
-      perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  useEffect(() => {
-
-    setCurrentPage(1);
-
-  }, [
-    keyword,
-    selectedStatus,
-    perPage,
-  ]);
-
+  const filteredData = allData;
+  const paginatedData = allData;
+  const totalDataLocal = totalData;
+  const totalPageLocal = totalPage;
 
   // ===================================================
   // SELECT CHECKBOX
   // ===================================================
 
+  const isSelectableInvoice = (item) => {
+    const saldoPiutang = Number(item?.saldo_piutang ?? 0);
+    return saldoPiutang > 0;
+  };
+
   const handleSelectOne = (
     id
   ) => {
+
+    const item = paginatedData.find(
+      row => row.id === id
+    );
+
+    if (!item || !isSelectableInvoice(item)) {
+      return;
+    }
 
     setSelectedIds(
       prev => {
@@ -818,17 +681,19 @@ const TableBayarFaktur = ({
   // SELECT ALL
   // ===================================================
 
-  const currentPageIds =
-    paginatedData.map(
-      item =>
-        item.id
-    );
+  const currentPageSelectableIds =
+    paginatedData
+      .filter(isSelectableInvoice)
+      .map(
+        item =>
+          item.id
+      );
 
 
   const isAllSelected =
-    currentPageIds.length >
+    currentPageSelectableIds.length >
     0 &&
-    currentPageIds.every(
+    currentPageSelectableIds.every(
       id =>
         selectedIds.includes(id)
     );
@@ -844,7 +709,7 @@ const TableBayarFaktur = ({
         prev =>
           prev.filter(
             id =>
-              !currentPageIds.includes(
+              !currentPageSelectableIds.includes(
                 id
               )
           )
@@ -857,7 +722,7 @@ const TableBayarFaktur = ({
 
           ...new Set([
             ...prev,
-            ...currentPageIds,
+            ...currentPageSelectableIds,
           ]),
 
         ]
@@ -867,6 +732,17 @@ const TableBayarFaktur = ({
 
   };
 
+
+  // ===================================================
+  // EXPAND HISTORY PEMBAYARAN
+  // ===================================================
+
+  const toggleHistoryPembayaran = (id) => {
+    setExpandedRows((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   // ===================================================
   // OPEN PAYMENT
@@ -960,279 +836,366 @@ const TableBayarFaktur = ({
   // PROCESS FULL PAYMENT
   // ===================================================
 
-  const handlePayment = () => {
-    if (paymentMethod === "PARTIAL_PAYMENT") {
-      if (!canUsePartialPayment) {
-        alert(
-          "Partial Payment hanya dapat digunakan untuk faktur dari 1 customer yang sama."
-        );
-        return;
-      }
+  const handlePayment = async () => {
+  if (!paymentFile) {
+    alert("File bukti pembayaran wajib diupload.");
+    return;
+  }
 
-      const paymentAmount =
-        parseNominal(paymentPartialAmount);
+  if (paymentMethod === "PARTIAL_PAYMENT") {
+    if (!canUsePartialPayment) {
+      alert(
+        "Partial Payment hanya dapat digunakan untuk faktur dari 1 customer yang sama."
+      );
+      return;
+    }
 
-      if (paymentAmount <= 0) {
-        alert(
-          "Masukkan nominal pembayaran terlebih dahulu."
-        );
-        return;
-      }
+    const paymentAmount =
+      parseNominal(paymentPartialAmount);
 
-      if (!showPaymentAllocation) {
-        alert(
-          "Klik Tampilkan Alokasi Pembayaran terlebih dahulu."
-        );
-        return;
-      }
+    if (paymentAmount <= 0) {
+      alert(
+        "Masukkan nominal pembayaran terlebih dahulu."
+      );
+      return;
+    }
 
-      if (allocatedPaymentTotal <= 0) {
-        alert(
-          "Minimal 1 faktur harus memiliki alokasi pembayaran."
-        );
-        return;
-      }
+    if (!showPaymentAllocation) {
+      alert(
+        "Klik Tampilkan Alokasi Pembayaran terlebih dahulu."
+      );
+      return;
+    }
 
-      if (allocatedPaymentTotal > paymentAmount) {
-        alert(
-          "Total alokasi tidak boleh melebihi nominal pembayaran."
-        );
-        return;
-      }
+    if (allocatedPaymentTotal <= 0) {
+      alert(
+        "Minimal 1 faktur harus memiliki alokasi pembayaran."
+      );
+      return;
+    }
 
-      if (allocatedPaymentTotal > totalSelectedPayment) {
-        alert(
-          "Total alokasi tidak boleh melebihi total sisa tagihan."
-        );
-        return;
-      }
+    if (allocatedPaymentTotal > paymentAmount) {
+      alert(
+        "Total alokasi tidak boleh melebihi nominal pembayaran."
+      );
+      return;
+    }
 
-      setAllData((prev) =>
-        prev.map((item) => {
-          const payment = Number(
-            paymentAllocation[
-              item?.no_faktur
+    if (allocatedPaymentTotal > totalSelectedPayment) {
+      alert(
+        "Total alokasi tidak boleh melebihi total sisa tagihan."
+      );
+      return;
+    }
+
+    const selectedInvoices =
+      selectedPaymentInvoices.filter(
+        invoice =>
+          Number(
+            paymentAllocation?.[
+              invoice?.no_faktur
             ] || 0
-          );
-
-          if (
-            !payment ||
-            String(item?.customer_id) !==
-              String(selectedPaymentCustomer)
-          ) {
-            return item;
-          }
-
-          const invoiceAmount =
-            Number(
-              item?.nominal_tagihan || 0
-            );
-
-          const currentPaid =
-            Number(
-              item?.total_dibayar || 0
-            );
-
-          const currentRemaining =
-            Number(
-              item?.sisa_tagihan ??
-              invoiceAmount
-            );
-
-          const remaining =
-            Math.max(
-              0,
-              currentRemaining -
-                payment
-            );
-
-          return {
-            ...item,
-            nominal_tagihan:
-              invoiceAmount,
-            total_dibayar:
-              currentPaid + payment,
-            sisa_tagihan:
-              remaining,
-            status:
-              remaining <= 0
-                ? "SUDAH_DIBAYAR"
-                : "PARTIAL",
-            tanggal_pembayaran:
-              new Date().toISOString(),
-            metode_pembayaran:
-              "PARTIAL_PAYMENT",
-          };
-        })
+          ) > 0
       );
 
-      setSelectedIds((prev) =>
-        prev.filter(
-          (id) =>
-            !selectedPaymentInvoices.some(
-              (invoice) =>
-                invoice.id === id &&
-                Number(
-                  paymentAllocation[
-                    invoice.no_faktur
-                  ] || 0
-                ) > 0
-            )
-        )
+    if (selectedInvoices.length === 0) {
+      alert(
+        "Minimal 1 faktur harus memiliki alokasi pembayaran."
       );
-
-      closePayment();
       return;
     }
 
-    // Menunggu Pembayaran tidak membuat faktur menjadi lunas.
-    // Hanya mencatat status dan tanggal rencana pembayaran.
-    if (paymentMethod === "MENUNGGU_PEMBAYARAN") {
-      if (!plannedPaymentDate) {
-        alert(
-          "Tanggal rencana pembayaran wajib diisi."
-        );
-        return;
-      }
+    try {
+      const formData =
+        new FormData();
 
-      const dataToWait =
-        Array.isArray(selectedData)
-          ? selectedData
-          : [selectedData];
+      const payload = {
+        jenis_pembayaran:
+          "PARTIAL_PAYMENT",
 
-      const idsToWait = dataToWait
-        .filter(Boolean)
-        .map((item) => item.id);
+        metode_pembayaran:
+          paymentMethod,
 
-      setAllData((prev) =>
-        prev.map((item) => {
-          if (!idsToWait.includes(item.id)) {
-            return item;
-          }
+        nominal_bayar:
+          paymentAmount,
 
-          return {
-            ...item,
-            status: "MENUNGGU_PEMBAYARAN",
-            tanggal_rencana_pembayaran: plannedPaymentDate,
-            metode_pembayaran: "MENUNGGU_PEMBAYARAN",
-          };
-        })
-      );
+        keterangan:
+          description || "",
 
-      setSelectedIds((prev) =>
-        prev.filter((id) => !idsToWait.includes(id))
-      );
+        user_id:
+          loginAccess?.user_id || null,
 
-      closePayment();
-      return;
-    }
+        nip:
+          loginAccess?.nip || null,
 
+        faktur:
+          selectedInvoices.map(
+            invoice => ({
+              piutang_id:
+                invoice?.piutang_id ||
+                invoice?.id ||
+                null,
 
-    const dataToPay =
-      Array.isArray(
-        selectedData
-      )
-        ? selectedData
-        : [
-          selectedData,
-        ];
+              no_faktur:
+                invoice?.no_faktur ||
+                null,
 
+              no_billing:
+                invoice?.no_billing ||
+                null,
 
-    const ids =
-      dataToPay.map(
-        item =>
-          item.id
-      );
+              customer:
+                invoice?.customer_id ||
+                invoice?.customer ||
+                null,
 
-
-    setAllData(
-      prev =>
-        prev.map(
-          item => {
-
-            if (
-              !ids.includes(
-                item.id
-              )
-            ) {
-
-              return item;
-
-            }
-
-
-            return {
-
-              ...item,
-
-              total_dibayar:
+              total_bayar:
                 Number(
-                  item.nominal_tagihan ||
+                  invoice?.saldo_piutang ??
+                  invoice?.sisa_tagihan ??
+                  invoice?.nominal_tagihan ??
                   0
                 ),
 
-              sisa_tagihan:
-                0,
+              saldo_piutang:
+                Number(
+                  invoice?.saldo_piutang ??
+                  invoice?.sisa_tagihan ??
+                  0
+                ),
 
-              status:
-                "SUDAH_DIBAYAR",
+              nominal_pembayaran:
+                Number(
+                  paymentAllocation?.[
+                    invoice?.no_faktur
+                  ] || 0
+                ),
+            })
+          ),
+      };
 
-              tanggal_pembayaran:
-                new Date()
-                  .toISOString(),
+      formData.append(
+        "payload",
+        JSON.stringify(payload)
+      );
 
-              metodo_pembayaran:
-                paymentMethod,
+      formData.append(
+        "lampiran",
+        paymentFile,
+        paymentFile.name
+      );
 
-            };
+      const res =
+        await storeSchema.actions.insertBayarFaktur(
+          formData
+        );
 
-          }
-        )
+      if (res?.status !== true) {
+        throw new Error(
+          res?.message ||
+          "Gagal menyimpan pembayaran."
+        );
+      }
+
+      alert(
+        res?.message ||
+        "Pembayaran berhasil disimpan."
+      );
+
+      closePayment();
+
+      setSelectedIds([]);
+
+      await getDataBayarFaktur();
+
+    } catch (error) {
+
+      console.error(
+        "ERROR INSERT BAYAR FAKTUR:",
+        error
+      );
+
+      alert(
+        error?.message ||
+        "Gagal menyimpan pembayaran."
+      );
+    }
+
+    return;
+  }
+
+  const dataToPay =
+    Array.isArray(selectedData)
+      ? selectedData
+      : [selectedData];
+
+  if (
+    !dataToPay.length ||
+    !dataToPay.some(Boolean)
+  ) {
+    alert(
+      "Tidak ada faktur yang dipilih."
+    );
+    return;
+  }
+
+  try {
+
+    const formData =
+      new FormData();
+
+    const payload = {
+      jenis_pembayaran:
+        "FULL_PAYMENT",
+
+      metode_pembayaran:
+        paymentMethod,
+
+      nominal_bayar:
+        totalPayment,
+
+      keterangan:
+        description || "",
+
+      user_id:
+        loginAccess?.user_id || null,
+
+      nip:
+        loginAccess?.nip || null,
+
+      faktur:
+        dataToPay
+          .filter(Boolean)
+          .map(
+            item => ({
+              piutang_id:
+                item?.piutang_id ||
+                item?.id ||
+                null,
+
+              no_faktur:
+                item?.no_faktur ||
+                null,
+
+              no_billing:
+                item?.no_billing ||
+                null,
+
+              customer:
+                item?.customer_id ||
+                item?.customer ||
+                null,
+
+              total_bayar:
+                Number(
+                  item?.saldo_piutang ??
+                  item?.sisa_tagihan ??
+                  item?.nominal_tagihan ??
+                  0
+                ),
+
+              saldo_piutang:
+                Number(
+                  item?.saldo_piutang ??
+                  item?.sisa_tagihan ??
+                  0
+                ),
+            })
+          ),
+    };
+
+    formData.append(
+      "payload",
+      JSON.stringify(payload)
     );
 
-
-    setSelectedIds(
-      prev =>
-        prev.filter(
-          id =>
-            !ids.includes(id)
-        )
+    formData.append(
+      "lampiran",
+      paymentFile,
+      paymentFile.name
     );
 
+    const res =
+      await storeSchema.actions.insertBayarFaktur(
+        formData
+      );
+
+    if (res?.status !== true) {
+      throw new Error(
+        res?.message ||
+        "Gagal menyimpan pembayaran."
+      );
+    }
+
+    alert(
+      res?.message ||
+      "Pembayaran berhasil disimpan."
+    );
 
     closePayment();
 
-  };
+    setSelectedIds([]);
 
+    await getDataBayarFaktur();
+
+  } catch (error) {
+
+    console.error(
+      "ERROR INSERT BAYAR FAKTUR:",
+      error
+    );
+
+    alert(
+      error?.message ||
+      "Gagal menyimpan pembayaran."
+    );
+  }
+};
 
   // ===================================================
   // OPEN PARTIAL PAYMENT
   // =====================================================
 
-  const openPartialPayment = (
+  const openPartialPayment = async (
     data = null
   ) => {
-
+    const customerId = data?.customer_id ? data.customer_id : "";
     setPartialPaymentAmount("");
-
-    setPartialPaymentMethod(
-      "MANUAL"
-    );
-
+    setPartialPaymentMethod("MANUAL");
     setPartialSelectedIds([]);
-
     setPartialAllocation([]);
+    setSelectedCustomerId(customerId);
+    setPartialInvoiceData([]);
+    setShowPartialPaymentModal(true);
+    if (customerId) {
+      await loadPartialInvoices(customerId);
+    }
+  };
 
-    setSelectedCustomerId(
-      data?.customer_id
-        ? data.customer_id
-        : ""
-    );
-
-    setShowPartialPaymentModal(
-      true
-    );
-
+  const loadPartialInvoices = async (customerId) => {
+    if (!customerId) {
+      setPartialInvoiceData([]);
+      return;
+    }
+    try {
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: "ALL",
+        customer: [customerId],
+        status: "ALL",
+        start_date: "",
+        end_date: "",
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil faktur customer");
+      const list = res?.data?.list_data || [];
+      setPartialInvoiceData(list.map((item, index) => normalizeBayarFakturRow(item, index, 1, 9999)));
+    } catch (error) {
+      console.error("ERROR GET FAKTUR CUSTOMER:", error);
+      setPartialInvoiceData([]);
+      await swal.error(error?.message || "Gagal mengambil faktur customer");
+    }
   };
 
 
@@ -1257,6 +1220,7 @@ const TableBayarFaktur = ({
     setPartialAllocation([]);
 
     setSelectedCustomerId("");
+    setPartialInvoiceData([]);
 
   };
 
@@ -1308,7 +1272,7 @@ const TableBayarFaktur = ({
 
     }
 
-    return allData.filter(
+    return partialInvoiceData.filter(
       item =>
 
         String(
@@ -1320,22 +1284,9 @@ const TableBayarFaktur = ({
 
         &&
 
-        (
-          item.status ===
-          "BELUM_DIBAYAR"
-
-          ||
-
-          item.status ===
-          "PARTIAL"
-        )
-
-        &&
-
         Number(
-          item.sisa_tagihan ??
-          item.nominal_tagihan ??
-          0
+          item.saldo_piutang ??
+          (Number(item?.dpp || 0) - Number(item?.collections || item?.total_dibayar || 0))
         ) > 0
     );
 
@@ -1417,8 +1368,8 @@ const TableBayarFaktur = ({
 
       const invoiceRemaining =
         Number(
-          invoice.sisa_tagihan ??
-          invoice.nominal_tagihan ??
+          invoice.saldo_piutang ??
+          Math.max(0, Number(invoice?.dpp || 0) - Number(invoice?.collections || invoice?.total_dibayar || 0)) ??
           0
         );
 
@@ -1495,7 +1446,7 @@ const TableBayarFaktur = ({
 
 
     const selectedInvoices =
-      allData
+      partialInvoiceData
         .filter(
           item =>
             partialSelectedIds.includes(
@@ -1537,8 +1488,8 @@ const TableBayarFaktur = ({
 
       const invoiceRemaining =
         Number(
-          invoice.sisa_tagihan ??
-          invoice.nominal_tagihan ??
+          invoice.saldo_piutang ??
+          Math.max(0, Number(invoice?.dpp || 0) - Number(invoice?.collections || invoice?.total_dibayar || 0)) ??
           0
         );
 
@@ -1815,7 +1766,7 @@ const TableBayarFaktur = ({
   // RENDER STATUS
   // ===================================================
 
-  
+
   // ============================================================
   // PARTIAL PAYMENT DI MODAL BAYAR SEKARANG
   // Hanya tersedia jika minimal 2 faktur dipilih dan semua faktur
@@ -1860,10 +1811,10 @@ const TableBayarFaktur = ({
     return paymentSelection.filter(
       (item) =>
         String(item?.customer_id) ===
-          String(selectedPaymentCustomer) &&
+        String(selectedPaymentCustomer) &&
         Number(
-          item?.sisa_tagihan ??
-          item?.nominal_tagihan ??
+          item?.saldo_piutang ??
+          Math.max(0, Number(item?.dpp || 0) - Number(item?.collections || item?.total_dibayar || 0)) ??
           0
         ) > 0
     );
@@ -1874,8 +1825,8 @@ const TableBayarFaktur = ({
       (sum, item) =>
         sum +
         Number(
-          item?.sisa_tagihan ??
-          item?.nominal_tagihan ??
+          item?.saldo_piutang ??
+          Math.max(0, Number(item?.dpp || 0) - Number(item?.collections || item?.total_dibayar || 0)) ??
           0
         ),
       0
@@ -2007,51 +1958,36 @@ const TableBayarFaktur = ({
   ]);
 
   const renderStatus = (
-    status
+    item
   ) => {
 
     const config =
       statusConfig[
-        status
+      item?.status
       ];
 
-
-    if (
-      !config
-    ) {
-
+    if (!config) {
       return "-";
-
     }
 
+    const Icon = config.icon;
+    const isLunas = item?.status_lunas === "SUDAH_LUNAS";
 
-    const Icon =
-      config.icon;
-return (
+    return (
+      <div className="flex flex-col items-start gap-1.5">
+        <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${config.className}`}>
+          <Icon />
+          {config.label}
+        </span>
 
-      <span
-        className={`
-          inline-flex
-          items-center
-          gap-2
-          px-3
-          py-1.5
-          rounded-full
-          text-xs
-          font-semibold
-          whitespace-nowrap
-          ${config.className}
-        `}
-      >
-
-        <Icon />
-
-        {config.label}
-
-      </span>
-
+        {item?.status === "SUDAH_DIBAYAR" && (
+          <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${isLunas ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+            <FaCheckCircle />
+            {isLunas ? "Sudah Lunas" : "Belum Lunas"}
+          </span>
+        )}
+      </div>
     );
-
   };
 
 
@@ -2060,72 +1996,62 @@ return (
   // ===================================================
 
   const headerTable = [
-
+    {
+      label: "History",
+      icon: <FaClipboardList />,
+    },
     {
       label: "No",
       icon: <FaHashtag />,
     },
-
     {
       label: "No. Faktur",
-      icon:
-        <FaFileInvoiceDollar />,
+      icon: <FaFileInvoiceDollar />,
     },
-
     {
       label: "Customer",
-      icon:
-        <FaBuilding />,
+      icon: <FaBuilding />,
     },
-
     {
       label: "Penagih",
-      icon:
-        <FaUser />,
+      icon: <FaUser />,
     },
-
     {
-      label: "Nominal Tagihan",
-      icon:
-        <FaMoneyBillWave />,
+      label: "DPP",
+      icon: <FaMoneyBillWave />,
     },
-
     {
-      label: "Sudah Dibayar",
-      icon:
-        <FaMoneyBillWave />,
+      label: "PPN",
+      icon: <FaMoneyBillWave />,
     },
-
     {
-      label: "Sisa Tagihan",
-      icon:
-        <FaMoneyBillWave />,
+      label: "PPh",
+      icon: <FaMoneyBillWave />,
     },
-
     {
-      label: "Posting Date",
-      icon:
-        <FaCalendarAlt />,
+      label: "Total Invoice",
+      icon: <FaMoneyBillWave />,
     },
-
+    {
+      label: "Collections",
+      icon: <FaMoneyBillWave />,
+    },
+    {
+      label: "Saldo Piutang",
+      icon: <FaMoneyBillWave />,
+    },
+    {
+      label: "Document Date",
+      icon: <FaCalendarAlt />,
+    },
     {
       label: "Due Date",
-      icon:
-        <FaCalendarAlt />,
+      icon: <FaCalendarAlt />,
     },
-
     {
       label: "Status",
-      icon:
-        <FaInfoCircle />,
+      icon: <FaInfoCircle />,
     },
-
-    {
-      label: "Aksi",
-      icon:
-        <FaEllipsisV />,
-    },
-
   ];
 
 
@@ -2139,7 +2065,7 @@ return (
         currentPage -
         1
       ) *
-        perPage +
+      perPage +
       1
       : 0;
 
@@ -2147,7 +2073,7 @@ return (
   const endIndex =
     Math.min(
       currentPage *
-        perPage,
+      perPage,
       totalData
     );
 
@@ -2176,8 +2102,8 @@ return (
       ) =>
         total +
         Number(
-          item.sisa_tagihan ??
-          item.nominal_tagihan ??
+          item.saldo_piutang ??
+          Math.max(0, Number(item?.dpp || 0) - Number(item?.collections || item?.total_dibayar || 0)) ??
           0
         ),
       0
@@ -2222,483 +2148,102 @@ return (
   // =====================================================
 
   return (
-
-    <div
-      className="
-        flex
-        flex-col
-        gap-5
-      "
-    >
-
-
+    <div className="flex flex-col gap-5">
       {/* ================================================= */}
-      {/* SEARCH + ACTION */}
+      {/* SEARCH + FILTER */}
       {/* ================================================= */}
-
-      <div
-        className="
-          flex
-          flex-col
-          lg:flex-row
-          gap-4
-          justify-between
-          items-stretch
-          lg:items-center
-        "
-      >
-
-        {/* SEARCH */}
-
-        <div
-          className="
-            input
-            input-sm
-            input-bordered
-            flex
-            items-center
-            gap-2
-            bg-white
-            rounded-full
-            border-gray-200
-            shadow-sm
-            w-full
-            lg:w-[380px]
-          "
-        >
-
-          <IoSearch
-            className="
-              text-gray-400
-              text-lg
-            "
-          />
-
-          <input
-            type="text"
-            placeholder="
-              Cari faktur / customer / penagih...
-            "
-            className="grow"
-            value={
-              keyword
-            }
-            onChange={
-              e =>
-                setKeyword(
-                  e.target.value
-                )
-            }
-          />
-
-        </div>
-
-
-        {/* RIGHT ACTION */}
-
-        <div
-          className="
-            flex
-            flex-col
-            sm:flex-row
-            gap-3
-          "
-        >
-
-          {/* STATUS */}
-
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-            "
-          >
-
-            <span
-              className="
-                text-sm
-                text-gray-500
-              "
-            >
-              Status:
-            </span>
-
-            <select
-              className="
-                select
-                select-sm
-                select-bordered
-                rounded-full
-                bg-white
-                min-w-[180px]
-              "
-              value={
-                selectedStatus
-              }
-              onChange={
-                e =>
-                  setSelectedStatus(
-                    e.target.value
-                  )
-              }
-            >
-
-              <option value="ALL">
-                Semua Status
-              </option>
-
-              <option value="BELUM_DIBAYAR">
-                Belum Dibayar
-              </option>
-
-              <option value="PARTIAL">
-                Partial Payment
-              </option>
-
-              <option value="MENUNGGU_PEMBAYARAN">
-                Menunggu Pembayaran
-              </option>
-
-              <option value="SUDAH_DIBAYAR">
-                Sudah Dibayar
-              </option>
-
-            </select>
-
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
+          <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+            <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
+            <input type="text" placeholder="Cari no faktur / billing / customer / penagih..." className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0" value={keyword} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} onChange={(e) => setKeyword(e.target.value)} />
+            <button type="button" onClick={handleSearch} title="Cari" aria-label="Cari" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:opacity-90">
+              <FaSearch className="text-sm" />
+            </button>
           </div>
-
-
-          {/* PARTIAL BUTTON */}
-
-          <button
-            type="button"
-            onClick={
-              openPartialPayment
-            }
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              px-5
-              py-2
-              rounded-full
-              bg-orange-500
-              text-white
-              text-sm
-              font-semibold
-              hover:bg-orange-600
-              transition
-              shadow-md
-              whitespace-nowrap
-            "
-          >
-
-            <FaCreditCard />
-
-            Partial Payment
-
-          </button>
-
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={resetFilter} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50">
+              <FaFilter /> Reset Filter
+            </button>
+            <button type="button" onClick={handleRefresh} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50">
+              <FaSyncAlt /> Refresh
+            </button>
+            <button type="button" onClick={openPartialPayment} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition shadow-sm whitespace-nowrap">
+              <FaCreditCard /> Partial Payment
+            </button>
+          </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label>
+            <Select isMulti options={cabangOptions} value={getSelectedFilterOptions(cabangOptions, filterCabang)} onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
+            <Select isMulti options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder="Semua Customer" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Status Pembayaran</label>
+            <Select options={[{ label: "Semua Status", value: "ALL" }, { label: "Belum Dibayar", value: "BELUM_DIBAYAR" }, { label: "Partial Payment", value: "PARTIAL" }, { label: "Menunggu Pembayaran", value: "MENUNGGU_PEMBAYARAN" }, { label: "Sudah Dibayar", value: "SUDAH_DIBAYAR" }]} value={[{ label: "Semua Status", value: "ALL" }, { label: "Belum Dibayar", value: "BELUM_DIBAYAR" }, { label: "Partial Payment", value: "PARTIAL" }, { label: "Menunggu Pembayaran", value: "MENUNGGU_PEMBAYARAN" }, { label: "Sudah Dibayar", value: "SUDAH_DIBAYAR" }].find((item) => item.value === selectedStatus)} onChange={(selected) => { setCurrentPage(1); setSelectedStatus(selected?.value || "ALL"); }} placeholder="Semua Status" styles={filterSelectStyles} />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Status Verifikasi</label>
+            <Select options={[{ label: "Semua Status Verifikasi", value: "ALL" }, { label: "Belum Diverifikasi", value: "BELUM_DIVERIFIKASI" }, { label: "Terverifikasi", value: "VERIFIED" }]} value={[{ label: "Semua Status Verifikasi", value: "ALL" }, { label: "Belum Diverifikasi", value: "BELUM_DIVERIFIKASI" }, { label: "Terverifikasi", value: "VERIFIED" }].find((item) => item.value === selectedStatusVerifikasi)} onChange={(selected) => { setCurrentPage(1); setSelectedStatusVerifikasi(selected?.value || "ALL"); }} placeholder="Semua Status Verifikasi" styles={filterSelectStyles} />
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+              <FaCalendarAlt className="text-primary text-sm" />
+              <input type="date" value={filterStartDate} max={filterEndDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterStartDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
+              <span className="text-gray-300">-</span>
+              <input type="date" value={filterEndDate} min={filterStartDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterEndDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
+            </div>
+          </div>
+        </div>
       </div>
-
 
       {/* ================================================= */}
       {/* SUMMARY */}
       {/* ================================================= */}
-
-      <div
-        className="
-          grid
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-4
-          gap-4
-        "
-      >
-
-        {/* TOTAL */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-blue-50
-            p-4
-            border
-            border-blue-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-2xl bg-blue-50 p-4 border border-blue-100">
+          <div className="flex justify-between">
             <div>
-
-              <p
-                className="
-                  text-sm
-                  text-blue-700
-                "
-              >
-                Total Faktur
-              </p>
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-blue-900
-                "
-              >
-                {
-                  summaryData.total
-                }
-              </p>
-
+              <p className="text-sm text-blue-700">Total Faktur</p>
+              <p className="text-2xl font-bold text-blue-900">{summaryData.total}</p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-blue-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaClipboardList
-                className="
-                  text-blue-600
-                "
-              />
-
-            </div>
-
+            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center"><FaClipboardList className="text-blue-600" /></div>
           </div>
-
         </div>
-
-
-        {/* BELUM DIBAYAR */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-amber-50
-            p-4
-            border
-            border-amber-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
+        <div className="rounded-2xl bg-amber-50 p-4 border border-amber-100">
+          <div className="flex justify-between">
             <div>
-
-              <p
-                className="
-                  text-sm
-                  text-amber-700
-                "
-              >
-                Belum Dibayar
-              </p>
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-amber-900
-                "
-              >
-                {
-                  summaryData.belum_dibayar
-                }
-              </p>
-
+              <p className="text-sm text-amber-700">Belum Dibayar</p>
+              <p className="text-2xl font-bold text-amber-900">{summaryData.belum_dibayar}</p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-amber-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaClock
-                className="
-                  text-amber-600
-                "
-              />
-
-            </div>
-
+            <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center"><FaClock className="text-amber-600" /></div>
           </div>
-
         </div>
-
-
-        {/* PARTIAL */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-orange-50
-            p-4
-            border
-            border-orange-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
+        <div className="rounded-2xl bg-orange-50 p-4 border border-orange-100">
+          <div className="flex justify-between">
             <div>
-
-              <p
-                className="
-                  text-sm
-                  text-orange-700
-                "
-              >
-                Partial Payment
-              </p>
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-orange-900
-                "
-              >
-                {
-                  summaryData.partial
-                }
-              </p>
-
+              <p className="text-sm text-orange-700">Partial Payment</p>
+              <p className="text-2xl font-bold text-orange-900">{summaryData.partial}</p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-orange-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaCreditCard
-                className="
-                  text-orange-600
-                "
-              />
-
-            </div>
-
+            <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center"><FaCreditCard className="text-orange-600" /></div>
           </div>
-
         </div>
-
-
-        {/* TOTAL TAGIHAN */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-green-50
-            p-4
-            border
-            border-green-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
-            <div>
-
-              <p
-                className="
-                  text-sm
-                  text-green-700
-                "
-              >
-                Total Sisa Tagihan
-              </p>
-
-              <p
-                className="
-                  text-xl
-                  font-bold
-                  text-green-900
-                "
-              >
-                {
-                  formatRupiah(
-                    summaryData.total_nominal
-                  )
-                }
-              </p>
-
+        <div className="rounded-2xl bg-green-50 p-4 border border-green-100">
+          <div className="flex justify-between">
+            <div className="min-w-0">
+              <p className="text-sm text-green-700">Total Saldo Piutang</p>
+              <p className="text-xl font-bold text-green-900 truncate">{formatRupiah(summaryData.total_saldo_piutang ?? 0)}</p>
             </div>
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-green-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaMoneyBillWave
-                className="
-                  text-green-600
-                "
-              />
-
-            </div>
-
+            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center"><FaMoneyBillWave className="text-green-600" /></div>
           </div>
-
         </div>
-
       </div>
-
 
       {/* ================================================= */}
       {/* BULK ACTION */}
@@ -2826,7 +2371,7 @@ return (
         className={
           dimensionScreenW <
             768 &&
-          check
+            check
             ? "bringToBack"
             : ""
         }
@@ -2873,6 +2418,24 @@ return (
 
                 <tr>
 
+                  {/* AKSI PALING PERTAMA */}
+
+                  <th
+                    className="
+                      px-4
+                      py-3
+                      whitespace-nowrap
+                      text-center
+                    "
+                  >
+                    <div className="flex items-center justify-center gap-2 font-semibold">
+                      <FaEllipsisV />
+                      Aksi
+                    </div>
+                  </th>
+
+                  {/* CHECKBOX */}
+
                   <th
                     className="
                       px-4
@@ -2888,16 +2451,12 @@ return (
                         checkbox-sm
                         checkbox-white
                       "
-                      checked={
-                        isAllSelected
-                      }
-                      onChange={
-                        handleSelectAll
-                      }
+                      checked={isAllSelected}
+                      disabled={currentPageSelectableIds.length === 0}
+                      onChange={handleSelectAll}
                     />
 
                   </th>
-
 
                   {
                     headerTable.map(
@@ -2925,14 +2484,10 @@ return (
                           >
 
                             <span>
-                              {
-                                h.icon
-                              }
+                              {h.icon}
                             </span>
 
-                            {
-                              h.label
-                            }
+                            {h.label}
 
                           </div>
 
@@ -2952,16 +2507,12 @@ return (
               <tbody>
 
                 {
-                  paginatedData.length ===
-                  0 ? (
+                  paginatedData.length === 0 ? (
 
                     <tr>
 
                       <td
-                        colSpan={
-                          headerTable.length +
-                          1
-                        }
+                        colSpan={headerTable.length + 2}
                         className="
                           text-center
                           py-16
@@ -2990,530 +2541,529 @@ return (
                       (
                         v,
                         i
-                      ) => (
+                      ) => {
 
-                        <tr
-                          key={
-                            v.id
-                          }
-                          className="
-                            hover:bg-blue-50
-                            transition
-                            duration-200
-                            border-b
-                          "
-                        >
+                        const invoiceAmounts =
+                          getDisplayInvoiceAmounts(v);
+                        const historyPembayaran =
+                          getHistoryPembayaran(v);
+                        const isHistoryExpanded =
+                          !!expandedRows[v.id];
 
-                          {/* CHECKBOX */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            <input
-                              type="checkbox"
+                        return (
+                          <React.Fragment key={v.id}>
+                            <tr
                               className="
-                                checkbox
-                                checkbox-sm
-                                checkbox-primary
-                              "
-                              checked={
-                                selectedIds.includes(
-                                  v.id
-                                )
-                              }
-                              disabled={
-                                v.status ===
-                                "SUDAH_DIBAYAR"
-                              }
-                              onChange={() =>
-                                handleSelectOne(
-                                  v.id
-                                )
-                              }
-                            />
-
-                          </td>
-
-
-                          {/* NO */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              font-semibold
-                              text-gray-700
+                              hover:bg-blue-50
+                              transition
+                              duration-200
+                              border-b
                             "
-                          >
-
-                            {
-                              (
-                                currentPage -
-                                1
-                              ) *
-                                perPage +
-                              i +
-                              1
-                            }
-
-                          </td>
-
-
-                          {/* FAKTUR */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
                             >
 
-                              <div
+                              {/* AKSI - PALING PERTAMA */}
+
+                              <td
                                 className="
-                                  w-9
-                                  h-9
-                                  rounded-lg
-                                  bg-blue-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                                text-center
+                              "
                               >
 
-                                <FaFileInvoiceDollar
+                                {
+                                  Number(v?.saldo_piutang ?? 0) > 0 ? (
+
+                                    <div className="flex items-center justify-center gap-2">
+
+                                      <button
+                                        type="button"
+                                        onClick={() => openPayment(v)}
+                                        className="
+                                        inline-flex
+                                        items-center
+                                        gap-2
+                                        px-4
+                                        py-2
+                                        rounded-full
+                                        bg-primary
+                                        text-white
+                                        text-xs
+                                        font-semibold
+                                        hover:opacity-90
+                                        transition
+                                        shadow-sm
+                                      "
+                                      >
+
+                                        <FaMoneyBillWave />
+
+                                        Bayar
+
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => openPartialPayment(v)}
+                                        className="
+                                        inline-flex
+                                        items-center
+                                        justify-center
+                                        w-9
+                                        h-9
+                                        rounded-full
+                                        bg-orange-50
+                                        text-orange-600
+                                        hover:bg-orange-100
+                                        transition
+                                      "
+                                        title="Partial Payment"
+                                      >
+
+                                        <FaCreditCard />
+
+                                      </button>
+
+                                    </div>
+
+                                  ) : (
+
+                                    <span className="text-xs text-gray-400">
+                                      Sudah dibayar
+                                    </span>
+
+                                  )
+                                }
+
+                              </td>
+
+
+                              {/* CHECKBOX */}
+
+                              <td
+                                className="
+                                px-4
+                                py-3
+                              "
+                              >
+
+                                <input
+                                  type="checkbox"
                                   className="
-                                    text-primary
-                                  "
+                                  checkbox
+                                  checkbox-sm
+                                  checkbox-primary
+                                "
+                                  checked={selectedIds.includes(v.id)}
+                                  disabled={!isSelectableInvoice(v)}
+                                  onChange={() => handleSelectOne(v.id)}
                                 />
 
-                              </div>
+                              </td>
 
-                              <span
+                              {/* HISTORY PEMBAYARAN */}
+
+                              <td
                                 className="
-                                  font-semibold
-                                  text-primary
-                                "
-                              >
-                                {
-                                  v.no_faktur
-                                }
-                              </span>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* CUSTOMER */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-3
-                                min-w-[200px]
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                                text-center
                               "
-                            >
-
-                              <div
-                                className="
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => toggleHistoryPembayaran(v.id)}
+                                  className="
+                                  inline-flex
+                                  items-center
+                                  justify-center
                                   w-9
                                   h-9
                                   rounded-full
                                   bg-blue-50
                                   text-primary
-                                  flex
-                                  items-center
-                                  justify-center
+                                  hover:bg-blue-100
+                                  transition
                                 "
-                              >
-
-                                <FaBuilding />
-
-                              </div>
-
-                              <div>
-
-                                <p
-                                  className="
-                                    font-semibold
-                                    text-gray-700
-                                  "
-                                >
-                                  {
-                                    v.nama_customer
+                                  title={
+                                    isHistoryExpanded
+                                      ? "Tutup History Pembayaran"
+                                      : "Lihat History Pembayaran"
                                   }
-                                </p>
-
-                                <p
-                                  className="
-                                    text-xs
-                                    text-gray-400
-                                  "
                                 >
-                                  ID: {
-                                    v.customer_id
-                                  }
-                                </p>
+                                  {isHistoryExpanded ? (
+                                    <FaChevronUp />
+                                  ) : (
+                                    <FaChevronDown />
+                                  )}
+                                </button>
+                              </td>
 
-                              </div>
+                              {/* NO */}
 
-                            </div>
-
-                          </td>
-
-
-                          {/* PENAGIH */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <div
+                              <td
                                 className="
-                                  w-8
-                                  h-8
-                                  rounded-full
-                                  bg-orange-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
-                              >
-
-                                <FaUser
-                                  className="
-                                    text-orange-500
-                                  "
-                                />
-
-                              </div>
-
-                              <span
-                                className="
-                                  text-sm
-                                  font-medium
-                                  text-gray-700
-                                "
-                              >
-                                {
-                                  v.nama_penagih
-                                }
-                              </span>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* NOMINAL TAGIHAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <span
-                              className="
-                                font-bold
+                                px-4
+                                py-3
+                                font-semibold
                                 text-gray-700
                               "
-                            >
-                              {
-                                formatRupiah(
-                                  v.nominal_tagihan
-                                )
-                              }
-                            </span>
+                              >
 
-                          </td>
+                                {(currentPage - 1) * perPage + i + 1}
+
+                              </td>
 
 
-                          {/* SUDAH DIBAYAR */}
+                              {/* FAKTUR */}
 
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <span
-                              className="
-                                font-semibold
-                                text-green-600
-                              "
-                            >
-                              {
-                                formatRupiah(
-                                  v.total_dibayar ||
-                                  0
-                                )
-                              }
-                            </span>
-
-                          </td>
-
-
-                          {/* SISA TAGIHAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <span
-                              className="
-                                font-bold
-                                text-orange-600
-                              "
-                            >
-                              {
-                                formatRupiah(
-                                  v.sisa_tagihan ??
-                                  v.nominal_tagihan
-                                )
-                              }
-                            </span>
-
-                          </td>
-
-
-                          {/* POSTING DATE */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                                text-sm
-                                text-gray-600
-                              "
-                            >
-
-                              <FaCalendarAlt
+                              <td
                                 className="
-                                  text-primary
-                                "
-                              />
-
-                              {
-                                formatDate(
-                                  v.posting_date
-                                )
-                              }
-
-                            </div>
-
-                          </td>
-
-
-                          {/* DUE DATE */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                                text-sm
-                                text-gray-600
+                                px-4
+                                py-3
+                                whitespace-nowrap
                               "
-                            >
+                              >
 
-                              <FaCalendarAlt
-                                className="
-                                  text-orange-500
-                                "
-                              />
+                                <div className="flex items-center gap-2">
 
-                              {
-                                formatDate(
-                                  v.due_date
-                                )
-                              }
-
-                            </div>
-
-                          </td>
-
-
-                          {/* STATUS */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              renderStatus(
-                                v.status
-                              )
-                            }
-
-                          </td>
-
-
-                          {/* AKSI */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            {
-                              v.status !==
-                              "SUDAH_DIBAYAR" ? (
-
-                                <div
-                                  className="
+                                  <div
+                                    className="
+                                    w-9
+                                    h-9
+                                    rounded-lg
+                                    bg-blue-50
                                     flex
                                     items-center
-                                    gap-2
+                                    justify-center
                                   "
-                                >
-
-                                  {/* FULL PAYMENT */}
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openPayment(
-                                        v
-                                      )
-                                    }
-                                    className="
-                                      inline-flex
-                                      items-center
-                                      gap-2
-                                      px-4
-                                      py-2
-                                      rounded-full
-                                      bg-primary
-                                      text-white
-                                      text-xs
-                                      font-semibold
-                                      hover:opacity-90
-                                      transition
-                                      shadow-sm
-                                    "
                                   >
 
-                                    <FaMoneyBillWave />
+                                    <FaFileInvoiceDollar className="text-primary" />
 
-                                    Bayar
+                                  </div>
 
-                                  </button>
-
-
-                                  {/* PARTIAL */}
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openPartialPayment(
-                                        v
-                                      )
-                                    }
-                                    className="
-                                      inline-flex
-                                      items-center
-                                      justify-center
-                                      w-9
-                                      h-9
-                                      rounded-full
-                                      bg-orange-50
-                                      text-orange-600
-                                      hover:bg-orange-100
-                                      transition
-                                    "
-                                    title="Partial Payment"
-                                  >
-
-                                    <FaCreditCard />
-
-                                  </button>
+                                  <span className="font-semibold text-primary">
+                                    {v.no_faktur}
+                                  </span>
 
                                 </div>
 
-                              ) : (
+                              </td>
 
-                                <span
+
+                              {/* CUSTOMER */}
+
+                              <td
+                                className="
+                                px-4
+                                py-3
+                              "
+                              >
+
+                                <div
                                   className="
-                                    text-xs
-                                    text-gray-400
-                                  "
+                                  flex
+                                  items-center
+                                  gap-3
+                                  min-w-[200px]
+                                "
                                 >
-                                  Sudah dibayar
+
+                                  <div
+                                    className="
+                                    w-9
+                                    h-9
+                                    rounded-full
+                                    bg-blue-50
+                                    text-primary
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
+                                  >
+
+                                    <FaBuilding />
+
+                                  </div>
+
+                                  <div>
+
+                                    <p className="font-semibold text-gray-700">
+                                      {v.nama_customer}
+                                    </p>
+
+                                    <p className="text-xs text-gray-400">
+                                      ID: {v.customer_id}
+                                    </p>
+
+                                  </div>
+
+                                </div>
+
+                              </td>
+
+
+                              {/* PENAGIH */}
+
+                              <td
+                                className="
+                                px-4
+                                py-3
+                                whitespace-nowrap
+                              "
+                              >
+
+                                <div className="flex items-center gap-2">
+
+                                  <div
+                                    className="
+                                    w-8
+                                    h-8
+                                    rounded-full
+                                    bg-orange-50
+                                    flex
+                                    items-center
+                                    justify-center
+                                  "
+                                  >
+
+                                    <FaUser className="text-orange-500" />
+
+                                  </div>
+
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {v.nama_penagih}
+                                  </span>
+
+                                </div>
+
+                              </td>
+
+
+                              {/* DPP */}
+
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+
+                                <span className="font-semibold text-gray-700">
+                                  {formatRupiah(invoiceAmounts.dpp)}
                                 </span>
 
-                              )
-                            }
+                              </td>
 
-                          </td>
 
-                        </tr>
+                              {/* PPN */}
 
-                      )
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+
+                                <span className="font-semibold text-gray-700">
+                                  {formatRupiah(invoiceAmounts.ppn)}
+                                </span>
+
+                              </td>
+
+
+                              {/* PPH */}
+
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+
+                                <span className="font-semibold text-gray-700">
+                                  {formatRupiah(invoiceAmounts.pph)}
+                                </span>
+
+                              </td>
+
+
+                              {/* TOTAL INVOICE */}
+
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+
+                                <span className="font-bold text-gray-700">
+                                  {formatRupiah(invoiceAmounts.totalInvoice)}
+                                </span>
+
+                              </td>
+
+
+                              {/* COLLECTIONS */}
+
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+
+                                <span className="font-semibold text-green-600">
+                                  {formatRupiah(v.collections || 0)}
+                                </span>
+
+                              </td>
+
+
+                              {/* SALDO PIUTANG */}
+
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+
+                                <span className="font-bold text-orange-600">
+                                  {formatRupiah(v.saldo_piutang ?? 0)}
+                                </span>
+
+                              </td>
+
+
+                              {/* DOCUMENT DATE */}
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+
+                                <div
+                                  className="
+                                  flex
+                                  items-center
+                                  gap-2
+                                  text-sm
+                                  text-gray-600
+                                "
+                                >
+
+                                  <FaCalendarAlt className="text-primary" />
+
+                                  {formatDate(v.posting_date)}
+
+                                </div>
+
+                              </td>
+
+
+                              {/* DUE DATE */}
+
+                              <td className="px-4 py-3 whitespace-nowrap">
+
+                                <div
+                                  className="
+                                  flex
+                                  items-center
+                                  gap-2
+                                  text-sm
+                                  text-gray-600
+                                "
+                                >
+
+                                  <FaCalendarAlt className="text-orange-500" />
+
+                                  {formatDate(v.due_date)}
+
+                                </div>
+
+                              </td>
+
+
+                              {/* STATUS */}
+
+                              <td className="px-4 py-3">
+
+                                {renderStatus(v)}
+
+                              </td>
+
+                            </tr>
+
+                            {isHistoryExpanded && (
+                              <tr className="bg-slate-50 border-b border-blue-100">
+                                <td
+                                  colSpan={headerTable.length + 2}
+                                  className="px-5 py-4"
+                                >
+                                  <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                                    <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border-b border-blue-100">
+                                      <FaClipboardList className="text-primary" />
+                                      <span className="text-sm font-semibold text-blue-900">
+                                        History Pembayaran
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        ({historyPembayaran.length} transaksi)
+                                      </span>
+                                    </div>
+
+                                    {historyPembayaran.length === 0 ? (
+                                      <div className="px-4 py-6 text-center text-sm text-gray-400">
+                                        Belum ada history pembayaran.
+                                      </div>
+                                    ) : (
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                          <thead className="bg-gray-50">
+                                            <tr>
+                                              <th className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">
+                                                Tanggal
+                                              </th>
+                                              <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">
+                                                Nominal
+                                              </th>
+                                              <th className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">
+                                                Metode
+                                              </th>
+                                              <th className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">
+                                                Status Verifikasi
+                                              </th>
+                                              <th className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">
+                                                Tanggal Verifikasi
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {historyPembayaran.map((history, historyIndex) => {
+                                              const verification = String(history?.status_verifikasi || "").toUpperCase();
+                                              const isVerified =
+                                                verification === "VERIFIED" ||
+                                                verification === "SUDAH_DIVERIFIKASI" ||
+                                                verification === "TERVERIFIKASI" ||
+                                                verification === "APPROVED" ||
+                                                verification === "SUDAH_VERIFIKASI";
+
+                                              return (
+                                                <tr
+                                                  key={history?.id ?? `${v.id}-history-${historyIndex}`}
+                                                  className="border-t border-gray-100 hover:bg-blue-50/50"
+                                                >
+                                                  <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                    {formatDate(history?.tanggal)}
+                                                  </td>
+                                                  <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-green-600">
+                                                    {formatRupiah(history?.nominal || 0)}
+                                                  </td>
+                                                  <td className="px-4 py-3 whitespace-nowrap">
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                                                      {history?.metode || "-"}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-4 py-3 whitespace-nowrap">
+                                                    <span
+                                                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isVerified
+                                                          ? "bg-green-100 text-green-700"
+                                                          : "bg-amber-100 text-amber-700"
+                                                        }`}
+                                                    >
+                                                      <FaCheckCircle />
+                                                      {history?.status_verifikasi || "-"}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                    {history?.tanggal_verifikasi || "-"}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+
+                          </React.Fragment>
+                        );
+
+                      }
                     )
 
                   )
@@ -3879,7 +3429,7 @@ return (
 
                         {
                           paymentItems.length >
-                          1
+                            1
                             ? `${paymentItems.length} faktur dipilih`
                             : "Pembayaran faktur"
                         }
@@ -3979,7 +3529,7 @@ return (
 
                     {
                       paymentItems.length ===
-                      1 ? (
+                        1 ? (
 
                         <div
                           className="
@@ -4246,7 +3796,7 @@ return (
                       >
                         {
                           paymentItems.length ===
-                          1
+                            1
                             ? paymentItems[0]
                               .nama_penagih
                             : "Multi Faktur"
@@ -4300,11 +3850,10 @@ return (
                         border
                         mb-3
                         transition
-                        ${
-                          paymentMethod ===
+                        ${paymentMethod ===
                           "DIRECT_TRANSFER"
-                            ? "border-orange-400 bg-orange-50"
-                            : "border-gray-200 bg-white"
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-gray-200 bg-white"
                         }
                       `}
                     >
@@ -4401,11 +3950,10 @@ return (
                         border
                         mb-3
                         transition
-                        ${
-                          paymentMethod ===
+                        ${paymentMethod ===
                           "SSP"
-                            ? "border-orange-400 bg-orange-50"
-                            : "border-gray-200 bg-white"
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-gray-200 bg-white"
                         }
                       `}
                     >
@@ -4501,11 +4049,10 @@ return (
                         rounded-xl
                         border
                         transition
-                        ${
-                          paymentMethod ===
+                        ${paymentMethod ===
                           "CASH"
-                            ? "border-orange-400 bg-orange-50"
-                            : "border-gray-200 bg-white"
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-gray-200 bg-white"
                         }
                       `}
                     >
@@ -4601,11 +4148,10 @@ return (
                           border
                           mt-3
                           transition
-                          ${
-                            paymentMethod ===
+                          ${paymentMethod ===
                             "PARTIAL_PAYMENT"
-                              ? "border-orange-400 bg-orange-50"
-                              : "border-gray-200 bg-white"
+                            ? "border-orange-400 bg-orange-50"
+                            : "border-gray-200 bg-white"
                           }
                         `}
                       >
@@ -4787,10 +4333,9 @@ return (
                                 py-3
                                 text-left
                                 transition
-                                ${
-                                  paymentAllocationMode === "MANUAL"
-                                    ? "border-primary bg-blue-50"
-                                    : "border-gray-200 bg-white"
+                                ${paymentAllocationMode === "MANUAL"
+                                  ? "border-primary bg-blue-50"
+                                  : "border-gray-200 bg-white"
                                 }
                               `}
                             >
@@ -4823,10 +4368,9 @@ return (
                                 py-3
                                 text-left
                                 transition
-                                ${
-                                  paymentAllocationMode === "SYSTEM"
-                                    ? "border-primary bg-blue-50"
-                                    : "border-gray-200 bg-white"
+                                ${paymentAllocationMode === "SYSTEM"
+                                  ? "border-primary bg-blue-50"
+                                  : "border-gray-200 bg-white"
                                 }
                               `}
                             >
@@ -4944,13 +4488,13 @@ return (
                                     {selectedPaymentInvoices.map((invoice) => {
                                       const sisa = Number(
                                         invoice?.sisa_tagihan ??
-                                          invoice?.nominal_tagihan ??
-                                          0
+                                        invoice?.nominal_tagihan ??
+                                        0
                                       );
 
                                       const allocated = Number(
                                         paymentAllocation[
-                                          invoice.no_faktur
+                                        invoice.no_faktur
                                         ] || 0
                                       );
 
@@ -5025,7 +4569,7 @@ return (
                                 >
                                   <div className="rounded-xl bg-white border border-gray-200 p-3">
                                     <p className="text-[11px] text-gray-500">
-                                      Total Sisa Tagihan
+                                      Total Saldo Piutang
                                     </p>
                                     <p className="font-bold text-gray-700 mt-1">
                                       {formatRupiah(
@@ -5056,7 +4600,7 @@ return (
                                           parseNominal(
                                             paymentPartialAmount
                                           ) -
-                                            allocatedPaymentTotal
+                                          allocatedPaymentTotal
                                         )
                                       )}
                                     </p>
@@ -5129,7 +4673,7 @@ return (
                       >
                         {
                           paymentMethod ===
-                          "DIRECT_TRANSFER"
+                            "DIRECT_TRANSFER"
                             ? "Direct Transfer"
                             : paymentMethod ===
                               "GIRO"
@@ -5496,7 +5040,7 @@ return (
 
                   {
                     paymentItems.length >
-                    1
+                      1
                       ? `Bayar ${paymentItems.length} Faktur`
                       : "Bayar Sekarang"
                   }
@@ -5737,13 +5281,11 @@ return (
                     onChange={
                       e => {
 
-                        setSelectedCustomerId(
-                          e.target.value
-                        );
-
+                        const customerId = e.target.value;
+                        setSelectedCustomerId(customerId);
                         setPartialSelectedIds([]);
-
                         setPartialAllocation([]);
+                        loadPartialInvoices(customerId);
 
                       }
                     }
@@ -5897,7 +5439,7 @@ return (
                                       text-gray-500
                                     "
                                   >
-                                    Total Sisa Tagihan
+                                    Total Saldo Piutang
                                   </p>
 
                                   <p
@@ -5910,7 +5452,7 @@ return (
                                   >
                                     {
                                       formatRupiah(
-                                        customer.total_sisa_tagihan
+                                        customer.total_saldo_piutang
                                       )
                                     }
                                   </p>
@@ -6096,11 +5638,10 @@ return (
                           border
                           text-left
                           transition
-                          ${
-                            partialPaymentMethod ===
+                          ${partialPaymentMethod ===
                             "MANUAL"
-                              ? "border-primary bg-blue-50"
-                              : "border-gray-200 bg-white"
+                            ? "border-primary bg-blue-50"
+                            : "border-gray-200 bg-white"
                           }
                         `}
                       >
@@ -6175,11 +5716,10 @@ return (
                           border
                           text-left
                           transition
-                          ${
-                            partialPaymentMethod ===
+                          ${partialPaymentMethod ===
                             "SYSTEM"
-                              ? "border-primary bg-blue-50"
-                              : "border-gray-200 bg-white"
+                            ? "border-primary bg-blue-50"
+                            : "border-gray-200 bg-white"
                           }
                         `}
                       >
@@ -6853,7 +6393,7 @@ return (
 
                                       {
                                         item.status_pembayaran ===
-                                        "LUNAS" ? (
+                                          "LUNAS" ? (
 
                                           <span
                                             className="

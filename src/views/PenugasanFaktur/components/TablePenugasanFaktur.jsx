@@ -1,3398 +1,1176 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  FaEllipsisV,
-  FaHashtag,
-  FaFileInvoiceDollar,
   FaBuilding,
-  FaMapMarkerAlt,
   FaCalendarAlt,
-  FaTruck,
-  FaClock,
   FaCheckCircle,
-  FaUser,
-  FaRoute,
-  FaUserTie,
-  FaUsers,
   FaCheckDouble,
-  FaTimes,
   FaClipboardList,
   FaExchangeAlt,
+  FaFileInvoiceDollar,
+  FaFilter,
+  FaMapMarkerAlt,
+  FaUser,
+  FaRoute,
+  FaSearch,
+  FaSyncAlt,
+  FaTimes,
+  FaClock,
+  FaExclamationCircle,
+  FaCheck,
 } from "react-icons/fa";
+import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
+import { swal } from "global/helper/swal";
+import storeSchema from "global/store";
 
-import {
-  IoSearch,
-} from "react-icons/io5";
-
-import ReactPaginate
-  from "react-paginate";
-
-
-// =====================================================
-// FORMAT DATE
-// =====================================================
-
-const formatDate = (
-  date
-) => {
-
-  if (!date) {
-    return "-";
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input
+      type="checkbox"
+      checked={props.isSelected}
+      readOnly
+      className="checkbox checkbox-primary checkbox-xs mr-2"
+    />
+    {props.label}
+  </selectComponents.Option>
+);
+const FilterMultiValue = () => null;
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
+  return (
+    <selectComponents.ValueContainer {...props}>
+      {selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}
+      {children[1]}
+    </selectComponents.ValueContainer>
+  );
+};
+const filterSelectComponents = {
+  Option: FilterOption,
+  MultiValue: FilterMultiValue,
+  ValueContainer: FilterValueContainer,
+};
+const filterSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 36,
+    borderRadius: 9999,
+    borderColor: state.isFocused ? "#2563eb" : "#d1d5db",
+    boxShadow: "none",
+    fontSize: ".875rem",
+    ":hover": { borderColor: "#2563eb" },
+  }),
+  valueContainer: (base) => ({ ...base, padding: "0 10px" }),
+  indicatorsContainer: (base) => ({ ...base, height: 36 }),
+  menu: (base) => ({ ...base, zIndex: 50 }),
+};
+const getSelectedFilterOptions = (options, selectedValues) =>
+  options.filter((option) => selectedValues.includes(option.value));
+const formatDate = (value) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+const formatRupiah = (value) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+const formatNumber = (value) =>
+  new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(
+    Number(value) || 0
+  );
+const firstValue = (item, ...keys) => {
+  for (const key of keys) {
+    if (item?.[key] !== undefined && item?.[key] !== null && item?.[key] !== "")
+      return item[key];
   }
-
-  return new Date(
-    date
-  ).toLocaleDateString(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
+  return null;
+};
+const getId = (item) => firstValue(item, "piutang_id", "id", "faktur_id");
+const getCustomer = (item) => item?.nama_customer || "-";
+const getCabang = (item) => item?.nama_cabang || "-";
+const getDocumentDate = (item) =>
+  firstValue(
+    item,
+    "document_date",
+    "documentDate",
+    "posting_date",
+    "tanggal_faktur",
+    "tanggal"
+  ) || null;
+const getStatus = (item) => {
+  const hasTukarFaktur = Boolean(
+    firstValue(
+      item,
+      "tukar_faktur_nama",
+      "tukar_faktur_nip",
+      "tukar_faktur_assigned_at",
+      "tukar_faktur_id",
+      "faktur_petugas_tukar_faktur_id"
+    )
+  );
+  const hasPenagihan = Boolean(
+    firstValue(
+      item,
+      "penagihan_nama",
+      "penagihan_nip",
+      "penagihan_assigned_at",
+      "penagihan_id",
+      "faktur_petugas_penagihan_id"
+    )
   );
 
+  if (hasTukarFaktur || hasPenagihan) return "SUDAH_DITUGASKAN";
+
+  const raw = String(
+    firstValue(item, "status_penugasan", "status", "assignment_status") || ""
+  ).toUpperCase();
+
+  return raw.includes("SUDAH") ||
+    (raw.includes("DITUGASKAN") && raw !== "BELUM_DITUGASKAN")
+    ? "SUDAH_DITUGASKAN"
+    : "BELUM_DITUGASKAN";
 };
-
-
-// =====================================================
-// DUMMY PETUGAS
-// =====================================================
-
-const dummyPetugas = [
-
-  {
-    id: 1,
-    nama: "Andri Noviandy",
-    tipe: "SALESMAN",
-    kode: "SLS001",
-  },
-
-  {
-    id: 2,
-    nama: "Budi Santoso",
-    tipe: "SALESMAN",
-    kode: "SLS002",
-  },
-
-  {
-    id: 3,
-    nama: "Citra Lestari",
-    tipe: "SALESMAN",
-    kode: "SLS003",
-  },
-
-  {
-    id: 4,
-    nama: "Dimas Pratama",
-    tipe: "SALESMAN",
-    kode: "SLS004",
-  },
-
-  {
-    id: 5,
-    nama: "Eko Saputra",
-    tipe: "KOLEKTOR",
-    kode: "COL001",
-  },
-
-  {
-    id: 6,
-    nama: "Fajar Hidayat",
-    tipe: "KOLEKTOR",
-    kode: "COL002",
-  },
-
-  {
-    id: 7,
-    nama: "Gilang Ramadhan",
-    tipe: "KOLEKTOR",
-    kode: "COL003",
-  },
-
-];
-
-
-// =====================================================
-// DUMMY DATA FAKTUR
-// =====================================================
-
-const dummyData = [
-
-  {
-    id: 1,
-
-    no_faktur:
-      "INV-2026-00001",
-
-    nama_customer:
-      "Dinas Kesehatan Kota Medan",
-
-    alamat:
-      "Jl. Gatot Subroto No. 125, Medan",
-
-    jatuh_tempo:
-      "2026-08-22",
-
-    nominal:
-      140000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 2,
-
-    no_faktur:
-      "INV-2026-00002",
-
-    nama_customer:
-      "Apotek Maju Djaya",
-
-    alamat:
-      "Jl. Sisingamangaraja No. 88, Medan",
-
-    jatuh_tempo:
-      "2026-08-25",
-
-    nominal:
-      85000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 3,
-
-    no_faktur:
-      "INV-2026-00003",
-
-    nama_customer:
-      "Apotek Rusli",
-
-    alamat:
-      "Jl. Iskandar Muda No. 45, Medan",
-
-    jatuh_tempo:
-      "2026-08-27",
-
-    nominal:
-      140000000,
-
-    status:
-      "SUDAH_DITUGASKAN",
-
-    petugas_id:
-      1,
-
-    nama_petugas:
-      "Andri Noviandy",
-
-    tipe_petugas:
-      "SALESMAN",
-
-    jenis_penugasan:
-      "PENAGIHAN",
-
-  },
-
-
-  {
-    id: 4,
-
-    no_faktur:
-      "INV-2026-00004",
-
-    nama_customer:
-      "RSUD Pasuruan",
-
-    alamat:
-      "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-
-    jatuh_tempo:
-      "2026-08-29",
-
-    nominal:
-      175000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 5,
-
-    no_faktur:
-      "INV-2026-00005",
-
-    nama_customer:
-      "RS Hermina Medan",
-
-    alamat:
-      "Jl. Asrama No. 12, Medan",
-
-    jatuh_tempo:
-      "2026-08-30",
-
-    nominal:
-      95000000,
-
-    status:
-      "SUDAH_DITUGASKAN",
-
-    petugas_id:
-      5,
-
-    nama_petugas:
-      "Eko Saputra",
-
-    tipe_petugas:
-      "KOLEKTOR",
-
-    jenis_penugasan:
-      "PENAGIHAN",
-
-  },
-
-
-  {
-    id: 6,
-
-    no_faktur:
-      "INV-2026-00006",
-
-    nama_customer:
-      "Apotek Sehat Sentosa",
-
-    alamat:
-      "Jl. Kelapa Gading Raya No. 21, Jakarta",
-
-    jatuh_tempo:
-      "2026-09-01",
-
-    nominal:
-      65000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 7,
-
-    no_faktur:
-      "INV-2026-00007",
-
-    nama_customer:
-      "Klinik Medika Utama",
-
-    alamat:
-      "Jl. Boulevard Barat No. 30, Jakarta",
-
-    jatuh_tempo:
-      "2026-09-03",
-
-    nominal:
-      72500000,
-
-    status:
-      "SUDAH_DITUGASKAN",
-
-    petugas_id:
-      2,
-
-    nama_petugas:
-      "Budi Santoso",
-
-    tipe_petugas:
-      "SALESMAN",
-
-    jenis_penugasan:
-      "PENAGIHAN",
-
-  },
-
-
-  {
-    id: 8,
-
-    no_faktur:
-      "INV-2026-00008",
-
-    nama_customer:
-      "RS Siloam Medan",
-
-    alamat:
-      "Jl. Imam Bonjol No. 5, Medan",
-
-    jatuh_tempo:
-      "2026-09-05",
-
-    nominal:
-      210000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 9,
-
-    no_faktur:
-      "INV-2026-00009",
-
-    nama_customer:
-      "Dinas Kesehatan Deli Serdang",
-
-    alamat:
-      "Jl. Negara No. 100, Deli Serdang",
-
-    jatuh_tempo:
-      "2026-09-07",
-
-    nominal:
-      125000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 10,
-
-    no_faktur:
-      "INV-2026-00010",
-
-    nama_customer:
-      "Apotek Kimia Sehat",
-
-    alamat:
-      "Jl. Sunter Agung No. 18, Jakarta",
-
-    jatuh_tempo:
-      "2026-09-10",
-
-    nominal:
-      45000000,
-
-    status:
-      "SUDAH_DITUGASKAN",
-
-    petugas_id:
-      6,
-
-    nama_petugas:
-      "Fajar Hidayat",
-
-    tipe_petugas:
-      "KOLEKTOR",
-
-    jenis_penugasan:
-      "PENAGIHAN",
-
-  },
-
-
-  {
-    id: 11,
-
-    no_faktur:
-      "INV-2026-00011",
-
-    nama_customer:
-      "RSUD Kota Bogor",
-
-    alamat:
-      "Jl. Pajajaran No. 50, Bogor",
-
-    jatuh_tempo:
-      "2026-09-12",
-
-    nominal:
-      185000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-
-  {
-    id: 12,
-
-    no_faktur:
-      "INV-2026-00012",
-
-    nama_customer:
-      "Apotek Berkah Farma",
-
-    alamat:
-      "Jl. Merdeka No. 12, Bogor",
-
-    jatuh_tempo:
-      "2026-09-15",
-
-    nominal:
-      55000000,
-
-    status:
-      "BELUM_DITUGASKAN",
-
-    petugas_id:
-      null,
-
-    nama_petugas:
-      null,
-
-    tipe_petugas:
-      null,
-
-    jenis_penugasan:
-      null,
-
-  },
-
-];
-
-
-// =====================================================
-// STATUS CONFIG
-// =====================================================
+const getTukarFakturNama = (item) =>
+  firstValue(item, "tukar_faktur_nama", "nama_petugas_tukar_faktur", "tukar_faktur_petugas_nama", "tukar_faktur_nip", "nip_tukar_faktur");
+const getTukarFakturNip = (item) =>
+  firstValue(item, "tukar_faktur_nip", "nip_tukar_faktur", "tukar_faktur_petugas_nip");
+const getTukarFakturAssignedAt = (item) =>
+  firstValue(item, "tukar_faktur_assigned_at", "assigned_at_tukar_faktur", "tukar_faktur_tanggal_penugasan");
+const getPenagihanNama = (item) =>
+  firstValue(item, "penagihan_nama", "nama_petugas_penagihan", "penagihan_petugas_nama", "penagihan_nip", "nip_penagihan");
+const getPenagihanNip = (item) =>
+  firstValue(item, "penagihan_nip", "nip_penagihan", "penagihan_petugas_nip");
+const getPenagihanAssignedAt = (item) =>
+  firstValue(item, "penagihan_assigned_at", "assigned_at_penagihan", "penagihan_tanggal_penugasan");
+const normalizeRow = (item, index, page, perPage) => ({
+  ...item,
+  piutang_id: getId(item),
+  no_faktur:
+    firstValue(item, "no_faktur", "nomor_faktur", "billing_no", "no_billing") ||
+    "-",
+  nama_customer: getCustomer(item),
+  alamat: firstValue(item, "alamat", "customer_address") || "-",
+  cabang_id: item?.cabang,
+  cabang: getCabang(item),
+  document_date: getDocumentDate(item),
+  jatuh_tempo: firstValue(item, "jatuh_tempo", "due_date") || null,
+  outstanding: Number(
+    firstValue(item, "outstanding", "saldo_piutang", "saldo") || 0
+  ),
+  tukar_faktur_nama: getTukarFakturNama(item),
+  tukar_faktur_nip: getTukarFakturNip(item),
+  tukar_faktur_assigned_at: getTukarFakturAssignedAt(item),
+  penagihan_nama: getPenagihanNama(item),
+  penagihan_nip: getPenagihanNip(item),
+  penagihan_assigned_at: getPenagihanAssignedAt(item),
+  status: getStatus(item),
+  No: (page - 1) * perPage + index + 1,
+});
 
 const statusConfig = {
-
   BELUM_DITUGASKAN: {
-
-    label:
-      "Belum Ditugaskan",
-
-    icon:
-      FaClock,
-
-    className:
-      "bg-amber-100 text-amber-700",
-
+    label: "Belum Ditugaskan",
+    icon: FaClock,
+    className: "bg-amber-100 text-amber-700",
   },
-
   SUDAH_DITUGASKAN: {
-
-    label:
-      "Sudah Ditugaskan",
-
-    icon:
-      FaCheckCircle,
-
-    className:
-      "bg-green-100 text-green-700",
-
+    label: "Sudah Ditugaskan",
+    icon: FaCheckCircle,
+    className: "bg-green-100 text-green-700",
   },
-
 };
-
-
-// =====================================================
-// COMPONENT
-// =====================================================
-
 const TablePenugasanFaktur = ({
   dimensionScreenW,
   check,
   loginAccess,
+  reloadData,
+  setReloadData,
 }) => {
+  const [tableData, setTableData] = useState([]);
+  const [summaryData, setSummaryData] = useState({
+    total_faktur: 0,
+    belum_ditugaskan: 0,
+    sudah_ditugaskan: 0,
+  });
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
+  const [keyword, setKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [filterCabang, setFilterCabang] = useState([]);
+  const [filterCustomer, setFilterCustomer] = useState([]);
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [cabangOptions, setCabangOptions] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedCabang, setSelectedCabang] = useState(null);
+  const [selectedRowData, setSelectedRowData] = useState({});
+  const [selectedPetugas, setSelectedPetugas] = useState("");
+  const [selectedAction, setSelectedAction] = useState("");
+  const [showAssignmentPanel, setShowAssignmentPanel] = useState(false);
+  const [petugasOptions, setPetugasOptions] = useState([]);
+  const [loadingPetugas, setLoadingPetugas] = useState(false);
 
+  const getReferensi = async () => {
+    try {
+      const refCabang = await storeSchema.actions.getReferensiByJenis(
+        "cabang_id"
+      );
+      if (refCabang?.status === true) {
+        setCabangOptions(
+          (refCabang?.data || []).map((item) => ({
+            label: item?.ur_ref,
+            value: item?.kd_ref,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("ERROR GET REFERENSI CABANG:", error);
+    }
+  };
+  const loadCustomerOptions = async () => {
+    try {
+      if (!storeSchema?.actions?.getDataFakturPetugas) return;
+      const res = await storeSchema.actions.getDataFakturPetugas({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: "ALL",
+        customer: "ALL",
+        status: "ALL",
+        start_date: "",
+        end_date: "",
+        kegiatan: "ALL",
+      });
+      if (res?.status === true) {
+        const list = res?.data?.list_data || [];
+        const unique = [
+          ...new Map(
+            list.map((item) => {
+              const value = firstValue(
+                item,
+                "customer",
+                "nama_customer",
+                "customer_name"
+              );
+              return [
+                String(value || ""),
+                { label: value || "-", value: value || "" },
+              ];
+            })
+          ).values(),
+        ].filter((x) => x.value);
+        setCustomerOptions(unique);
+      }
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER OPTIONS:", error);
+    }
+  };
+  useEffect(() => {
+    getReferensi();
+    loadCustomerOptions();
+  }, []);
 
-  // ===================================================
-  // STATE
-  // ===================================================
-
-  const [
-    allData,
-    setAllData,
-  ] = useState(
-    dummyData
-  );
-
-
-  const [
-    keyword,
-    setKeyword,
-  ] = useState(
-    ""
-  );
-
-
-  const [
-    selectedStatus,
-    setSelectedStatus,
-  ] = useState(
-    "ALL"
-  );
-
-
-  const [
-    selectedIds,
-    setSelectedIds,
-  ] = useState(
-    []
-  );
-
-
-  const [
-    selectedPetugas,
-    setSelectedPetugas,
-  ] = useState(
-    ""
-  );
-
-  const [
-    selectedAction,
-    setSelectedAction,
-  ] = useState(
-    ""
-  );
-
-
-  const [
+  const getDataFakturPetugas = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        page: currentPage,
+        limit: perPage,
+        keyword: searchKeyword,
+        sales_office: filterCabang.length ? filterCabang : "ALL",
+        customer: filterCustomer.length ? filterCustomer : "ALL",
+        status: selectedStatus,
+        start_date: filterStartDate,
+        end_date: filterEndDate,
+        kegiatan: "ALL",
+      };
+      const res = await storeSchema.actions.getDataFakturPetugas(payload);
+      if (res?.status !== true)
+        throw new Error(res?.message || "Gagal mengambil data faktur petugas");
+      const responseData = res?.data || {};
+      const list = responseData?.list_data || [];
+      setTableData(
+        list.map((item, index) =>
+          normalizeRow(item, index, currentPage, perPage)
+        )
+      );
+      setTotalData(Number(responseData?.total_data || 0));
+      setTotalPage(Number(responseData?.total_halaman || 0));
+      const summary = responseData?.summary || {};
+      setSummaryData({
+        total_faktur: Number(
+          summary?.total_faktur || responseData?.total_data || 0
+        ),
+        belum_ditugaskan: Number(summary?.belum_ditugaskan || 0),
+        sudah_ditugaskan: Number(summary?.sudah_ditugaskan || 0),
+      });
+    } catch (error) {
+      console.error("ERROR GET DATA FAKTUR PETUGAS:", error);
+      setTableData([]);
+      setTotalData(0);
+      setTotalPage(0);
+      setSummaryData({
+        total_faktur: 0,
+        belum_ditugaskan: 0,
+        sudah_ditugaskan: 0,
+      });
+      await swal.error(error?.message || "Gagal mengambil data faktur petugas");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    getDataFakturPetugas();
+  }, [
     currentPage,
-    setCurrentPage,
-  ] = useState(
-    1
-  );
-
-
-  const [
     perPage,
-    setPerPage,
-  ] = useState(
-    10
-  );
+    searchKeyword,
+    filterCabang,
+    filterCustomer,
+    selectedStatus,
+    filterStartDate,
+    filterEndDate,
+  ]);
+  useEffect(() => {
+    if (!reloadData) return;
+    if (currentPage === 1) getDataFakturPetugas();
+    else setCurrentPage(1);
+    if (setReloadData) setReloadData(false);
+  }, [reloadData]);
 
-
-  const [
-    showAssignmentPanel,
-    setShowAssignmentPanel,
-  ] = useState(
-    false
-  );
-
-
-  // ===================================================
-  // SUMMARY
-  // ===================================================
-
-  const summaryData =
-    useMemo(
-      () => {
-
-        return {
-
-          total:
-            allData.length,
-
-          belum:
-            allData.filter(
-              item =>
-                item.status ===
-                "BELUM_DITUGASKAN"
-            ).length,
-
-          sudah:
-            allData.filter(
-              item =>
-                item.status ===
-                "SUDAH_DITUGASKAN"
-            ).length,
-
-        };
-
-      },
-      [
-        allData,
-      ]
-    );
-
-
-  // ===================================================
-  // FILTER DATA
-  // ===================================================
-
-  const filteredData =
-    useMemo(
-      () => {
-
-        let data =
-          [
-            ...allData,
-          ];
-
-
-        // STATUS
-
-        if (
-          selectedStatus !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.status ===
-                selectedStatus
-            );
-
-        }
-
-
-        // SEARCH
-
-        if (
-          keyword.trim()
-        ) {
-
-          const search =
-            keyword
-              .toLowerCase();
-
-
-          data =
-            data.filter(
-              item =>
-
-                item.no_faktur
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.nama_customer
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.alamat
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-            );
-
-        }
-
-
-        return data;
-
-      },
-      [
-        allData,
-        keyword,
-        selectedStatus,
-      ]
-    );
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData =
-    filteredData.length;
-
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) *
-      perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  // ===================================================
-  // RESET PAGE
-  // ===================================================
-
-  useEffect(
-    () => {
-
-      setCurrentPage(
-        1
-      );
-
-    },
-    [
-      keyword,
-      selectedStatus,
-      perPage,
-    ]
-  );
-
-
-  // ===================================================
-  // SELECTABLE
-  // ===================================================
-
-  const currentPageSelectableIds =
-    paginatedData
-      .filter(
-        item =>
-          item.status ===
-          "BELUM_DITUGASKAN"
-      )
-      .map(
-        item =>
-          item.id
-      );
-
-
-  const isAllSelected =
-    currentPageSelectableIds.length >
-    0 &&
-    currentPageSelectableIds.every(
-      id =>
-        selectedIds.includes(
-          id
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchKeyword(keyword.trim());
+  };
+  const resetFilter = () => {
+    setKeyword("");
+    setSearchKeyword("");
+    setFilterCabang([]);
+    setFilterCustomer([]);
+    setSelectedStatus("ALL");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setCurrentPage(1);
+    setSelectedIds([]);
+    setSelectedCabang(null);
+    setSelectedRowData({});
+  };
+  const handleRefresh = () => {
+    setCurrentPage(1);
+    if (setReloadData) setReloadData((prev) => !prev);
+    else getDataFakturPetugas();
+  };
+  const selectedRows = selectedIds.map((id) => selectedRowData[id]).filter(Boolean);
+  const isFullyAssigned = (item) =>
+    Boolean(
+      firstValue(
+        item,
+        "tukar_faktur_nama",
+        "tukar_faktur_nip",
+        "tukar_faktur_assigned_at",
+        "tukar_faktur_id",
+        "faktur_petugas_tukar_faktur_id"
+      ) &&
+        firstValue(
+          item,
+          "penagihan_nama",
+          "penagihan_nip",
+          "penagihan_assigned_at",
+          "penagihan_id",
+          "faktur_petugas_penagihan_id"
         )
     );
-
-
-  // ===================================================
-  // SELECT ONE
-  // ===================================================
-
-  const handleSelectOne = (
-    id
-  ) => {
-
-    setSelectedIds(
-      prev => {
-
-        if (
-          prev.includes(
-            id
-          )
-        ) {
-
-          return prev.filter(
-            x =>
-              x !== id
-          );
-
-        }
-
-
-        return [
-          ...prev,
-          id,
-        ];
-
+  const isSelectable = (item) => Boolean(getId(item)) && !isFullyAssigned(item);
+  const currentPageSelectableRows = tableData.filter(
+    (item) =>
+      isSelectable(item) &&
+      (!selectedCabang || getCabang(item) === selectedCabang)
+  );
+  const currentPageSelectableIds = currentPageSelectableRows.map((item) => getId(item));
+  const isAllSelected =
+    currentPageSelectableIds.length > 0 &&
+    currentPageSelectableIds.every((id) => selectedIds.includes(id));
+  const handleSelectOne = (id) => {
+    const item = tableData.find((row) => getId(row) === id);
+    if (!item || !isSelectable(item)) return;
+    const cabang = getCabang(item);
+    if (selectedIds.includes(id)) {
+      const nextIds = selectedIds.filter((x) => x !== id);
+      setSelectedIds(nextIds);
+      setSelectedRowData((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      if (nextIds.length === 0) setSelectedCabang(null);
+      return;
+    }
+    if (selectedCabang && cabang !== selectedCabang) return;
+    setSelectedCabang(cabang);
+    setSelectedRowData((prev) => ({ ...prev, [id]: item }));
+    setSelectedIds((prev) => [...prev, id]);
+  };
+  const handleSelectAll = () => {};
+  const getListPetugas = async (rows = []) => {
+    try {
+      setLoadingPetugas(true);
+      const cabangIds = [
+        ...new Set(
+          rows
+            .map((item) => item?.cabang_id ?? item?.cabang)
+            .filter((value) => value !== undefined && value !== null && value !== "")
+            .map((value) => String(value))
+        ),
+      ];
+      if (!cabangIds.length) {
+        setPetugasOptions([]);
+        return;
       }
-    );
-
+      const responses = await Promise.all(
+        cabangIds.map((cabangId) =>
+          storeSchema.actions.getListUserManagement({
+            page: 1,
+            limit: 9999,
+            role_id: "04",
+            cabang_id: cabangId,
+          })
+        )
+      );
+      const users = responses.flatMap((response) =>
+        response?.status === true ? response?.data?.list_data || [] : []
+      );
+      const uniqueUsers = [
+        ...new Map(
+          users
+            .filter((item) => item?.nip)
+            .map((item) => [
+              String(item.nip),
+              {
+                label: `${item?.nama || "-"} - ${item?.nip}`,
+                value: item.nip,
+                nama: item?.nama || "-",
+                nip: item.nip,
+              },
+            ])
+        ).values(),
+      ];
+      setPetugasOptions(uniqueUsers);
+    } catch (error) {
+      console.error("ERROR GET LIST PETUGAS:", error);
+      setPetugasOptions([]);
+      await swal.error(error?.message || "Gagal mengambil data petugas");
+    } finally {
+      setLoadingPetugas(false);
+    }
   };
 
-
-  // ===================================================
-  // SELECT ALL
-  // ===================================================
-
-  const handleSelectAll =
-    () => {
-
-      if (
-        isAllSelected
-      ) {
-
-        setSelectedIds(
-          prev =>
-            prev.filter(
-              id =>
-                !currentPageSelectableIds.includes(
-                  id
-                )
-            )
-        );
-
-      } else {
-
-        setSelectedIds(
-          prev => [
-
-            ...new Set(
-              [
-                ...prev,
-                ...currentPageSelectableIds,
-              ]
-            ),
-
-          ]
-        );
-
-      }
-
-    };
-
-
-  // ===================================================
-  // OPEN ASSIGNMENT
-  // ===================================================
-
-  const openAssignment =
-    (action) => {
-
-      if (
-        selectedIds.length ===
-        0
-      ) {
-
-        return;
-
-      }
-
-
-      setSelectedAction(
-        action
-      );
-
-      setSelectedPetugas(
-        ""
-      );
-
-      setShowAssignmentPanel(
-        true
-      );
-
-    };
-
-
-  // ===================================================
-  // CLOSE ASSIGNMENT
-  // ===================================================
-
-  const closeAssignment =
-    () => {
-
-      setSelectedPetugas(
-        ""
-      );
-
-      setSelectedAction(
-        ""
-      );
-
-      setShowAssignmentPanel(
-        false
-      );
-
-    };
-
-
-  // ===================================================
-  // ASSIGN FACTUR
-  // ===================================================
-
-  const handleAssignment =
-    () => {
-
-      if (
-        !selectedPetugas ||
-        !selectedAction
-      ) {
-
-        return;
-
-      }
-
-
-      const petugas =
-        dummyPetugas.find(
-          item =>
-            String(
-              item.id
-            ) ===
-            String(
-              selectedPetugas
-            )
-        );
-
-
-      if (!petugas) {
-
-        return;
-
-      }
-
-
-      setAllData(
-        prev =>
-          prev.map(
-            item =>
-
-              selectedIds.includes(
-                item.id
-              )
-
-                ? {
-
-                  ...item,
-
-                  status:
-                    "SUDAH_DITUGASKAN",
-
-                  petugas_id:
-                    petugas.id,
-
-                  nama_petugas:
-                    petugas.nama,
-
-                  tipe_petugas:
-                    petugas.tipe,
-
-                  jenis_penugasan:
-                    selectedAction,
-
-                }
-
-                : item
-
-          )
-      );
-
-
-      setSelectedIds(
-        []
-      );
-
-
-      closeAssignment();
-
-    };
-
-
-  // ===================================================
-  // STATUS
-  // ===================================================
-
-  const renderStatus =
-    (
-      status
-    ) => {
-
-      const config =
-        statusConfig[
-        status
-        ];
-
-
-      if (!config) {
-
-        return "-";
-
-      }
-
-
-      const Icon =
-        config.icon;
-
-
-      return (
-
-        <span
-          className={`
-            inline-flex
-            items-center
-            gap-2
-            px-3
-            py-1.5
-            rounded-full
-            text-xs
-            font-semibold
-            whitespace-nowrap
-            ${config.className}
-          `}
-        >
-
-          <Icon />
-
-          {
-            config.label
-          }
-
-        </span>
-
-      );
-
-    };
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const startIndex =
-    totalData > 0
-      ? (
-        currentPage -
-        1
-      ) *
-      perPage +
-      1
-      : 0;
-
-
-  const endIndex =
-    Math.min(
-      currentPage *
-      perPage,
-      totalData
+  const openAssignment = async (action) => {
+    if (selectedIds.length === 0) return;
+    setSelectedAction(action);
+    setSelectedPetugas("");
+    setShowAssignmentPanel(true);
+    await getListPetugas(selectedRows);
+  };
+  const closeAssignment = () => {
+    setSelectedPetugas("");
+    setSelectedAction("");
+    setShowAssignmentPanel(false);
+  };
+  const handleAssignment = async () => {
+    if (!selectedPetugas || !selectedAction) return;
+    const petugas = petugasOptions.find(
+      (item) => String(item.value) === String(selectedPetugas)
     );
-
-
-  // ===================================================
-  // HEADER TABLE
-  // ===================================================
-
+    if (!petugas) return;
+    try {
+      setLoading(true);
+      for (const item of selectedRows) {
+        const payload = {
+          piutang_id: getId(item),
+          nip: petugas.nip,
+          kegiatan: selectedAction,
+          is_active: "Y",
+          assigned_at: new Date(),
+          created_by:
+            loginAccess?.nip ||
+            loginAccess?.username ||
+            loginAccess?.user_id ||
+            "SYSTEM",
+        };
+        await storeSchema.actions.insertFakturPetugas(payload);
+      }
+      await swal.success(`${selectedIds.length} faktur berhasil ditugaskan`);
+      setSelectedIds([]);
+      setSelectedCabang(null);
+      setSelectedRowData({});
+      closeAssignment();
+      await getDataFakturPetugas();
+    } catch (error) {
+      console.error("ERROR INSERT FAKTUR PETUGAS:", error);
+      await swal.error(error?.message || "Gagal melakukan penugasan faktur");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const renderStatus = (status) => {
+    const config = statusConfig[status];
+    if (!config) return <span className="text-gray-400">-</span>;
+    const Icon = config.icon;
+    return (
+      <span
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${config.className}`}
+      >
+        <Icon />
+        {config.label}
+      </span>
+    );
+  };
+  const startIndex = totalData > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const endIndex = Math.min(currentPage * perPage, totalData);
   const headerTable = [
-
-    {
-      label:
-        "No",
-
-      icon:
-        <FaHashtag />,
-    },
-
-    {
-      label:
-        "No. Faktur",
-
-      icon:
-        <FaFileInvoiceDollar />,
-    },
-
-    {
-      label:
-        "Customer",
-
-      icon:
-        <FaBuilding />,
-    },
-
-    {
-      label:
-        "Alamat",
-
-      icon:
-        <FaMapMarkerAlt />,
-    },
-
-    {
-      label:
-        "Jatuh Tempo",
-
-      icon:
-        <FaCalendarAlt />,
-    },
-
-    {
-      label:
-        "Petugas",
-
-      icon:
-        <FaUser />,
-    },
-
-    {
-      label:
-        "Tujuan Penugasan",
-
-      icon:
-        <FaRoute />,
-    },
-
-    {
-      label:
-        "Status",
-
-      icon:
-        <FaRoute />,
-    },
-
+    { label: "No", icon: <span>#</span> },
+    { label: "No. Faktur", icon: <FaFileInvoiceDollar /> },
+    { label: "Customer", icon: <FaBuilding /> },
+    { label: "Cabang", icon: <FaBuilding /> },
+    { label: "Document Date", icon: <FaCalendarAlt /> },
+    { label: "Jatuh Tempo", icon: <FaCalendarAlt /> },
+    { label: "Outstanding", icon: <FaFileInvoiceDollar /> },
+    { label: "Petugas Tukar Faktur", icon: <FaExchangeAlt /> },
+    { label: "Petugas Penagihan", icon: <FaRoute /> },
+    // { label: "Status", icon: <FaCheckCircle /> },
   ];
 
-
-  // ===================================================
-  // RENDER
-  // ===================================================
-
   return (
-
-    <div
-      className="
-        flex
-        flex-col
-        gap-5
-      "
-    >
-
-
-      {/* ================================================= */}
-      {/* SEARCH + STATUS */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          flex
-          flex-col
-          lg:flex-row
-          justify-between
-          gap-4
-          items-stretch
-          lg:items-center
-        "
-      >
-
-        {/* SEARCH */}
-
-        <div
-          className="
-            input
-            input-sm
-            input-bordered
-            flex
-            items-center
-            gap-2
-            bg-white
-            rounded-full
-            border-gray-200
-            shadow-sm
-            w-full
-            lg:w-[380px]
-          "
-        >
-
-          <IoSearch
-            className="
-              text-gray-400
-            "
-          />
-
-
-          <input
-            type="text"
-            placeholder="
-              Cari nomor faktur / customer...
-            "
-            className="grow"
-            value={
-              keyword
-            }
-            onChange={
-              e =>
-                setKeyword(
-                  e.target.value
-                )
-            }
-          />
-
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
+          <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+            <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari billing / customer / sales..."
+              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+              value={keyword}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleSearch}
+              title="Cari"
+              aria-label="Cari"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:opacity-90"
+            >
+              <FaSearch className="text-sm" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resetFilter}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
+            >
+              <FaFilter />
+              Reset Filter
+            </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
+            >
+              <FaSyncAlt />
+              Refresh
+            </button>
+          </div>
         </div>
-
-
-        {/* STATUS */}
-
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-          "
-        >
-
-          <span
-            className="
-              text-sm
-              text-gray-500
-            "
-          >
-            Status:
-          </span>
-
-
-          <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[190px]
-            "
-            value={
-              selectedStatus
-            }
-            onChange={
-              e =>
-                setSelectedStatus(
-                  e.target.value
-                )
-            }
-          >
-
-            <option value="ALL">
-              Semua Status
-            </option>
-
-            <option value="BELUM_DITUGASKAN">
-              Belum Ditugaskan
-            </option>
-
-            <option value="SUDAH_DITUGASKAN">
-              Sudah Ditugaskan
-            </option>
-
-          </select>
-
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Cabang
+            </label>
+            <Select
+              isMulti
+              options={cabangOptions}
+              value={getSelectedFilterOptions(cabangOptions, filterCabang)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterCabang((selected || []).map((item) => item.value));
+              }}
+              placeholder="Semua Cabang"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Customer
+            </label>
+            <Select
+              isMulti
+              options={customerOptions}
+              value={getSelectedFilterOptions(customerOptions, filterCustomer)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterCustomer((selected || []).map((item) => item.value));
+              }}
+              placeholder="Semua Customer"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Status
+            </label>
+            <Select
+              options={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Belum Ditugaskan", value: "BELUM_DITUGASKAN" },
+                { label: "Sudah Ditugaskan", value: "SUDAH_DITUGASKAN" },
+              ]}
+              value={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Belum Ditugaskan", value: "BELUM_DITUGASKAN" },
+                { label: "Sudah Ditugaskan", value: "SUDAH_DITUGASKAN" },
+              ].find((item) => item.value === selectedStatus)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setSelectedStatus(selected?.value || "ALL");
+              }}
+              placeholder="Semua Status"
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Document Date
+            </label>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+              <FaCalendarAlt className="text-primary text-sm" />
+              <input
+                type="date"
+                value={filterStartDate}
+                max={filterEndDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterStartDate(e.target.value);
+                }}
+                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+              />
+              <span className="text-gray-300">-</span>
+              <input
+                type="date"
+                value={filterEndDate}
+                min={filterStartDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterEndDate(e.target.value);
+                }}
+                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+              />
+            </div>
+          </div>
         </div>
-
       </div>
-
-
-      {/* ================================================= */}
-      {/* SUMMARY */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          grid
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-3
-          gap-4
-        "
-      >
-
-        {/* TOTAL */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-blue-50
-            p-4
-            border
-            border-blue-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
+          <div className="flex justify-between">
             <div>
-
-              <p
-                className="
-                  text-sm
-                  text-blue-700
-                "
-              >
-                Total Faktur
+              <p className="text-sm text-blue-700">Total Faktur</p>
+              <p className="text-2xl font-bold text-blue-900">
+                {formatNumber(summaryData.total_faktur)}
               </p>
-
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-blue-900
-                "
-              >
-                {
-                  summaryData.total
-                }
-              </p>
-
             </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-blue-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaClipboardList
-                className="
-                  text-blue-600
-                "
-              />
-
+            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+              <FaClipboardList className="text-blue-600" />
             </div>
-
           </div>
-
         </div>
-
-
-        {/* BELUM */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-amber-50
-            p-4
-            border
-            border-amber-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
+        <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4">
+          <div className="flex justify-between">
             <div>
-
-              <p
-                className="
-                  text-sm
-                  text-amber-700
-                "
-              >
-                Belum Ditugaskan
+              <p className="text-sm text-amber-700">Belum Ditugaskan</p>
+              <p className="text-2xl font-bold text-amber-900">
+                {formatNumber(summaryData.belum_ditugaskan)}
               </p>
-
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-amber-900
-                "
-              >
-                {
-                  summaryData.belum
-                }
-              </p>
-
             </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-amber-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaClock
-                className="
-                  text-amber-600
-                "
-              />
-
+            <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center">
+              <FaClock className="text-amber-600" />
             </div>
-
           </div>
-
         </div>
-
-
-        {/* SUDAH */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-green-50
-            p-4
-            border
-            border-green-100
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
+        <div className="rounded-2xl bg-green-50 border border-green-100 p-4">
+          <div className="flex justify-between">
             <div>
-
-              <p
-                className="
-                  text-sm
-                  text-green-700
-                "
-              >
-                Sudah Ditugaskan
+              <p className="text-sm text-green-700">Sudah Ditugaskan</p>
+              <p className="text-2xl font-bold text-green-900">
+                {formatNumber(summaryData.sudah_ditugaskan)}
               </p>
-
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-green-900
-                "
-              >
-                {
-                  summaryData.sudah
-                }
-              </p>
-
             </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-green-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaCheckCircle
-                className="
-                  text-green-600
-                "
-              />
-
+            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+              <FaCheckCircle className="text-green-600" />
             </div>
-
           </div>
-
         </div>
-
       </div>
-
-
-      {/* ================================================= */}
-      {/* BULK ACTION */}
-      {/* ================================================= */}
-
-      {
-        selectedIds.length >
-        0 && (
-
-          <div
-            className="
-              flex
-              flex-col
-              sm:flex-row
-              items-center
-              justify-between
-              gap-3
-              bg-blue-50
-              border
-              border-blue-200
-              rounded-xl
-              px-4
-              py-3
-            "
-          >
-
-            {/* INFO */}
-
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                text-sm
-                text-blue-900
-              "
-            >
-
-              <FaCheckDouble />
-
-              <span>
-
-                <b>
-                  {
-                    selectedIds.length
-                  }
-                </b>
-
-                {" "}
-                faktur dipilih
-
-              </span>
-
-            </div>
-
-
-            {/* ACTION */}
-
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-              "
-            >
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedIds(
-                    []
-                  )
-                }
-                className="
-                  px-4
-                  py-2
-                  rounded-full
-                  border
-                  border-gray-300
-                  bg-white
-                  text-gray-600
-                  text-sm
-                  font-semibold
-                  hover:bg-gray-100
-                "
-              >
-
-                Batal
-
-              </button>
-
-
-              <button
-                type="button"
-                onClick={() =>
-                  openAssignment(
-                    "PENAGIHAN"
-                  )
-                }
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  px-4
-                  py-2
-                  rounded-full
-                  bg-primary
-                  text-white
-                  text-sm
-                  font-semibold
-                  hover:opacity-90
-                  transition
-                  shadow-md
-                "
-              >
-
-                <FaRoute />
-
-                Penagihan
-                (
-                {
-                  selectedIds.length
-                }
-                )
-
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  openAssignment(
-                    "TUKAR_FAKTUR"
-                  )
-                }
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  px-4
-                  py-2
-                  rounded-full
-                  bg-orange-500
-                  text-white
-                  text-sm
-                  font-semibold
-                  hover:bg-orange-600
-                  transition
-                  shadow-md
-                "
-              >
-
-                <FaExchangeAlt />
-
-                Tukar Faktur
-                (
-                {
-                  selectedIds.length
-                }
-                )
-
-              </button>
-
-            </div>
-
+      {selectedIds.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-blue-900">
+            <FaCheckDouble />
+            <span>
+              <b>{selectedIds.length}</b> faktur dipilih
+            </span>
           </div>
-
-        )
-      }
-
-
-      {/* ================================================= */}
-      {/* TABLE */}
-      {/* ================================================= */}
-
-      <div
-        className={
-          dimensionScreenW <
-            768 &&
-            check
-            ? "bringToBack"
-            : ""
-        }
-      >
-
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            shadow-xl
-            overflow-hidden
-            border
-            border-gray-200
-          "
-        >
-
-          <div
-            className="
-              overflow-auto
-              rounded-2xl
-              max-h-[65vh]
-            "
-          >
-
-            <table
-              className="
-                table
-                w-full
-              "
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedIds([]);
+                setSelectedCabang(null);
+                setSelectedRowData({});
+              }}
+              className="px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100"
             >
-
-              {/* HEADER */}
-
-              <thead
-                className="
-                  bg-primary
-                  text-white
-                  sticky
-                  top-0
-                  text-[13px]
-                  z-10
-                "
-              >
-
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => openAssignment("PENAGIHAN")}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-md"
+            >
+              <FaRoute />
+              Penagihan ({selectedIds.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => openAssignment("TUKAR_FAKTUR")}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 shadow-md"
+            >
+              <FaExchangeAlt />
+              Tukar Faktur ({selectedIds.length})
+            </button>
+          </div>
+        </div>
+      )}
+      <div className={dimensionScreenW < 768 && check ? "bringToBack" : ""}>
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+          <div className="overflow-auto max-h-[65vh]">
+            <table className="table w-full">
+              <thead className="bg-primary text-white sticky top-0 text-[13px] z-10">
                 <tr>
-
-                  {/* SELECT ALL */}
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      w-12
-                    "
-                  >
-
-                    <input
-                      type="checkbox"
-                      className="
-                        checkbox
-                        checkbox-sm
-                        checkbox-white
-                      "
-                      checked={
+                  <th>#</th>
+                  {/*
+                  <th className="px-4 py-3 w-12">
+                    <label
+                      className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${
                         isAllSelected
+                          ? "bg-blue-50 border-primary text-primary"
+                          : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
+                      } ${currentPageSelectableIds.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={
+                        currentPageSelectableIds.length === 0
+                          ? "Tidak ada faktur yang dapat dipilih"
+                          : isAllSelected
+                            ? "Batalkan semua pilihan"
+                            : selectedCabang
+                              ? `Pilih semua faktur cabang ${selectedCabang}`
+                              : "Pilih semua faktur"
                       }
-                      disabled={
-                        currentPageSelectableIds.length ===
-                        0
-                      }
-                      onChange={
-                        handleSelectAll
-                      }
-                    />
-
+                    >
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={isAllSelected}
+                        disabled={currentPageSelectableIds.length === 0}
+                        onChange={handleSelectAll}
+                      />
+                      {isAllSelected ? (
+                        <FaCheckCircle />
+                      ) : (
+                        <span className="w-4 h-4 rounded border border-current" />
+                      )}
+                    </label>
                   </th>
-
-
-                  {
-                    headerTable.map(
-                      (
-                        h,
-                        i
-                      ) => (
-
-                        <th
-                          key={i}
-                          className="
-                            px-4
-                            py-3
-                            whitespace-nowrap
-                          "
-                        >
-
-                          <div
-                            className="
-                              flex
-                              items-center
-                              gap-2
-                              font-semibold
-                            "
-                          >
-
-                            <span>
-                              {
-                                h.icon
-                              }
-                            </span>
-
-                            {
-                              h.label
-                            }
-
-                          </div>
-
-                        </th>
-
-                      )
-                    )
-                  }
-
+                  */}
+                  {headerTable.map((h, i) => (
+                    <th key={i} className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <span>{h.icon}</span>
+                        {h.label}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
-
               </thead>
-
-
-              {/* BODY */}
-
               <tbody>
-
-                {
-                  paginatedData.length ===
-                    0 ? (
-
-                    <tr>
-
-                      <td
-                        colSpan={
-                          headerTable.length +
-                          1
-                        }
-                        className="
-                          text-center
-                          py-16
-                          text-gray-500
-                        "
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={headerTable.length + 1}
+                      className="text-center py-16 text-gray-500"
+                    >
+                      <span className="loading loading-spinner loading-md text-primary" />
+                      <div className="mt-2">Memuat data...</div>
+                    </td>
+                  </tr>
+                ) : tableData.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={headerTable.length + 1}
+                      className="text-center py-16 text-gray-500"
+                    >
+                      <FaClipboardList className="text-4xl text-gray-300 mx-auto mb-3" />
+                      Tidak ada data faktur
+                    </td>
+                  </tr>
+                ) : (
+                  tableData.map((v, i) => {
+                    const id = getId(v);
+                    return (
+                      <tr
+                        key={id || i}
+                        className={`transition duration-200 border-b ${
+                          selectedIds.includes(id)
+                            ? "bg-blue-50"
+                            : "hover:bg-blue-50"
+                        }`}
                       >
-
-                        <FaClipboardList
-                          className="
-                            text-4xl
-                            text-gray-300
-                            mx-auto
-                            mb-3
-                          "
-                        />
-
-                        Tidak ada data faktur
-
-                      </td>
-
-                    </tr>
-
-                  ) : (
-
-                    paginatedData.map(
-                      (
-                        v,
-                        i
-                      ) => (
-
-                        <tr
-                          key={
-                            v.id
-                          }
-                          className={`
-                            transition
-                            duration-200
-                            border-b
-                            ${selectedIds.includes(
-                            v.id
-                          )
-                              ? "bg-blue-50"
-                              : "hover:bg-blue-50"
+                        <td className="px-4 py-3">
+                          <label
+                            className={`flex items-center justify-center w-9 h-9 rounded-full border transition ${
+                              selectedIds.includes(id)
+                                ? "bg-blue-50 border-primary text-primary cursor-pointer"
+                                : isSelectable(v)
+                                  ? "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary cursor-pointer"
+                                  : "bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed"
+                            }`}
+                            title={
+                              isFullyAssigned(v)
+                                ? "Petugas Tukar Faktur dan Penagihan sudah ditugaskan"
+                                : selectedIds.length > 0 &&
+                                    getCabang(v) !== selectedCabang
+                                  ? `Cabang harus sama dengan ${selectedCabang}`
+                                  : selectedIds.includes(id)
+                                    ? "Batalkan pilihan"
+                                    : "Pilih faktur"
                             }
-                          `}
-                        >
-
-                          {/* CHECKBOX */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
                           >
-
                             <input
                               type="checkbox"
-                              className="
-                                checkbox
-                                checkbox-sm
-                                checkbox-primary
-                              "
-                              checked={
-                                selectedIds.includes(
-                                  v.id
-                                )
-                              }
-                              disabled={
-                                v.status !==
-                                "BELUM_DITUGASKAN"
-                              }
-                              onChange={() =>
-                                handleSelectOne(
-                                  v.id
-                                )
-                              }
+                              className="hidden"
+                              checked={selectedIds.includes(id)}
+                              disabled={!isSelectable(v) || (selectedIds.length > 0 && getCabang(v) !== selectedCabang)}
+                              onChange={() => handleSelectOne(id)}
                             />
-
-                          </td>
-
-
-                          {/* NO */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              font-semibold
-                              text-gray-700
-                            "
-                          >
-
-                            {
-                              (
-                                currentPage -
-                                1
-                              ) *
-                              perPage +
-                              i +
-                              1
-                            }
-
-                          </td>
-
-
-                          {/* NO FAKTUR */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-9
-                                  h-9
-                                  rounded-lg
-                                  bg-blue-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
-                              >
-
-                                <FaFileInvoiceDollar
-                                  className="
-                                    text-primary
-                                  "
-                                />
-
-                              </div>
-
-
-                              <span
-                                className="
-                                  font-semibold
-                                  text-primary
-                                "
-                              >
-                                {
-                                  v.no_faktur
-                                }
-                              </span>
-
+                            {selectedIds.includes(id) ? (
+                              <FaCheck />
+                            ) : (
+                              <span className="w-4 h-4 rounded border border-current" />
+                            )}
+                          </label>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-700">
+                          {(currentPage - 1) * perPage + i + 1}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                              <FaFileInvoiceDollar className="text-primary" />
                             </div>
-
-                          </td>
-
-
-                          {/* CUSTOMER */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-3
-                                min-w-[220px]
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-9
-                                  h-9
-                                  rounded-full
-                                  bg-blue-50
-                                  text-primary
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
-                              >
-
-                                <FaBuilding />
-
+                            <span className="font-semibold text-primary">
+                              {v.no_faktur}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3 min-w-[220px]">
+                            <div className="w-9 h-9 rounded-full bg-blue-50 text-primary flex items-center justify-center">
+                              <FaBuilding />
+                            </div>
+                            <p className="font-semibold text-gray-700">
+                              {v.nama_customer}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-2 text-sm text-gray-600">
+                            <FaBuilding className="text-primary" />
+                            {v.cabang}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-2 text-sm text-gray-600">
+                            <FaCalendarAlt className="text-primary" />
+                            {formatDate(v.document_date)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-2 text-sm text-gray-600">
+                            <FaCalendarAlt className="text-orange-500" />
+                            {formatDate(v.jatuh_tempo)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-700">
+                          {formatRupiah(v.outstanding)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {v.tukar_faktur_nama ? (
+                            <div className="flex items-center gap-2 min-w-[190px]">
+                              <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                                <FaExchangeAlt className="text-xs" />
                               </div>
-
-
-                              <div>
-
-                                <p
-                                  className="
-                                    font-semibold
-                                    text-gray-700
-                                  "
-                                >
-                                  {
-                                    v.nama_customer
-                                  }
+                              <div className="leading-tight">
+                                <p className="font-semibold text-gray-700 text-sm">
+                                  {v.tukar_faktur_nama}
+                                  <br />
+                                  <span className="text-[11px] font-normal text-gray-400">
+                                    {formatDate(v.tukar_faktur_assigned_at)}
+                                  </span>
                                 </p>
-
                               </div>
-
                             </div>
-
-                          </td>
-
-
-                          {/* ALAMAT */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              min-w-[270px]
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-start
-                                gap-2
-                                text-sm
-                                text-gray-600
-                              "
-                            >
-
-                              <FaMapMarkerAlt
-                                className="
-                                  text-orange-500
-                                  mt-1
-                                  shrink-0
-                                "
-                              />
-
-                              <span>
-                                {
-                                  v.alamat
-                                }
-                              </span>
-
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {v.penagihan_nama ? (
+                            <div className="flex items-center gap-2 min-w-[190px]">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 text-primary flex items-center justify-center shrink-0">
+                                <FaRoute className="text-xs" />
+                              </div>
+                              <div className="leading-tight">
+                                <p className="font-semibold text-gray-700 text-sm">
+                                  {v.penagihan_nama}
+                                  <br />
+                                  <span className="text-[11px] font-normal text-gray-400">
+                                    {formatDate(v.penagihan_assigned_at)}
+                                  </span>
+                                </p>
+                              </div>
                             </div>
-
-                          </td>
-
-
-                          {/* JATUH TEMPO */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                                text-sm
-                              "
-                            >
-
-                              <FaCalendarAlt
-                                className="
-                                  text-primary
-                                "
-                              />
-
-                              {
-                                formatDate(
-                                  v.jatuh_tempo
-                                )
-                              }
-
-                            </div>
-
-                          </td>
-
-
-                          {/* PETUGAS */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            {
-                              v.nama_petugas
-                                ? (
-
-                                  <div
-                                    className="
-                                      flex
-                                      items-center
-                                      gap-2
-                                    "
-                                  >
-
-                                    <div
-                                      className="
-                                        w-8
-                                        h-8
-                                        rounded-full
-                                        bg-green-50
-                                        flex
-                                        items-center
-                                        justify-center
-                                      "
-                                    >
-
-                                      {
-                                        v.tipe_petugas ===
-                                          "KOLEKTOR"
-                                          ? (
-                                            <FaUserTie
-                                              className="
-                                                text-green-600
-                                              "
-                                            />
-                                          )
-                                          : (
-                                            <FaUser
-                                              className="
-                                                text-blue-600
-                                              "
-                                            />
-                                          )
-                                      }
-
-                                    </div>
-
-
-                                    <div>
-
-                                      <p
-                                        className="
-                                          text-sm
-                                          font-semibold
-                                          text-gray-700
-                                        "
-                                      >
-                                        {
-                                          v.nama_petugas
-                                        }
-                                      </p>
-
-                                      <p
-                                        className="
-                                          text-[10px]
-                                          text-gray-400
-                                        "
-                                      >
-                                        {
-                                          v.tipe_petugas
-                                        }
-                                      </p>
-
-                                    </div>
-
-                                  </div>
-
-                                )
-                                : (
-
-                                  <span
-                                    className="
-                                      text-xs
-                                      text-gray-400
-                                    "
-                                  >
-                                    Belum ditugaskan
-                                  </span>
-
-                                )
-                            }
-
-                          </td>
-
-
-                          {/* TUJUAN PENUGASAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            {v.jenis_penugasan === "TUKAR_FAKTUR"
-                              ? (
-                                <span
-                                  className="
-                                    inline-flex
-                                    items-center
-                                    gap-2
-                                    rounded-full
-                                    bg-orange-100
-                                    px-3
-                                    py-1.5
-                                    text-xs
-                                    font-semibold
-                                    text-orange-700
-                                  "
-                                >
-                                  <FaExchangeAlt />
-                                  Tukar Faktur
-                                </span>
-                              )
-                              : v.jenis_penugasan === "PENAGIHAN"
-                                ? (
-                                  <span
-                                    className="
-                                      inline-flex
-                                      items-center
-                                      gap-2
-                                      rounded-full
-                                      bg-blue-100
-                                      px-3
-                                      py-1.5
-                                      text-xs
-                                      font-semibold
-                                      text-blue-700
-                                    "
-                                  >
-                                    <FaRoute />
-                                    Penagihan
-                                  </span>
-                                )
-                                : (
-                                  <span
-                                    className="
-                                      text-xs
-                                      text-gray-400
-                                    "
-                                  >
-                                    Belum ditentukan
-                                  </span>
-                                )}
-
-                          </td>
-
-
-                          {/* STATUS */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              renderStatus(
-                                v.status
-                              )
-                            }
-
-                          </td>
-
-                        </tr>
-
-                      )
-                    )
-
-                  )
-                }
-
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                        {/* <td className="px-4 py-3">{renderStatus(v.status)}</td> */}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
-
             </table>
-
           </div>
-
-
-          {/* ================================================= */}
-          {/* FOOTER */}
-          {/* ================================================= */}
-
-          <div
-            className="
-              border-t
-              border-gray-100
-              bg-slate-50
-              py-4
-              px-5
-            "
-          >
-
-            <div
-              className="
-                flex
-                flex-col
-                lg:flex-row
-                gap-4
-                lg:items-center
-                lg:justify-between
-              "
-            >
-
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-5
-                  flex-wrap
-                "
-              >
-
-                <div
-                  className="
-                    text-sm
-                    text-gray-600
-                  "
-                >
-
-                  Showing{" "}
-
-                  <span
-                    className="
-                      font-semibold
-                    "
-                  >
-                    {
-                      startIndex
-                    }
-                  </span>
-
-                  {" "}to{" "}
-
-                  <span
-                    className="
-                      font-semibold
-                    "
-                  >
-                    {
-                      endIndex
-                    }
-                  </span>
-
-                  {" "}of{" "}
-
-                  <span
-                    className="
-                      font-semibold
-                    "
-                  >
-                    {
-                      totalData
-                    }
-                  </span>
-
-                  {" "}entries
-
+          <div className="border-t border-gray-100 bg-slate-50 py-4 px-5">
+            <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+              <div className="flex items-center gap-5 flex-wrap">
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-semibold">{startIndex}</span> to{" "}
+                  <span className="font-semibold">{endIndex}</span> of{" "}
+                  <span className="font-semibold">{totalData}</span> entries
                 </div>
-
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                  "
-                >
-
-                  <span
-                    className="
-                      text-sm
-                      text-gray-600
-                    "
-                  >
-                    Rows:
-                  </span>
-
-
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Rows:</span>
                   <select
-                    className="
-                      select
-                      select-bordered
-                      select-sm
-                      bg-white
-                      rounded-full
-                    "
-                    value={
-                      perPage
-                    }
-                    onChange={
-                      e =>
-                        setPerPage(
-                          parseInt(
-                            e.target.value
-                          )
-                        )
-                    }
+                    className="select select-bordered select-sm bg-white rounded-full"
+                    value={perPage}
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setPerPage(parseInt(e.target.value));
+                    }}
                   >
-
-                    <option value="5">
-                      5
-                    </option>
-
-                    <option value="10">
-                      10
-                    </option>
-
-                    <option value="25">
-                      25
-                    </option>
-
-                    <option value="50">
-                      50
-                    </option>
-
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
                   </select>
-
                 </div>
-
               </div>
-
-
-              {
-                totalPage >
-                0 && (
-
-                  <ReactPaginate
-                    breakLabel="..."
-                    previousLabel="←"
-                    nextLabel="→"
-                    pageCount={
-                      totalPage
-                    }
-                    onPageChange={
-                      e =>
-                        setCurrentPage(
-                          e.selected +
-                          1
-                        )
-                    }
-                    forcePage={
-                      currentPage -
-                      1
-                    }
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                    "
-                    activeClassName="
-                      !bg-primary
-                      !text-white
-                      !border-primary
-                    "
-                    pageClassName="
-                      min-w-9
-                      h-9
-                      border
-                      border-gray-300
-                      rounded-full
-                      flex
-                      items-center
-                      justify-center
-                      bg-white
-                      hover:bg-blue-50
-                    "
-                    pageLinkClassName="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                      px-3
-                    "
-                    previousClassName="
-                      min-w-9
-                      h-9
-                      border
-                      border-gray-300
-                      rounded-full
-                      bg-white
-                    "
-                    nextClassName="
-                      min-w-9
-                      h-9
-                      border
-                      border-gray-300
-                      rounded-full
-                      bg-white
-                    "
-                    previousLinkClassName="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                    "
-                    nextLinkClassName="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                    "
-                    breakClassName="
-                      px-2
-                      text-gray-500
-                    "
-                    disabledClassName="
-                      opacity-50
-                      cursor-not-allowed
-                    "
-                  />
-
-                )
-              }
-
+              {totalPage > 0 && (
+                <ReactPaginate
+                  breakLabel="..."
+                  previousLabel="←"
+                  nextLabel="→"
+                  pageCount={totalPage}
+                  onPageChange={(e) => setCurrentPage(e.selected + 1)}
+                  forcePage={currentPage - 1}
+                  className="flex items-center gap-2"
+                  activeClassName="!bg-primary !text-white !border-primary"
+                  pageClassName="min-w-9 h-9 border border-gray-300 rounded-full flex items-center justify-center bg-white hover:bg-blue-50"
+                  pageLinkClassName="w-full h-full flex items-center justify-center px-3"
+                  previousClassName="min-w-9 h-9 border border-gray-300 rounded-full bg-white"
+                  nextClassName="min-w-9 h-9 border border-gray-300 rounded-full bg-white"
+                  previousLinkClassName="w-full h-full flex items-center justify-center"
+                  nextLinkClassName="w-full h-full flex items-center justify-center"
+                  breakClassName="px-2 text-gray-500"
+                  disabledClassName="opacity-50 cursor-not-allowed"
+                />
+              )}
             </div>
-
           </div>
-
         </div>
-
       </div>
 
-
-      {/* ================================================= */}
-      {/* ASSIGNMENT MODAL */}
-      {/* ================================================= */}
-
-      {
-        showAssignmentPanel && (
-
+      {showAssignmentPanel && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5"
+          onClick={closeAssignment}
+        >
           <div
-            className="
-        fixed
-        inset-0
-        z-[9999]
-        bg-black/40
-        backdrop-blur-sm
-        flex
-        items-center
-        justify-center
-        p-3
-        sm:p-5
-      "
-            onClick={closeAssignment}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
-
-            <div
-              className="
-          bg-white
-          rounded-2xl
-          shadow-2xl
-          w-full
-          max-w-xl
-          max-h-[90vh]
-          flex
-          flex-col
-          overflow-hidden
-        "
-              onClick={(e) => e.stopPropagation()}
-            >
-
-              {/* ============================================= */}
-              {/* HEADER */}
-              {/* ============================================= */}
-
-              <div
-                className="
-            bg-primary
-            px-5
-            sm:px-6
-            py-4
-            text-white
-            shrink-0
-          "
-              >
-
-                <div
-                  className="
-              flex
-              items-center
-              justify-between
-              gap-3
-            "
-                >
-
-                  <div
-                    className="
-                flex
-                items-center
-                gap-3
-                min-w-0
-              "
-                  >
-
-                    <div
-                      className="
-                  w-10
-                  h-10
-                  shrink-0
-                  rounded-xl
-                  bg-white/15
-                  flex
-                  items-center
-                  justify-center
-                "
-                    >
-
+            <div className="bg-primary px-5 sm:px-6 py-4 text-white shrink-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                    {selectedAction === "TUKAR_FAKTUR" ? (
+                      <FaExchangeAlt />
+                    ) : (
                       <FaRoute />
-
-                    </div>
-
-
-                    <div className="min-w-0">
-
-                      <h3
-                        className="
-                    font-bold
-                    text-lg
-                    truncate
-                  "
-                      >
-                        {selectedAction === "TUKAR_FAKTUR"
-                          ? "Penugasan Tukar Faktur"
-                          : "Penugasan Penagihan"}
-                      </h3>
-
-                      <p
-                        className="
-                    text-xs
-                    text-blue-100
-                  "
-                      >
-                        {selectedIds.length} faktur dipilih
-                      </p>
-
-                    </div>
-
+                    )}
                   </div>
-
-
-                  <button
-                    type="button"
-                    onClick={closeAssignment}
-                    className="
-                w-9
-                h-9
-                shrink-0
-                rounded-full
-                hover:bg-white/10
-                flex
-                items-center
-                justify-center
-                transition
-              "
-                  >
-
-                    <FaTimes />
-
-                  </button>
-
-                </div>
-
-              </div>
-
-
-              {/* ============================================= */}
-              {/* BODY */}
-              {/* ============================================= */}
-
-              <div
-                className="
-            p-4
-            sm:p-6
-            overflow-y-auto
-            overscroll-contain
-            flex-1
-            min-h-0
-          "
-              >
-
-                <div
-                  className="
-              flex
-              flex-col
-              gap-5
-            "
-                >
-
-                  {/* ========================================= */}
-                  {/* INFO */}
-                  {/* ========================================= */}
-
-                  <div
-                    className="
-                rounded-xl
-                bg-blue-50
-                border
-                border-blue-100
-                p-4
-                flex
-                items-start
-                gap-3
-              "
-                  >
-
-                    <FaClipboardList
-                      className="
-                  text-primary
-                  mt-1
-                  shrink-0
-                "
-                    />
-
-                    <div className="min-w-0">
-
-                      <p
-                        className="
-                    text-sm
-                    font-semibold
-                    text-blue-900
-                  "
-                      >
-                        {selectedIds.length} faktur siap ditugaskan
-                      </p>
-
-                      <p
-                        className="
-                    text-xs
-                    text-blue-700
-                    mt-1
-                    leading-relaxed
-                  "
-                      >
-                        {selectedAction === "TUKAR_FAKTUR"
-                          ? "Pilih salesman atau kolektor yang bertanggung jawab untuk proses tukar faktur."
-                          : "Pilih salesman atau kolektor yang bertanggung jawab untuk proses penagihan faktur."}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-
-                  {/* ========================================= */}
-                  {/* TUJUAN PENUGASAN */}
-                  {/* ========================================= */}
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-3
-                      rounded-xl
-                      border
-                      border-gray-200
-                      bg-gray-50
-                      px-4
-                      py-3
-                    "
-                  >
-
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`
-                          flex
-                          h-9
-                          w-9
-                          items-center
-                          justify-center
-                          rounded-lg
-                          ${
-                            selectedAction === "TUKAR_FAKTUR"
-                              ? "bg-orange-100 text-orange-600"
-                              : "bg-blue-100 text-blue-600"
-                          }
-                        `}
-                      >
-                        {selectedAction === "TUKAR_FAKTUR"
-                          ? <FaExchangeAlt />
-                          : <FaRoute />}
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] text-gray-400">
-                          Tujuan penugasan
-                        </p>
-                        <p className="text-sm font-bold text-gray-700">
-                          {selectedAction === "TUKAR_FAKTUR"
-                            ? "Tukar Faktur"
-                            : "Penagihan"}
-                        </p>
-                      </div>
-                    </div>
-
-                  </div>
-
-
-                  {/* ========================================= */}
-                  {/* PETUGAS */}
-                  {/* ========================================= */}
-
                   <div>
-
-                    <label
-                      className="
-                  block
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  mb-2
-                "
-                    >
+                    <h3 className="font-bold text-lg">
                       {selectedAction === "TUKAR_FAKTUR"
-                        ? "Petugas Tukar Faktur"
-                        : "Petugas Penagihan"}
-                    </label>
-
-
-                    <select
-                      className="
-                  select
-                  select-bordered
-                  w-full
-                  bg-white
-                  rounded-xl
-                "
-                      value={selectedPetugas}
-                      onChange={(e) =>
-                        setSelectedPetugas(
-                          e.target.value
-                        )
-                      }
-                    >
-
-                      <option value="">
-                        -- Pilih Salesman / Kolektor --
-                      </option>
-
-
-                      <optgroup label="Salesman">
-
-                        {
-                          dummyPetugas
-                            .filter(
-                              item =>
-                                item.tipe ===
-                                "SALESMAN"
-                            )
-                            .map(
-                              item => (
-
-                                <option
-                                  key={item.id}
-                                  value={item.id}
-                                >
-                                  {item.nama}
-                                  {" "}
-                                  ({item.kode})
-                                </option>
-
-                              )
-                            )
-                        }
-
-                      </optgroup>
-
-
-                      <optgroup label="Kolektor">
-
-                        {
-                          dummyPetugas
-                            .filter(
-                              item =>
-                                item.tipe ===
-                                "KOLEKTOR"
-                            )
-                            .map(
-                              item => (
-
-                                <option
-                                  key={item.id}
-                                  value={item.id}
-                                >
-                                  {item.nama}
-                                  {" "}
-                                  ({item.kode})
-                                </option>
-
-                              )
-                            )
-                        }
-
-                      </optgroup>
-
-                    </select>
-
+                        ? "Penugasan Tukar Faktur"
+                        : "Penugasan Penagihan"}
+                    </h3>
+                    <p className="text-xs text-white/70">
+                      {selectedIds.length} faktur akan ditugaskan
+                    </p>
                   </div>
-
-
-                  {/* ========================================= */}
-                  {/* PETUGAS TERPILIH */}
-                  {/* ========================================= */}
-
-                  {
-                    selectedPetugas && (
-
-                      <div
-                        className="
-                    rounded-xl
-                    bg-green-50
-                    border
-                    border-green-100
-                    p-4
-                    flex
-                    items-center
-                    gap-3
-                  "
-                      >
-
-                        <div
-                          className="
-                      w-10
-                      h-10
-                      shrink-0
-                      rounded-full
-                      bg-white
-                      flex
-                      items-center
-                      justify-center
-                      shadow-sm
-                    "
-                        >
-
-                          {
-                            dummyPetugas.find(
-                              item =>
-                                String(item.id) ===
-                                String(selectedPetugas)
-                            )?.tipe === "KOLEKTOR"
-
-                              ? (
-
-                                <FaUserTie
-                                  className="
-                              text-green-600
-                            "
-                                />
-
-                              )
-
-                              : (
-
-                                <FaUser
-                                  className="
-                              text-primary
-                            "
-                                />
-
-                              )
-                          }
-
-                        </div>
-
-
-                        <div className="min-w-0">
-
-                          <p
-                            className="
-                        text-xs
-                        text-gray-400
-                      "
-                          >
-                            Petugas terpilih
-                          </p>
-
-                          <p
-                            className="
-                        font-semibold
-                        text-gray-700
-                        truncate
-                      "
-                          >
-
-                            {
-                              dummyPetugas.find(
-                                item =>
-                                  String(item.id) ===
-                                  String(selectedPetugas)
-                              )?.nama
-                            }
-
-                          </p>
-
-                        </div>
-
-                      </div>
-
-                    )
-                  }
-
-
-                  {/* ========================================= */}
-                  {/* FAKTUR YANG DIPILIH */}
-                  {/* ========================================= */}
-
-                  <div>
-
-                    <div
-                      className="
-                  flex
-                  items-center
-                  justify-between
-                  gap-3
-                  mb-2
-                "
-                    >
-
-                      <p
-                        className="
-                    text-sm
-                    font-semibold
-                    text-gray-700
-                  "
-                      >
-                        {selectedAction === "TUKAR_FAKTUR"
-                          ? "Faktur untuk Tukar Faktur"
-                          : "Faktur untuk Penagihan"}
-                      </p>
-
-                      <span
-                        className="
-                    text-xs
-                    font-semibold
-                    text-primary
-                    bg-blue-50
-                    px-2.5
-                    py-1
-                    rounded-full
-                  "
-                      >
-                        {selectedIds.length} Faktur
-                      </span>
-
-                    </div>
-
-
-                    <div
-                      className="
-                  border
-                  border-gray-200
-                  rounded-xl
-                  overflow-hidden
-                "
-                    >
-
-                      {/* SCROLL LIST */}
-
-                      <div
-                        className="
-                    max-h-[220px]
-                    sm:max-h-[260px]
-                    overflow-y-auto
-                    overscroll-contain
-                  "
-                      >
-
-                        {
-                          allData
-                            .filter(
-                              item =>
-                                selectedIds.includes(
-                                  item.id
-                                )
-                            )
-                            .map(
-                              item => (
-
-                                <div
-                                  key={item.id}
-                                  className="
-                              flex
-                              items-center
-                              justify-between
-                              gap-3
-                              px-4
-                              py-3
-                              border-b
-                              last:border-b-0
-                              hover:bg-blue-50
-                              transition
-                            "
-                                >
-
-                                  <div
-                                    className="
-                                min-w-0
-                              "
-                                  >
-
-                                    <p
-                                      className="
-                                  font-semibold
-                                  text-primary
-                                  text-sm
-                                  truncate
-                                "
-                                    >
-                                      {item.no_faktur}
-                                    </p>
-
-                                    <p
-                                      className="
-                                  text-xs
-                                  text-gray-500
-                                  truncate
-                                  mt-0.5
-                                "
-                                    >
-                                      {item.nama_customer}
-                                    </p>
-
-                                    <p
-                                      className="
-                                  text-[11px]
-                                  text-gray-400
-                                  mt-0.5
-                                "
-                                    >
-                                      Jatuh tempo:{" "}
-                                      {formatDate(
-                                        item.jatuh_tempo
-                                      )}
-                                    </p>
-
-                                  </div>
-
-
-                                  <FaFileInvoiceDollar
-                                    className="
-                                text-gray-300
-                                shrink-0
-                              "
-                                  />
-
-                                </div>
-
-                              )
-                            )
-                        }
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
                 </div>
-
-              </div>
-
-
-              {/* ============================================= */}
-              {/* FOOTER */}
-              {/* ============================================= */}
-
-              <div
-                className="
-            border-t
-            bg-gray-50
-            px-4
-            sm:px-5
-            py-4
-            flex
-            flex-col-reverse
-            sm:flex-row
-            justify-end
-            gap-2
-            shrink-0
-          "
-              >
-
                 <button
                   type="button"
                   onClick={closeAssignment}
-                  className="
-              w-full
-              sm:w-auto
-              px-5
-              py-2.5
-              rounded-full
-              border
-              border-gray-300
-              bg-white
-              text-gray-600
-              text-sm
-              font-semibold
-              hover:bg-gray-100
-              transition
-            "
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
                 >
-                  Batal
+                  <FaTimes />
                 </button>
-
-
-                <button
-                  type="button"
-                  disabled={!selectedPetugas}
-                  onClick={handleAssignment}
-                  className="
-              w-full
-              sm:w-auto
-              px-6
-              py-2.5
-              rounded-full
-              bg-primary
-              text-white
-              text-sm
-              font-semibold
-              hover:opacity-90
-              shadow-md
-              disabled:bg-gray-300
-              disabled:cursor-not-allowed
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              transition
-            "
-                >
-
-                  {selectedAction === "TUKAR_FAKTUR"
-                    ? <FaExchangeAlt />
-                    : <FaRoute />}
-
-                  {selectedAction === "TUKAR_FAKTUR"
-                    ? "Tugaskan Tukar Faktur"
-                    : "Tugaskan Penagihan"}
-
-                </button>
-
               </div>
-
             </div>
-
+            <div className="p-5 overflow-y-auto flex-1">
+              <div className="mb-5">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Pilih Petugas
+                </label>
+                <Select
+                  options={petugasOptions}
+                  value={petugasOptions.find(
+                    (item) => String(item.value) === String(selectedPetugas)
+                  ) || null}
+                  onChange={(selected) =>
+                    setSelectedPetugas(selected?.value || "")
+                  }
+                  placeholder={loadingPetugas ? "Memuat petugas..." : "Pilih petugas..."}
+                  isLoading={loadingPetugas}
+                  isDisabled={loadingPetugas}
+                  noOptionsMessage={() => "Tidak ada petugas untuk cabang yang dipilih"}
+                  styles={filterSelectStyles}
+                />
+              </div>
+              {selectedPetugas && (
+                <div className="rounded-xl bg-green-50 border border-green-100 p-4 flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+                    <FaUser className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Petugas terpilih</p>
+                    <p className="font-semibold text-gray-700">
+                      {petugasOptions.find(
+                        (item) => String(item.value) === String(selectedPetugas)
+                      )?.nama}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {selectedPetugas}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <p className="text-sm font-semibold text-gray-700">
+                    {selectedAction === "TUKAR_FAKTUR"
+                      ? "Faktur untuk Tukar Faktur"
+                      : "Faktur untuk Penagihan"}
+                  </p>
+                  <span className="text-xs font-semibold text-primary bg-blue-50 px-2.5 py-1 rounded-full">
+                    {selectedIds.length} Faktur
+                  </span>
+                </div>
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="max-h-[260px] overflow-y-auto">
+                    {selectedRows.map((item) => (
+                      <div
+                        key={getId(item)}
+                        className="flex items-center justify-between gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-blue-50"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-primary text-sm truncate">
+                            {item.no_faktur}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate mt-0.5">
+                            {item.nama_customer}
+                          </p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Document Date: {formatDate(item.document_date)}
+                          </p>
+                        </div>
+                        <FaFileInvoiceDollar className="text-gray-300 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="border-t bg-gray-50 px-4 sm:px-5 py-4 flex flex-col-reverse sm:flex-row justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={closeAssignment}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!selectedPetugas || loading}
+                onClick={handleAssignment}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+              >
+                {selectedAction === "TUKAR_FAKTUR" ? (
+                  <FaExchangeAlt />
+                ) : (
+                  <FaRoute />
+                )}
+                {selectedAction === "TUKAR_FAKTUR"
+                  ? "Tugaskan Tukar Faktur"
+                  : "Tugaskan Penagihan"}
+              </button>
+            </div>
           </div>
-
-        )
-      }
-
+        </div>
+      )}
     </div>
-
   );
-
 };
-
-
 export default TablePenugasanFaktur;

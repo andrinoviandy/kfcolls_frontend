@@ -1,6 +1,5 @@
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -19,6 +18,11 @@ import {
   FaClipboardList,
   FaFileAlt,
   FaCheck,
+  FaFilter,
+  FaSearch,
+  FaSyncAlt,
+  FaInfoCircle,
+  FaTimesCircle,
 } from "react-icons/fa";
 
 import {
@@ -26,6 +30,9 @@ import {
 } from "react-icons/io5";
 
 import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
+import { swal } from "global/helper/swal";
+import storeSchema from "global/store";
 
 
 // =====================================================
@@ -74,212 +81,141 @@ const formatCurrency = (value) => {
 
 
 // =====================================================
-// DUMMY DATA FAKTUR
-// =====================================================
-// Struktur data tetap mengikuti data sebelumnya.
-// Status sudah diubah menjadi status Tukar Faktur.
+// HELPERS
 // =====================================================
 
-const dummyData = [
-  {
-    id: 1,
-    no_faktur: "INV-2026-00001",
-    no_billing: "28093615001",
-    proses_retur: "29093615001",
-    nama_customer: "Dinas Kesehatan Kota Medan",
-    alamat: "Jl. Gatot Subroto No. 125, Medan",
-    jatuh_tempo: "2026-08-22",
-    nominal: 140000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
+const firstValue = (item, ...keys) => {
+  for (const key of keys) {
+    if (item?.[key] !== undefined && item?.[key] !== null && item?.[key] !== "") {
+      return item[key];
+    }
+  }
+  return null;
+};
 
-  {
-    id: 2,
-    no_faktur: "INV-2026-00002",
-    no_billing: "28093615002",
-    proses_retur: "29093615002",
-    nama_customer: "Apotek Maju Djaya",
-    alamat: "Jl. Sisingamangaraja No. 88, Medan",
-    jatuh_tempo: "2026-08-25",
-    nominal: 85000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
+const getId = (item) => firstValue(item, "piutang_id", "faktur_id", "id");
+const getNoFaktur = (item) => firstValue(item, "no_faktur", "nomor_faktur", "noFaktur") || "-";
+const getNoBilling = (item) => firstValue(item, "no_billing", "billing_no", "billing_number") || "-";
+const getProsesRetur = (item) => firstValue(item, "proses_retur", "no_retur", "retur_no") || "-";
+const getCustomer = (item) => firstValue(item, "nama_customer", "customer_name", "customer") || "-";
+const getAlamat = (item) => firstValue(item, "alamat", "customer_address") || "-";
+const getJatuhTempo = (item) => firstValue(item, "jatuh_tempo", "due_date") || null;
+const getNominal = (item) => Number(firstValue(item, "nominal", "outstanding", "saldo_piutang", "dpp") || 0);
+const getStatus = (item) => {
+  const raw = String(
+    firstValue(item, "status", "status_tukar_faktur", "status_tukar", "status_dokumen") || ""
+  ).toUpperCase();
+  if (raw.includes("BELUM")) return "BELUM_DITUKAR";
+  if (raw.includes("SUDAH") || raw.includes("DITUKAR")) return "SUDAH_DITUKAR";
+  return "BELUM_DITUKAR";
+};
+const getDokumenTukar = (item) => firstValue(item, "dokumen_tukar", "dokumen_tukar_faktur", "file_tukar_faktur", "file_url");
+const getNamaDokumenTukar = (item) => firstValue(item, "nama_dokumen_tukar", "dokumen_tukar_nama", "file_name");
+const getTanggalTukar = (item) => firstValue(item, "tanggal_tukar", "tukar_faktur_at", "updated_at") || null;
+const normalizeRow = (item, index, page, perPage) => ({
+  ...item,
+  id: getId(item),
+  piutang_id: firstValue(item, "piutang_id", "faktur_id", "id"),
+  no_faktur: getNoFaktur(item),
+  no_billing: getNoBilling(item),
+  proses_retur: getProsesRetur(item),
+  nama_customer: getCustomer(item),
+  alamat: getAlamat(item),
+  jatuh_tempo: getJatuhTempo(item),
+  nominal: getNominal(item),
+  status: getStatus(item),
+  status_verifikasi_tukar: getStatusVerifikasi(item),
+  tanggal_verifikasi: firstValue(item, "tanggal_verifikasi"),
+  status_keterangan: firstValue(item, "status_keterangan"),
+  dokumen_tukar: getDokumenTukar(item),
+  nama_dokumen_tukar: getNamaDokumenTukar(item),
+  tanggal_tukar: getTanggalTukar(item),
+  No: (page - 1) * perPage + index + 1,
+});
 
-  {
-    id: 3,
-    no_faktur: "INV-2026-00003",
-    no_billing: "28093615003",
-    proses_retur: "29093615003",
-    nama_customer: "Apotek Rusli",
-    alamat: "Jl. Iskandar Muda No. 45, Medan",
-    jatuh_tempo: "2026-08-27",
-    nominal: 140000000,
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00003_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-02",
-  },
-
-  {
-    id: 4,
-    no_faktur: "INV-2026-00004",
-    no_billing: "28093615004",
-    proses_retur: "29093615004",
-    nama_customer: "RSUD Pasuruan",
-    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-    jatuh_tempo: "2026-08-29",
-    nominal: 175000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
-
-  {
-    id: 5,
-    no_faktur: "INV-2026-00005",
-    no_billing: "28093615005",
-    proses_retur: "29093615005",
-    nama_customer: "RS Hermina Medan",
-    alamat: "Jl. Asrama No. 12, Medan",
-    jatuh_tempo: "2026-08-30",
-    nominal: 95000000,
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00005_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-03",
-  },
-
-  {
-    id: 6,
-    no_faktur: "INV-2026-00006",
-    no_billing: "28093615006",
-    proses_retur: "29093615006",
-    nama_customer: "Apotek Sehat Sentosa",
-    alamat: "Jl. Kelapa Gading Raya No. 21, Jakarta",
-    jatuh_tempo: "2026-09-01",
-    nominal: 65000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
-
-  {
-    id: 7,
-    no_faktur: "INV-2026-00007",
-    no_billing: "28093615007",
-    proses_retur: "29093615007",
-    nama_customer: "Klinik Medika Utama",
-    alamat: "Jl. Boulevard Barat No. 30, Jakarta",
-    jatuh_tempo: "2026-09-03",
-    nominal: 72500000,
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00007_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-04",
-  },
-
-  {
-    id: 8,
-    no_faktur: "INV-2026-00008",
-    no_billing: "28093615008",
-    proses_retur: "29093615008",
-    nama_customer: "RS Siloam Medan",
-    alamat: "Jl. Imam Bonjol No. 5, Medan",
-    jatuh_tempo: "2026-09-05",
-    nominal: 210000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
-
-  {
-    id: 9,
-    no_faktur: "INV-2026-00009",
-    no_billing: "28093615009",
-    proses_retur: "29093615009",
-    nama_customer: "Dinas Kesehatan Deli Serdang",
-    alamat: "Jl. Negara No. 100, Deli Serdang",
-    jatuh_tempo: "2026-09-07",
-    nominal: 125000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
-
-  {
-    id: 10,
-    no_faktur: "INV-2026-00010",
-    no_billing: "28093615010",
-    proses_retur: "29093615010",
-    nama_customer: "Apotek Kimia Sehat",
-    alamat: "Jl. Sunter Agung No. 18, Jakarta",
-    jatuh_tempo: "2026-09-10",
-    nominal: 45000000,
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00010_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-06",
-  },
-
-  {
-    id: 11,
-    no_faktur: "INV-2026-00011",
-    no_billing: "28093615011",
-    proses_retur: "29093615011",
-    nama_customer: "RSUD Kota Bogor",
-    alamat: "Jl. Pajajaran No. 50, Bogor",
-    jatuh_tempo: "2026-09-12",
-    nominal: 185000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
-
-  {
-    id: 12,
-    no_faktur: "INV-2026-00012",
-    no_billing: "28093615012",
-    proses_retur: "29093615012",
-    nama_customer: "Apotek Berkah Farma",
-    alamat: "Jl. Merdeka No. 12, Bogor",
-    jatuh_tempo: "2026-09-15",
-    nominal: 55000000,
-    status: "BELUM_DITUKAR",
-    dokumen_tukar: null,
-    nama_dokumen_tukar: null,
-    tanggal_tukar: null,
-  },
-];
-
-
-// =====================================================
-// STATUS CONFIG
-// =====================================================
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input
+      type="checkbox"
+      checked={props.isSelected}
+      readOnly
+      className="checkbox checkbox-primary checkbox-xs mr-2"
+    />
+    {props.label}
+  </selectComponents.Option>
+);
+const FilterMultiValue = () => null;
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
+  return (
+    <selectComponents.ValueContainer {...props}>
+      {selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}
+      {children[1]}
+    </selectComponents.ValueContainer>
+  );
+};
+const filterSelectComponents = {
+  Option: FilterOption,
+  MultiValue: FilterMultiValue,
+  ValueContainer: FilterValueContainer,
+};
+const filterSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 36,
+    borderRadius: 9999,
+    borderColor: state.isFocused ? "#2563eb" : "#d1d5db",
+    boxShadow: "none",
+    fontSize: ".875rem",
+    ":hover": { borderColor: "#2563eb" },
+  }),
+  valueContainer: (base) => ({ ...base, padding: "0 10px" }),
+  indicatorsContainer: (base) => ({ ...base, height: 36 }),
+  menu: (base) => ({ ...base, zIndex: 50 }),
+};
+const getSelectedFilterOptions = (options, selectedValues) =>
+  options.filter((option) => selectedValues.includes(option.value));
 
 const statusConfig = {
   BELUM_DITUKAR: {
-    label: "Belum Ditukar",
+    label: "Belum Tukar Faktur",
     icon: FaClock,
     className: "bg-amber-100 text-amber-700",
   },
-
   SUDAH_DITUKAR: {
-    label: "Sudah Ditukar",
+    label: "Sudah Tukar Faktur",
     icon: FaCheckCircle,
     className: "bg-green-100 text-green-700",
   },
 };
+const statusVerifikasiConfig = {
+  MENUNGGU_VERIFIKASI: {
+    label: "Menunggu Verifikasi",
+    icon: FaClock,
+    className: "bg-amber-100 text-amber-700",
+  },
+  DITERIMA: {
+    label: "Diterima",
+    icon: FaCheckCircle,
+    className: "bg-green-100 text-green-700",
+  },
+  DITOLAK: {
+    label: "Ditolak",
+    icon: FaTimesCircle,
+    className: "bg-red-100 text-red-700",
+  },
+};
+
+const getStatusVerifikasi = (item) => {
+  const raw = String(
+    firstValue(item, "status_verifikasi_tukar", "status_verifikasi", "verifikasi_status") || ""
+  ).toUpperCase();
+  if (raw === "DITERIMA") return "DITERIMA";
+  if (raw === "SUDAH_DIVERIFIKASI") return "DITERIMA";
+  if (raw === "DITOLAK") return "DITOLAK";
+  return "MENUNGGU_VERIFIKASI";
+};
+
 
 
 // =====================================================
@@ -291,314 +227,263 @@ const TableTukarFaktur = ({
   check,
   loginAccess,
   onTukarFaktur,
+  reloadData,
+  setReloadData,
 }) => {
 
   // ===================================================
   // STATE
   // ===================================================
 
-  const [
-    allData,
-    setAllData,
-  ] = useState(dummyData);
-
-  const [
-    keyword,
-    setKeyword,
-  ] = useState("");
-
-  const [
-    selectedStatus,
-    setSelectedStatus,
-  ] = useState("ALL");
-
-  const [
-    currentPage,
-    setCurrentPage,
-  ] = useState(1);
-
-  const [
-    perPage,
-    setPerPage,
-  ] = useState(10);
-
-  const [
-    selectedFaktur,
-    setSelectedFaktur,
-  ] = useState(null);
-
-  const [
-    showTukarModal,
-    setShowTukarModal,
-  ] = useState(false);
-
-  const [
-    isSubmitting,
-    setIsSubmitting,
-  ] = useState(false);
-
-  const [
-    showDocumentModal,
-    setShowDocumentModal,
-  ] = useState(false);
-
-
-  const [
-    selectedIds,
-    setSelectedIds,
-  ] = useState([]);
-
-  const [
-    bulkFile,
-    setBulkFile,
-  ] = useState(null);
-
+  const [tableData, setTableData] = useState([]);
+  const [summaryData, setSummaryData] = useState({ total: 0, belum: 0, sudah: 0 });
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
+  const [keyword, setKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [filterCabang, setFilterCabang] = useState([]);
+  const [filterCustomer, setFilterCustomer] = useState([]);
+  const [selectedStatusTukar, setSelectedStatusTukar] = useState("ALL");
+  const [selectedStatusVerifikasi, setSelectedStatusVerifikasi] = useState("ALL");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [cabangOptions, setCabangOptions] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [selectedFaktur, setSelectedFaktur] = useState(null);
+  const [showTukarModal, setShowTukarModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedRowData, setSelectedRowData] = useState({});
+  const [bulkFile, setBulkFile] = useState(null);
 
   // ===================================================
-  // SUMMARY
+  // FILTER OPTIONS
   // ===================================================
 
-  const summaryData = useMemo(
-    () => {
+  const getReferensi = async () => {
+    try {
+      const refCabang = await storeSchema.actions.getReferensiByJenis("cabang_id");
+      if (refCabang?.status === true) {
+        setCabangOptions(
+          (refCabang?.data || []).map((item) => ({
+            label: item?.ur_ref,
+            value: item?.kd_ref,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("ERROR GET REFERENSI CABANG:", error);
+    }
+  };
 
-      const total = allData.length;
+  const loadCustomerOptions = async () => {
+    try {
+      const res = await storeSchema.actions.getDataTukarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: "ALL",
+        customer: "ALL",
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
+      });
+      if (res?.status === true) {
+        const list = res?.data?.list_data || [];
+        const unique = [
+          ...new Map(
+            list.map((item) => {
+              const value = firstValue(item, "customer", "nama_customer", "customer_name");
+              return [String(value || ""), { label: value || "-", value: value || "" }];
+            })
+          ).values(),
+        ].filter((x) => x.value);
+        setCustomerOptions(unique);
+      }
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER OPTIONS:", error);
+    }
+  };
 
-      const belum = allData.filter(
-        item =>
-          item.status === "BELUM_DITUKAR"
-      ).length;
+  useEffect(() => {
+    getReferensi();
+    loadCustomerOptions();
+  }, []);
 
-      const sudah = allData.filter(
-        item =>
-          item.status === "SUDAH_DITUKAR"
-      ).length;
+  // ===================================================
+  // GET DATA TUKAR FAKTUR
+  // ===================================================
 
-      return {
-        total,
-        belum,
-        sudah,
+  const getDataTukarFaktur = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        page: currentPage,
+        limit: perPage,
+        keyword: searchKeyword,
+        sales_office: filterCabang.length ? filterCabang : "ALL",
+        customer: filterCustomer.length ? filterCustomer : "ALL",
+        status: selectedStatusTukar,
+        status_verifikasi: selectedStatusVerifikasi,
+        start_date: filterStartDate,
+        end_date: filterEndDate,
       };
-    },
-    [
-      allData,
-    ]
-  );
-
-
-  // ===================================================
-  // FILTER DATA
-  // ===================================================
-
-  const filteredData = useMemo(
-    () => {
-
-      let data = [
-        ...allData,
-      ];
-
-
-      // STATUS
-
-      if (
-        selectedStatus !== "ALL"
-      ) {
-        data = data.filter(
-          item =>
-            item.status ===
-            selectedStatus
-        );
+      const res = await storeSchema.actions.getDataTukarFaktur(payload);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil data Tukar Faktur");
       }
+      const responseData = res?.data || {};
+      const list = responseData?.list_data || [];
+      setTableData(list.map((item, index) => normalizeRow(item, index, currentPage, perPage)));
+      const totalDataResponse = Number(responseData?.total_data || 0);
+      setTotalData(totalDataResponse);
+      setTotalPage(Number(responseData?.total_halaman || Math.ceil(totalDataResponse / perPage) || 0));
+      const summary = responseData?.summary || {};
+      setSummaryData({
+        total: Number(summary?.total_faktur ?? summary?.total ?? responseData?.total_data ?? 0),
+        belum: Number(summary?.belum_ditukar ?? summary?.belum ?? 0),
+        sudah: Number(summary?.sudah_ditukar ?? summary?.sudah ?? 0),
+      });
+    } catch (error) {
+      console.error("ERROR GET DATA TUKAR FAKTUR:", error);
+      setTableData([]);
+      setTotalData(0);
+      setTotalPage(0);
+      setSummaryData({ total: 0, belum: 0, sudah: 0 });
+      await swal.error(error?.message || "Gagal mengambil data Tukar Faktur");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    getDataTukarFaktur();
+  }, [
+    currentPage,
+    perPage,
+    searchKeyword,
+    filterCabang,
+    filterCustomer,
+    selectedStatusTukar,
+    selectedStatusVerifikasi,
+    filterStartDate,
+    filterEndDate,
+  ]);
 
-      // SEARCH
+  useEffect(() => {
+    if (!reloadData) return;
+    if (currentPage === 1) getDataTukarFaktur();
+    else setCurrentPage(1);
+    if (setReloadData) setReloadData(false);
+  }, [reloadData]);
 
-      if (
-        keyword.trim()
-      ) {
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchKeyword(keyword.trim());
+  };
 
-        const search =
-          keyword
-            .toLowerCase()
-            .trim();
+  const resetFilter = () => {
+    setKeyword("");
+    setSearchKeyword("");
+    setFilterCabang([]);
+    setFilterCustomer([]);
+    setSelectedStatusTukar("ALL");
+    setSelectedStatusVerifikasi("ALL");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setCurrentPage(1);
+    setSelectedIds([]);
+    setSelectedRowData({});
+  };
 
-        data = data.filter(
-          item =>
-            item.no_faktur
-              ?.toLowerCase()
-              .includes(search)
+  const handleRefresh = () => {
+    if (currentPage === 1) getDataTukarFaktur();
+    else setCurrentPage(1);
+  };
 
-            ||
-
-            item.no_billing
-              ?.toLowerCase()
-              .includes(search)
-
-            ||
-
-            item.proses_retur
-              ?.toLowerCase()
-              .includes(search)
-
-            ||
-
-            item.nama_customer
-              ?.toLowerCase()
-              .includes(search)
-        );
-      }
-
-
-      return data;
-
-    },
-    [
-      allData,
-      keyword,
-      selectedStatus,
-    ]
-  );
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData =
-    filteredData.length;
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-  const paginatedData =
-    filteredData.slice(
+  const selectedFakturList = Object.values(selectedRowData).filter(
+    (item) =>
+      selectedIds.includes(getId(item)) &&
       (
-        currentPage -
-        1
-      ) *
-      perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  // ===================================================
-  // RESET PAGE
-  // ===================================================
-
-  useEffect(
-    () => {
-      setCurrentPage(1);
-    },
-    [
-      keyword,
-      selectedStatus,
-      perPage,
-    ]
+        getStatus(item) === "BELUM_DITUKAR" ||
+        item?.status_verifikasi_tukar === "DITOLAK"
+      )
   );
-
 
   // ===================================================
   // OPEN TUKAR FAKTUR
   // ===================================================
 
-  const openTukarFaktur = (
-    faktur
-  ) => {
-
-    setSelectedFaktur(
-      faktur
-    );
-
-    setSelectedIds([
-      faktur.id,
-    ]);
-
+  const openTukarFaktur = (faktur) => {
+    setSelectedFaktur(faktur);
+    setSelectedIds([getId(faktur)]);
+    setSelectedRowData({ [getId(faktur)]: faktur });
     setBulkFile(null);
-
-    setShowTukarModal(
-      true
-    );
+    setShowTukarModal(true);
   };
-
 
   // ===================================================
   // SELECTION TUKAR FAKTUR
   // ===================================================
 
-  const selectableData = useMemo(
-    () => filteredData.filter(
-      item => item.status === "BELUM_DITUKAR"
-    ),
-    [filteredData]
+  const selectableData = tableData.filter(
+    (item) =>
+      getStatus(item) === "BELUM_DITUKAR" ||
+      item?.status_verifikasi_tukar === "DITOLAK"
   );
-
-  const selectedFakturList = useMemo(
-    () => allData.filter(
-      item => selectedIds.includes(item.id) &&
-        item.status === "BELUM_DITUKAR"
-    ),
-    [allData, selectedIds]
-  );
-
-  const toggleSelectFaktur = (
-    faktur
-  ) => {
-    if (faktur.status !== "BELUM_DITUKAR") {
+  const toggleSelectFaktur = (faktur) => {
+    const id = getId(faktur);
+    const canSelect =
+      getStatus(faktur) === "BELUM_DITUKAR" ||
+      faktur?.status_verifikasi_tukar === "DITOLAK";
+    if (!id || !canSelect) return;
+    if (selectedIds.includes(id)) {
+      const nextIds = selectedIds.filter((x) => x !== id);
+      setSelectedIds(nextIds);
+      setSelectedRowData((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       return;
     }
-
-    setSelectedIds(
-      prev => prev.includes(faktur.id)
-        ? prev.filter(id => id !== faktur.id)
-        : [...prev, faktur.id]
-    );
+    setSelectedIds((prev) => [...prev, id]);
+    setSelectedRowData((prev) => ({ ...prev, [id]: faktur }));
   };
 
   const toggleSelectAll = () => {
-    const selectableIds = selectableData.map(
-      item => item.id
-    );
-
-    const allSelected = selectableIds.length > 0 &&
-      selectableIds.every(id => selectedIds.includes(id));
-
+    const selectableIds = selectableData.map((item) => getId(item)).filter(Boolean);
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
     if (allSelected) {
-      setSelectedIds(
-        prev => prev.filter(id => !selectableIds.includes(id))
-      );
+      setSelectedIds((prev) => prev.filter((id) => !selectableIds.includes(id)));
+      setSelectedRowData((prev) => {
+        const next = { ...prev };
+        selectableIds.forEach((id) => delete next[id]);
+        return next;
+      });
     } else {
-      setSelectedIds(
-        prev => Array.from(new Set([
-          ...prev,
-          ...selectableIds,
-        ]))
-      );
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...selectableIds])));
+      setSelectedRowData((prev) => ({
+        ...prev,
+        ...selectableData.reduce((acc, item) => ({ ...acc, [getId(item)]: item }), {}),
+      }));
     }
   };
 
   const openBulkTukarFaktur = () => {
-    const fakturTerpilih = allData.filter(
-      item => selectedIds.includes(item.id) &&
-        item.status === "BELUM_DITUKAR"
-    );
-
-    if (fakturTerpilih.length === 0) {
-      alert("Silakan pilih minimal satu faktur yang belum ditukar.");
+    if (selectedFakturList.length === 0) {
+      swal.error("Silakan pilih minimal satu faktur yang dapat ditukar.");
       return;
     }
-
-    setSelectedFaktur(
-      fakturTerpilih[0]
-    );
-
+    setSelectedFaktur(selectedFakturList[0]);
     setBulkFile(null);
     setShowTukarModal(true);
   };
-
 
   // ===================================================
   // CLOSE TUKAR MODAL
@@ -621,17 +506,27 @@ const TableTukarFaktur = ({
   // OPEN DOCUMENT
   // ===================================================
 
-  const openDocument = (
-    faktur
-  ) => {
+  // const openDocument = (
+  //   faktur
+  // ) => {
 
-    setSelectedFaktur(
-      faktur
-    );
+  //   setSelectedFaktur(
+  //     faktur
+  //   );
 
-    setShowDocumentModal(
-      true
-    );
+  //   setShowDocumentModal(
+  //     true
+  //   );
+  // };
+  const openDocument = (faktur) => {
+    const url_files = faktur?.files;
+
+    if (!url_files) {
+      swal.error("Dokumen Tukar Faktur tidak tersedia.");
+      return;
+    }
+
+    window.open(url_files, "_blank", "noopener,noreferrer");
   };
 
 
@@ -689,81 +584,66 @@ const TableTukarFaktur = ({
   // SUBMIT TUKAR FAKTUR
   // ===================================================
 
-  const handleTukarFaktur =
-    async () => {
+  const handleTukarFaktur = async () => {
+    const fakturTerpilih = selectedFakturList.filter(
+      (item) =>
+        getStatus(item) === "BELUM_DITUKAR" ||
+        item?.status_verifikasi_tukar === "DITOLAK"
+    );
 
-      const fakturTerpilih = allData.filter(
-        item => selectedIds.includes(item.id) &&
-          item.status === "BELUM_DITUKAR"
+    if (fakturTerpilih.length === 0) {
+      swal.error("Silakan pilih minimal satu faktur yang dapat ditukar.");
+      return;
+    }
+
+    if (!bulkFile) {
+      swal.error("Silakan upload bukti tukar faktur terlebih dahulu.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const resultFix = {
+        faktur: fakturTerpilih.map((faktur) => ({
+          faktur_petugas_id: faktur?.faktur_petugas_id || "",
+          piutang_id: faktur?.piutang_id || getId(faktur) || "",
+          no_faktur: getNoFaktur(faktur),
+        })),
+        user_id: loginAccess?.user_id || null,
+        nip: loginAccess?.nip || null,
+      };
+
+      const formData = new FormData();
+
+      formData.append("payload", JSON.stringify(resultFix));
+      formData.append("lampiran", bulkFile, bulkFile.name);
+
+      const res = await storeSchema.actions.insertTukarFaktur(formData);
+
+      if (res?.status !== true) {
+        throw new Error(
+          res?.message || "Gagal melakukan proses Tukar Faktur."
+        );
+      }
+
+      await swal.success(
+        `${fakturTerpilih.length} faktur berhasil ditukar.`
       );
 
-      if (fakturTerpilih.length === 0) {
-        alert("Silakan pilih minimal satu faktur yang belum ditukar.");
-        return;
-      }
-
-      if (!bulkFile) {
-        alert("Silakan upload bukti tukar faktur terlebih dahulu.");
-        return;
-      }
-
-      try {
-        setIsSubmitting(true);
-
-        const berhasilIds = [];
-
-        for (const faktur of fakturTerpilih) {
-          const file = bulkFile;
-
-          if (typeof onTukarFaktur === "function") {
-            await onTukarFaktur({
-              faktur,
-              file,
-            });
-          }
-
-          berhasilIds.push(faktur.id);
-        }
-
-        const tanggalTukar = new Date().toISOString();
-
-        setAllData(
-          prev => prev.map(
-            item => berhasilIds.includes(item.id)
-              ? {
-                ...item,
-                status: "SUDAH_DITUKAR",
-                dokumen_tukar: bulkFile,
-                nama_dokumen_tukar: bulkFile?.name,
-                tanggal_tukar: tanggalTukar,
-              }
-              : item
-          )
-        );
-
-        setSelectedIds([]);
-
-        alert(
-          `${berhasilIds.length} faktur berhasil ditukar.`
-        );
-
-        closeTukarFaktur();
-
-      } catch (error) {
-        console.error(
-          "Gagal tukar faktur:",
-          error
-        );
-
-        alert(
-          "Gagal melakukan proses Tukar Faktur. Silakan periksa kembali dokumen yang dipilih."
-        );
-
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
-
+      setSelectedIds([]);
+      setSelectedRowData({});
+      closeTukarFaktur();
+      await getDataTukarFaktur();
+    } catch (error) {
+      console.error("ERROR INSERT TUKAR FAKTUR:", error);
+      await swal.error(
+        error?.message || "Gagal melakukan proses Tukar Faktur."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // ===================================================
   // STATUS
@@ -816,146 +696,68 @@ const TableTukarFaktur = ({
     };
 
 
+  const renderStatusVerifikasi = (status) => {
+    const config = statusVerifikasiConfig[status];
+    if (!config) return "-";
+    const Icon = config.icon;
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${config.className}`}>
+        <Icon />
+        {config.label}
+      </span>
+    );
+  };
+
   // ===================================================
   // ACTION
   // ===================================================
 
-  const renderAction =
-    (
-      faktur
-    ) => {
+  const openDetail = (faktur) => {
+    setSelectedFaktur(faktur);
+    setShowDocumentModal(true);
+  };
 
-      const sudahDitukar =
-        faktur.status === "SUDAH_DITUKAR";
+  const renderAction = (faktur) => {
+    const sudahDitukar = faktur.status === "SUDAH_DITUKAR";
+    const ditolak = faktur.status_verifikasi_tukar === "DITOLAK";
+    const checked = selectedIds.includes(faktur.id);
 
-      if (
-        sudahDitukar
-      ) {
-        return (
-          <button
-            type="button"
-            onClick={() =>
-              openDocument(
-                faktur
-              )
-            }
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              px-4
-              py-2
-              rounded-full
-              bg-green-50
-              text-green-700
-              border
-              border-green-200
-              text-xs
-              font-semibold
-              hover:bg-green-100
-              transition
-              whitespace-nowrap
-            "
-          >
-            <FaEye />
-            Lihat Dokumen
+    return (
+      <div className="flex items-center gap-2 whitespace-nowrap">
+        <button type="button" onClick={() => openDetail(faktur)} title="Lihat Detail" className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-primary border border-blue-200 hover:bg-blue-100 transition">
+          <FaInfoCircle />
+        </button>
+
+        {sudahDitukar && (
+          <button type="button" onClick={() => openDocument(faktur)} title="Lihat Dokumen" className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-50 text-green-700 border border-green-200 text-xs font-semibold hover:bg-green-100 transition whitespace-nowrap">
+            <FaFileAlt />
+            Dokumen
           </button>
-        );
-      }
+        )}
 
-      const checked = selectedIds.includes(faktur.id);
-
-      return (
-        <div className="flex items-center gap-2 whitespace-nowrap">
-          <label
-            className={`
-              flex
-              items-center
-              justify-center
-              w-9
-              h-9
-              rounded-full
-              border
-              cursor-pointer
-              transition
-              ${checked
-                ? "bg-blue-50 border-primary text-primary"
-                : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
-              }
-            `}
-            title={checked ? "Batalkan pilihan" : "Pilih faktur"}
-          >
-            <input
-              type="checkbox"
-              className="hidden"
-              checked={checked}
-              onChange={() =>
-                toggleSelectFaktur(faktur)
-              }
-            />
-
-            {checked ? (
-              <FaCheck />
-            ) : (
-              <span className="w-4 h-4 rounded border border-current" />
-            )}
-          </label>
-
-          <button
-            type="button"
-            onClick={() =>
-              openTukarFaktur(
-                faktur
-              )
-            }
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              px-4
-              py-2
-              rounded-full
-              bg-primary
-              text-white
-              text-xs
-              font-semibold
-              hover:opacity-90
-              transition
-              shadow-sm
-              whitespace-nowrap
-            "
-          >
-            <FaExchangeAlt />
-            Tukar Faktur
-          </button>
-        </div>
-      );
-    };
+        {(!sudahDitukar || ditolak) && (
+          <>
+            <label className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${checked ? "bg-blue-50 border-primary text-primary" : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"}`} title={checked ? "Batalkan pilihan" : "Pilih faktur"}>
+              <input type="checkbox" className="hidden" checked={checked} onChange={() => toggleSelectFaktur(faktur)} />
+              {checked ? <FaCheck /> : <span className="w-4 h-4 rounded border border-current" />}
+            </label>
+            <button type="button" onClick={() => openTukarFaktur(faktur)} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition shadow-sm whitespace-nowrap">
+              <FaExchangeAlt />
+              Tukar Faktur
+            </button>
+          </>
+        )}
+      </div>
+    );
+  };
 
 
   // ===================================================
   // PAGINATION INFO
   // ===================================================
 
-  const startIndex =
-    totalData > 0
-      ? (
-        currentPage -
-        1
-      ) *
-      perPage +
-      1
-      : 0;
-
-  const endIndex =
-    Math.min(
-      currentPage *
-      perPage,
-      totalData
-    );
-
+  const startIndex = totalData > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const endIndex = Math.min(currentPage * perPage, totalData);
 
   // ===================================================
   // HEADER TABLE
@@ -1002,10 +804,13 @@ const TableTukarFaktur = ({
     },
 
     {
-      label: "Status",
-      icon: <FaClock />,
+      label: "Status Tukar Faktur",
+      icon: <FaFileAlt />,
     },
-
+    {
+      label: "Status Verifikasi",
+      icon: <FaCheckCircle />,
+    },
   ];
 
 
@@ -1023,125 +828,169 @@ const TableTukarFaktur = ({
       "
     >
 
-      {/* ================================================= */}
-      {/* SEARCH + STATUS */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          flex
-          flex-col
-          lg:flex-row
-          justify-between
-          gap-4
-          items-stretch
-          lg:items-center
-        "
-      >
-
-        {/* SEARCH */}
-
-        <div
-          className="
-            input
-            input-sm
-            input-bordered
-            flex
-            items-center
-            gap-2
-            bg-white
-            rounded-full
-            border-gray-200
-            shadow-sm
-            w-full
-            lg:w-[380px]
-          "
-        >
-
-          <IoSearch
-            className="
-              text-gray-400
-            "
-          />
-
-          <input
-            type="text"
-            placeholder="
-              Cari nomor faktur / customer...
-            "
-            className="grow"
-            value={
-              keyword
-            }
-            onChange={
-              e =>
-                setKeyword(
-                  e.target.value
-                )
-            }
-          />
-
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
+          <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+            <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari no faktur / no billing / customer / proses retur..."
+              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+              value={keyword}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleSearch}
+              title="Cari"
+              aria-label="Cari"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:opacity-90"
+            >
+              <FaSearch className="text-sm" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resetFilter}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
+            >
+              <FaFilter />
+              Reset Filter
+            </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
+            >
+              <FaSyncAlt />
+              Refresh
+            </button>
+          </div>
         </div>
-
-
-        {/* STATUS */}
-
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-          "
-        >
-
-          <span
-            className="
-              text-sm
-              text-gray-500
-            "
-          >
-            Status:
-          </span>
-
-
-          <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[190px]
-            "
-            value={
-              selectedStatus
-            }
-            onChange={
-              e =>
-                setSelectedStatus(
-                  e.target.value
-                )
-            }
-          >
-
-            <option value="ALL">
-              Semua Status
-            </option>
-
-            <option value="BELUM_DITUKAR">
-              Belum Ditukar
-            </option>
-
-            <option value="SUDAH_DITUKAR">
-              Sudah Ditukar
-            </option>
-
-          </select>
-
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label>
+            <Select
+              isMulti
+              options={cabangOptions}
+              value={getSelectedFilterOptions(cabangOptions, filterCabang)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterCabang((selected || []).map((item) => item.value));
+                setSelectedIds([]);
+                setSelectedRowData({});
+              }}
+              placeholder="Semua Cabang"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
+            <Select
+              isMulti
+              options={customerOptions}
+              value={getSelectedFilterOptions(customerOptions, filterCustomer)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterCustomer((selected || []).map((item) => item.value));
+                setSelectedIds([]);
+                setSelectedRowData({});
+              }}
+              placeholder="Semua Customer"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Status Tukar Faktur</label>
+            <Select
+              options={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Belum Tukar Faktur", value: "BELUM_DITUKAR" },
+                { label: "Sudah Tukar Faktur", value: "SUDAH_DITUKAR" },
+              ]}
+              value={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Belum Tukar Faktur", value: "BELUM_DITUKAR" },
+                { label: "Sudah Tukar Faktur", value: "SUDAH_DITUKAR" },
+              ].find((item) => item.value === selectedStatusTukar)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setSelectedStatusTukar(selected?.value || "ALL");
+                setSelectedIds([]);
+                setSelectedRowData({});
+              }}
+              placeholder="Semua Status"
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Status Verifikasi</label>
+            <Select
+              options={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Menunggu Verifikasi", value: "MENUNGGU_VERIFIKASI" },
+                { label: "Diterima", value: "DITERIMA" },
+                { label: "Ditolak", value: "DITOLAK" },
+              ]}
+              value={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Menunggu Verifikasi", value: "MENUNGGU_VERIFIKASI" },
+                { label: "Diterima", value: "DITERIMA" },
+                { label: "Ditolak", value: "DITOLAK" },
+              ].find((item) => item.value === selectedStatusVerifikasi)}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setSelectedStatusVerifikasi(selected?.value || "ALL");
+                setSelectedIds([]);
+                setSelectedRowData({});
+              }}
+              placeholder="Semua Status"
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+              <FaCalendarAlt className="text-primary text-sm" />
+              <input
+                type="date"
+                value={filterStartDate}
+                max={filterEndDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterStartDate(e.target.value);
+                  setSelectedIds([]);
+                  setSelectedRowData({});
+                }}
+                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+              />
+              <span className="text-gray-300">-</span>
+              <input
+                type="date"
+                value={filterEndDate}
+                min={filterStartDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterEndDate(e.target.value);
+                  setSelectedIds([]);
+                  setSelectedRowData({});
+                }}
+                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+              />
+            </div>
+          </div>
         </div>
-
       </div>
-
 
       {/* ================================================= */}
       {/* SUMMARY */}
@@ -1254,7 +1103,7 @@ const TableTukarFaktur = ({
                   text-amber-700
                 "
               >
-                Belum Ditukar
+                Belum Tukar Faktur
               </p>
 
               <p
@@ -1324,7 +1173,7 @@ const TableTukarFaktur = ({
                   text-green-700
                 "
               >
-                Sudah Ditukar
+                Sudah Tukar Faktur
               </p>
 
               <p
@@ -1558,8 +1407,17 @@ const TableTukarFaktur = ({
               <tbody>
 
                 {
-                  paginatedData.length ===
-                    0 ? (
+                  loading ? (
+                    <tr>
+                      <td
+                        colSpan={headerTable.length}
+                        className="text-center py-16 text-gray-500"
+                      >
+                        <span className="loading loading-spinner loading-md text-primary" />
+                        <div className="mt-2">Memuat data...</div>
+                      </td>
+                    </tr>
+                  ) : tableData.length === 0 ? (
 
                     <tr>
 
@@ -1597,7 +1455,7 @@ const TableTukarFaktur = ({
 
                   ) : (
 
-                    paginatedData.map(
+                    tableData.map(
                       (
                         v,
                         i
@@ -1884,21 +1742,16 @@ const TableTukarFaktur = ({
                           </td>
 
 
-                          {/* STATUS */}
+                          {/* STATUS FAKTUR */}
 
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
+                          <td className="px-4 py-3">
+                            {renderStatus(v.status)}
+                          </td>
 
-                            {
-                              renderStatus(
-                                v.status
-                              )
-                            }
+                          {/* STATUS VERIFIKASI */}
 
+                          <td className="px-4 py-3">
+                            {renderStatusVerifikasi(v.status_verifikasi_tukar)}
                           </td>
 
                         </tr>
@@ -2177,7 +2030,7 @@ const TableTukarFaktur = ({
             className="
               fixed
               inset-0
-              z-[9999]
+              z-[500]
               bg-black/40
               backdrop-blur-sm
               flex
@@ -2560,464 +2413,89 @@ const TableTukarFaktur = ({
 
 
       {/* ================================================= */}
-      {/* MODAL LIHAT DOKUMEN */}
+      {/* MODAL DETAIL TUKAR FAKTUR */}
       {/* ================================================= */}
 
-      {
-        showDocumentModal &&
-        selectedFaktur && (
-
-          <div
-            className="
-              fixed
-              inset-0
-              z-[9999]
-              bg-black/40
-              backdrop-blur-sm
-              flex
-              items-center
-              justify-center
-              p-3
-              sm:p-5
-            "
-            onClick={
-              closeDocument
-            }
-          >
-
-            <div
-              className="
-                bg-white
-                rounded-2xl
-                shadow-2xl
-                w-full
-                max-w-lg
-                overflow-hidden
-              "
-              onClick={
-                e =>
-                  e.stopPropagation()
-              }
-            >
-
-              {/* HEADER */}
-
-              <div
-                className="
-                  bg-green-600
-                  px-5
-                  py-4
-                  text-white
-                "
-              >
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-3
-                  "
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                    "
-                  >
-
-                    <div
-                      className="
-                        w-10
-                        h-10
-                        rounded-xl
-                        bg-white/15
-                        flex
-                        items-center
-                        justify-center
-                      "
-                    >
-
-                      <FaFileAlt />
-
-                    </div>
-
-
-                    <div>
-
-                      <h3
-                        className="
-                          font-bold
-                          text-lg
-                        "
-                      >
-                        Dokumen Faktur
-                      </h3>
-
-                      <p
-                        className="
-                          text-xs
-                          text-green-100
-                        "
-                      >
-                        Dokumen faktur pengganti
-                      </p>
-
-                    </div>
-
+      {showDocumentModal && selectedFaktur && (
+        <div className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5" onClick={closeDocument}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-primary px-5 sm:px-6 py-4 text-white shrink-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                    <FaFileAlt />
                   </div>
-
-
-                  <button
-                    type="button"
-                    onClick={
-                      closeDocument
-                    }
-                    className="
-                      w-9
-                      h-9
-                      rounded-full
-                      hover:bg-white/10
-                      flex
-                      items-center
-                      justify-center
-                    "
-                  >
-
-                    <FaTimes />
-
-                  </button>
-
+                  <div>
+                    <h3 className="font-bold text-lg">Detail Tukar Faktur</h3>
+                    <p className="text-xs text-blue-100">Detail faktur dan proses verifikasi</p>
+                  </div>
                 </div>
-
-              </div>
-
-
-              {/* BODY */}
-
-              <div
-                className="
-                  p-5
-                  sm:p-6
-                "
-              >
-
-                <div
-                  className="
-                    rounded-xl
-                    bg-green-50
-                    border
-                    border-green-100
-                    p-4
-                    mb-5
-                  "
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                    "
-                  >
-
-                    <FaCheckCircle
-                      className="
-                        text-green-600
-                        text-xl
-                      "
-                    />
-
-                    <div>
-
-                      <p
-                        className="
-                          text-sm
-                          font-semibold
-                          text-green-800
-                        "
-                      >
-                        Faktur Sudah Ditukar
-                      </p>
-
-                      <p
-                        className="
-                          text-xs
-                          text-green-700
-                          mt-0.5
-                        "
-                      >
-                        {
-                          selectedFaktur.tanggal_tukar
-                            ? formatDate(
-                              selectedFaktur.tanggal_tukar
-                            )
-                            : "-"
-                        }
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                {/* INFO FAKTUR */}
-
-                <div
-                  className="
-                    space-y-3
-                  "
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-4
-                      pb-3
-                      border-b
-                    "
-                  >
-
-                    <span
-                      className="
-                        text-sm
-                        text-gray-500
-                      "
-                    >
-                      No. Faktur
-                    </span>
-
-                    <span
-                      className="
-                        text-sm
-                        font-semibold
-                        text-primary
-                      "
-                    >
-                      {
-                        selectedFaktur.no_faktur
-                      }
-                    </span>
-
-                  </div>
-
-
-                  <div
-                    className="
-                      flex
-                      items-start
-                      justify-between
-                      gap-4
-                      pb-3
-                      border-b
-                    "
-                  >
-
-                    <span
-                      className="
-                        text-sm
-                        text-gray-500
-                      "
-                    >
-                      Customer
-                    </span>
-
-                    <span
-                      className="
-                        text-sm
-                        font-semibold
-                        text-gray-700
-                        text-right
-                      "
-                    >
-                      {
-                        selectedFaktur.nama_customer
-                      }
-                    </span>
-
-                  </div>
-
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-4
-                      pb-3
-                      border-b
-                    "
-                  >
-
-                    <span
-                      className="
-                        text-sm
-                        text-gray-500
-                      "
-                    >
-                      Nominal
-                    </span>
-
-                    <span
-                      className="
-                        text-sm
-                        font-semibold
-                        text-gray-700
-                      "
-                    >
-                      {
-                        formatCurrency(
-                          selectedFaktur.nominal
-                        )
-                      }
-                    </span>
-
-                  </div>
-
-
-                  <div
-                    className="
-                      flex
-                      items-start
-                      justify-between
-                      gap-4
-                    "
-                  >
-
-                    <span
-                      className="
-                        text-sm
-                        text-gray-500
-                      "
-                    >
-                      Dokumen
-                    </span>
-
-                    <span
-                      className="
-                        text-sm
-                        font-semibold
-                        text-gray-700
-                        text-right
-                        break-all
-                      "
-                    >
-                      {
-                        selectedFaktur
-                          .nama_dokumen_tukar ||
-                        "Dokumen tersedia"
-                      }
-                    </span>
-
-                  </div>
-
-                </div>
-
-
-                {/* DOCUMENT BUTTON */}
-
-                {
-                  selectedFaktur.dokumen_tukar && (
-                    <a
-                      href={
-                        typeof selectedFaktur.dokumen_tukar ===
-                          "string"
-                          ? selectedFaktur.dokumen_tukar
-                          : undefined
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={
-                        e => {
-
-                          if (
-                            typeof selectedFaktur.dokumen_tukar !==
-                            "string"
-                          ) {
-                            e.preventDefault();
-                          }
-
-                        }
-                      }
-                      className="
-                        mt-5
-                        w-full
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-2
-                        px-5
-                        py-2.5
-                        rounded-full
-                        bg-green-600
-                        text-white
-                        text-sm
-                        font-semibold
-                        hover:bg-green-700
-                        transition
-                      "
-                    >
-
-                      <FaEye />
-
-                      Buka Dokumen
-
-                    </a>
-                  )
-                }
-
-              </div>
-
-
-              {/* FOOTER */}
-
-              <div
-                className="
-                  border-t
-                  bg-gray-50
-                  px-5
-                  py-4
-                  flex
-                  justify-end
-                "
-              >
-
-                <button
-                  type="button"
-                  onClick={
-                    closeDocument
-                  }
-                  className="
-                    px-5
-                    py-2.5
-                    rounded-full
-                    border
-                    border-gray-300
-                    bg-white
-                    text-gray-600
-                    text-sm
-                    font-semibold
-                    hover:bg-gray-100
-                    transition
-                  "
-                >
-                  Tutup
+                <button type="button" onClick={closeDocument} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center">
+                  <FaTimes />
                 </button>
-
               </div>
-
             </div>
 
-          </div>
+            <div className="p-5 sm:p-6 overflow-y-auto">
+              <div className={`rounded-xl border p-4 mb-5 ${selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "bg-green-50 border-green-200" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                <div className="flex items-start gap-3">
+                  {selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? <FaCheckCircle className="text-green-600 mt-0.5" /> : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? <FaTimesCircle className="text-red-600 mt-0.5" /> : <FaClock className="text-amber-600 mt-0.5" />}
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "text-green-800" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "text-red-800" : "text-amber-800"}`}>
+                      {selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "Tukar Faktur Diterima" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "Tukar Faktur Ditolak" : "Menunggu Verifikasi"}
+                    </p>
+                    {selectedFaktur.tanggal_verifikasi && <p className="text-xs text-gray-600 mt-1">Tanggal Verifikasi: <span className="font-semibold">{selectedFaktur.tanggal_verifikasi}</span></p>}
+                    {selectedFaktur.status_verifikasi_tukar === "DITOLAK" && selectedFaktur.status_keterangan && (
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <p className="text-xs font-semibold text-red-700 mb-1">Keterangan Penolakan</p>
+                        <p className="text-sm text-red-700 leading-relaxed">{selectedFaktur.status_keterangan}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-        )
-      }
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-primary flex items-center justify-center"><FaFileInvoiceDollar /></div>
+                  <div><p className="text-xs text-blue-600">Status Tukar Faktur</p><div className="mt-1">{renderStatus(selectedFaktur.status)}</div></div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  ["No. Faktur", selectedFaktur.no_faktur],
+                  ["No. Billing", selectedFaktur.no_billing],
+                  ["Customer", selectedFaktur.nama_customer],
+                  ["Proses Retur", selectedFaktur.proses_retur],
+                  ["Jatuh Tempo", formatDate(selectedFaktur.jatuh_tempo)],
+                  ["Nominal", formatCurrency(selectedFaktur.nominal)],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-4 pb-3 border-b">
+                    <span className="text-sm text-gray-500">{label}</span>
+                    <span className="text-sm font-semibold text-gray-700 text-right break-all">{value || "-"}</span>
+                  </div>
+                ))}
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-sm text-gray-500">Dokumen</span>
+                  <span className="text-sm font-semibold text-gray-700 text-right break-all max-w-[60%]">{selectedFaktur.nama_dokumen_tukar || "Dokumen tersedia"}</span>
+                </div>
+              </div>
+
+              {selectedFaktur.files && (
+                <a href={typeof selectedFaktur.files === "string" ? selectedFaktur.files : undefined} target="_blank" rel="noopener noreferrer" className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition">
+                  <FaEye />
+                  Buka Dokumen Tukar Faktur
+                </a>
+              )}
+            </div>
+
+            <div className="border-t bg-gray-50 px-5 py-4 flex justify-end">
+              <button type="button" onClick={closeDocument} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 transition">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -761,6 +761,46 @@ const n2nPostService = {
       return error.response;
     }
   },
+  insertFakturPetugas: async (data) => {
+    try {
+      const response = await api.post("/insertFakturPetugas", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  insertTukarFaktur: async (data) => {
+    try {
+      const response = await api.post("/insertTukarFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  insertBayarFaktur: async (data) => {
+    try {
+      const response = await api.post("/insertBayarFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  verifikasiTukarFaktur: async (data) => {
+    try {
+      const response = await api.post("/verifikasiTukarFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  verifikasiBayarFaktur: async (data) => {
+    try {
+      const response = await api.post("/verifikasiBayarFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nPostService;

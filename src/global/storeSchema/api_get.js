@@ -2230,7 +2230,7 @@ const n2nGetService = {
       return error.response;
     }
   },
-  getListDataCod: async ({ page, limit, sortBy = "DESC", keyword = ""}) => {
+  getListDataCod: async ({ page, limit, sortBy = "DESC", keyword = "" }) => {
     try {
       const response = await api.get("/getListDataCod", {
         params: {
@@ -2240,6 +2240,172 @@ const n2nGetService = {
           keyword
         }
       });
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataFakturPetugas: async ({
+    page,
+    limit,
+    keyword = "",
+    kegiatan = "ALL",
+    sales_office = "ALL",
+    customer = "ALL",
+    status = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataFakturPetugas",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            kegiatan,
+            sales_office,
+            customer,
+            status,
+            start_date,
+            end_date,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataTukarFaktur: async ({
+    page,
+    limit,
+    keyword = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    status = "ALL",
+    status_verifikasi = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataTukarFaktur",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            customer,
+            status,
+            status_verifikasi,
+            start_date,
+            end_date,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataVerifikasiTukarFaktur: async ({
+    page,
+    limit,
+    keyword = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    status = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataVerifikasiTukarFaktur",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            customer,
+            status,
+            start_date,
+            end_date,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataVerifikasiPembayaran: async ({
+    page,
+    limit,
+    keyword = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    status = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataVerifikasiPembayaran",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            customer,
+            status,
+            start_date,
+            end_date,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataBayarFaktur: async ({
+    page,
+    limit,
+    keyword = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    status = "ALL",
+    status_verifikasi = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataBayarFaktur",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            customer,
+            status,
+            status_verifikasi,
+            start_date,
+            end_date,
+          },
+        }
+      );
+
       return response.data;
     } catch (error) {
       return error.response;

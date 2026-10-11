@@ -1,6 +1,5 @@
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -20,13 +19,15 @@ import {
   FaTimesCircle,
   FaInfoCircle,
   FaFileAlt,
+  FaSearch,
+  FaFilter,
+  FaSyncAlt,
 } from "react-icons/fa";
 
-import {
-  IoSearch,
-} from "react-icons/io5";
-
 import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
+import { swal } from "global/helper/swal";
+import storeSchema from "global/store";
 
 
 // =====================================================
@@ -96,243 +97,76 @@ const formatCurrency = (value) => {
 // - keterangan_verifikasi_tukar
 // =====================================================
 
-const dummyData = [
-  {
-    id: 1,
-    no_faktur: "INV-2026-00001",
-    nama_customer: "Dinas Kesehatan Kota Medan",
-    alamat: "Jl. Gatot Subroto No. 125, Medan",
-    jatuh_tempo: "2026-08-22",
-    nominal: 140000000,
+const firstValue = (item, ...keys) => {
+  for (const key of keys) {
+    if (item?.[key] !== undefined && item?.[key] !== null && item?.[key] !== "") return item[key];
+  }
+  return null;
+};
 
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00001_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-02",
+const getId = (item) => firstValue(item, "piutang_id", "faktur_id", "id");
+const getNoFaktur = (item) => firstValue(item, "no_faktur", "nomor_faktur", "noFaktur") || "-";
+const getCustomer = (item) => firstValue(item, "nama_customer", "customer_name", "customer") || "-";
+const getAlamat = (item) => firstValue(item, "alamat", "customer_address") || "-";
+const getJatuhTempo = (item) => firstValue(item, "jatuh_tempo", "due_date") || null;
+const getNominal = (item) => Number(firstValue(item, "nominal", "outstanding", "saldo_piutang", "dpp") || 0);
+const getStatusVerifikasi = (item) => {
+  const raw = String(firstValue(item, "status_verifikasi_tukar", "status_verifikasi", "status_verifikasi_faktur") || "").toUpperCase();
+  if (raw.includes("DITOLAK") || raw.includes("TOLAK")) return "DITOLAK";
+  if (raw.includes("MENUNGGU")) return "MENUNGGU_VERIFIKASI";
+  if (raw.includes("DITERIMA") || raw === "SUDAH") return "DITERIMA";
+  return "MENUNGGU_VERIFIKASI";
+};
+const getTanggalTukar = (item) => firstValue(item, "tanggal_tukar", "tukar_faktur_at", "tukar_faktur_created_at", "updated_at") || null;
+const getDocumentNumber = (item) => firstValue(item, "create_document_number", "document_number", "no_document") || "";
+const getNamaDokumenTukar = (item) => firstValue(item, "nama_dokumen_tukar", "dokumen_tukar_nama", "file_name") || "";
+const getDokumenTukar = (item) => firstValue(item, "dokumen_tukar", "files", "file_tukar_faktur", "file_url") || "";
+const normalizeRow = (item, index, page, perPage) => ({
+  ...item,
+  id: getId(item),
+  piutang_id: firstValue(item, "piutang_id", "faktur_id", "id"),
+  no_faktur: getNoFaktur(item),
+  nama_customer: getCustomer(item),
+  alamat: getAlamat(item),
+  jatuh_tempo: getJatuhTempo(item),
+  nominal: getNominal(item),
+  status_verifikasi_tukar: getStatusVerifikasi(item),
+  tanggal_tukar: getTanggalTukar(item),
+  create_document_number: getDocumentNumber(item),
+  nama_dokumen_tukar: getNamaDokumenTukar(item),
+  dokumen_tukar: getDokumenTukar(item),
+  cabang: firstValue(item, "cabang", "sales_office"),
+  nama_cabang: firstValue(item, "nama_cabang", "cabang_name", "sales_office_name") || "-",
+  customer: firstValue(item, "customer", "kode_customer") || "",
+  No: (page - 1) * perPage + index + 1,
+});
 
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 2,
-    no_faktur: "INV-2026-00002",
-    nama_customer: "Apotek Maju Djaya",
-    alamat: "Jl. Sisingamangaraja No. 88, Medan",
-    jatuh_tempo: "2026-08-25",
-    nominal: 85000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00002_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-03",
-
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 3,
-    no_faktur: "INV-2026-00003",
-    nama_customer: "Apotek Rusli",
-    alamat: "Jl. Iskandar Muda No. 45, Medan",
-    jatuh_tempo: "2026-08-27",
-    nominal: 140000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00003_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-02",
-
-    status_verifikasi_tukar: "SUDAH_DIVERIFIKASI",
-    create_document_number: "CD-2026-000003",
-    tanggal_verifikasi_tukar: "2026-09-03",
-    keterangan_verifikasi_tukar:
-      "Dokumen faktur pengganti telah sesuai.",
-  },
-
-  {
-    id: 4,
-    no_faktur: "INV-2026-00004",
-    nama_customer: "RSUD Pasuruan",
-    alamat: "Jl. Wahidin Sudirohusodo No. 10, Pasuruan",
-    jatuh_tempo: "2026-08-29",
-    nominal: 175000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00004_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-04",
-
-    status_verifikasi_tukar: "DITOLAK",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: "2026-09-05",
-    keterangan_verifikasi_tukar:
-      "Dokumen faktur pengganti tidak sesuai.",
-  },
-
-  {
-    id: 5,
-    no_faktur: "INV-2026-00005",
-    nama_customer: "RS Hermina Medan",
-    alamat: "Jl. Asrama No. 12, Medan",
-    jatuh_tempo: "2026-08-30",
-    nominal: 95000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00005_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-03",
-
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 6,
-    no_faktur: "INV-2026-00006",
-    nama_customer: "Apotek Sehat Sentosa",
-    alamat: "Jl. Kelapa Gading Raya No. 21, Jakarta",
-    jatuh_tempo: "2026-09-01",
-    nominal: 65000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00006_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-04",
-
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 7,
-    no_faktur: "INV-2026-00007",
-    nama_customer: "Klinik Medika Utama",
-    alamat: "Jl. Boulevard Barat No. 30, Jakarta",
-    jatuh_tempo: "2026-09-03",
-    nominal: 72500000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00007_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-04",
-
-    status_verifikasi_tukar: "SUDAH_DIVERIFIKASI",
-    create_document_number: "CD-2026-000007",
-    tanggal_verifikasi_tukar: "2026-09-05",
-    keterangan_verifikasi_tukar:
-      "Dokumen telah diverifikasi.",
-  },
-
-  {
-    id: 8,
-    no_faktur: "INV-2026-00008",
-    nama_customer: "RS Siloam Medan",
-    alamat: "Jl. Imam Bonjol No. 5, Medan",
-    jatuh_tempo: "2026-09-05",
-    nominal: 210000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00008_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-05",
-
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 9,
-    no_faktur: "INV-2026-00009",
-    nama_customer: "Dinas Kesehatan Deli Serdang",
-    alamat: "Jl. Negara No. 100, Deli Serdang",
-    jatuh_tempo: "2026-09-07",
-    nominal: 125000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00009_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-06",
-
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 10,
-    no_faktur: "INV-2026-00010",
-    nama_customer: "Apotek Kimia Sehat",
-    alamat: "Jl. Sunter Agung No. 18, Jakarta",
-    jatuh_tempo: "2026-09-10",
-    nominal: 45000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00010_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-06",
-
-    status_verifikasi_tukar: "SUDAH_DIVERIFIKASI",
-    create_document_number: "CD-2026-000010",
-    tanggal_verifikasi_tukar: "2026-09-07",
-    keterangan_verifikasi_tukar:
-      "Dokumen pengganti sesuai.",
-  },
-
-  {
-    id: 11,
-    no_faktur: "INV-2026-00011",
-    nama_customer: "RSUD Kota Bogor",
-    alamat: "Jl. Pajajaran No. 50, Bogor",
-    jatuh_tempo: "2026-09-12",
-    nominal: 185000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00011_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-07",
-
-    status_verifikasi_tukar: "MENUNGGU_VERIFIKASI",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: null,
-    keterangan_verifikasi_tukar: "",
-  },
-
-  {
-    id: 12,
-    no_faktur: "INV-2026-00012",
-    nama_customer: "Apotek Berkah Farma",
-    alamat: "Jl. Merdeka No. 12, Bogor",
-    jatuh_tempo: "2026-09-15",
-    nominal: 55000000,
-
-    status: "SUDAH_DITUKAR",
-    dokumen_tukar: "#",
-    nama_dokumen_tukar: "INV-2026-00012_PENGGANTI.pdf",
-    tanggal_tukar: "2026-09-08",
-
-    status_verifikasi_tukar: "DITOLAK",
-    create_document_number: "",
-    tanggal_verifikasi_tukar: "2026-09-09",
-    keterangan_verifikasi_tukar:
-      "Dokumen tidak sesuai dengan faktur pengganti.",
-  },
-];
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input type="checkbox" checked={props.isSelected} readOnly className="checkbox checkbox-primary checkbox-xs mr-2" />
+    {props.label}
+  </selectComponents.Option>
+);
+const FilterMultiValue = () => null;
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
+  return (
+    <selectComponents.ValueContainer {...props}>
+      {selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}
+      {children[1]}
+    </selectComponents.ValueContainer>
+  );
+};
+const filterSelectComponents = { Option: FilterOption, MultiValue: FilterMultiValue, ValueContainer: FilterValueContainer };
+const filterSelectStyles = {
+  control: (base, state) => ({ ...base, minHeight: 36, borderRadius: 9999, borderColor: state.isFocused ? "#2563eb" : "#d1d5db", boxShadow: "none", fontSize: ".875rem", ":hover": { borderColor: "#2563eb" } }),
+  valueContainer: (base) => ({ ...base, padding: "0 10px" }),
+  indicatorsContainer: (base) => ({ ...base, height: 36 }),
+  menu: (base) => ({ ...base, zIndex: 50 }),
+};
+const getSelectedFilterOptions = (options, selectedValues) => options.filter((option) => selectedValues.includes(option.value));
 
 
-// =====================================================
 // STATUS CONFIG
 // =====================================================
 
@@ -345,8 +179,8 @@ const verificationStatusConfig = {
       "bg-amber-100 text-amber-700",
   },
 
-  SUDAH_DIVERIFIKASI: {
-    label: "Sudah Diverifikasi",
+  DITERIMA: {
+    label: "Diterima",
     icon: FaCheckCircle,
     className:
       "bg-green-100 text-green-700",
@@ -377,227 +211,142 @@ const TableVerifikasiTukarFaktur = ({
   // STATE
   // ===================================================
 
-  const [
-    allData,
-    setAllData,
-  ] = useState(dummyData);
-
-  const [
-    keyword,
-    setKeyword,
-  ] = useState("");
-
-  const [
-    selectedStatus,
-    setSelectedStatus,
-  ] = useState("ALL");
-
-  const [
-    currentPage,
-    setCurrentPage,
-  ] = useState(1);
-
-  const [
-    perPage,
-    setPerPage,
-  ] = useState(10);
-
-  const [
-    selectedData,
-    setSelectedData,
-  ] = useState(null);
-
-  const [
-    showVerificationModal,
-    setShowVerificationModal,
-  ] = useState(false);
-
-  const [
-    rejectionReason,
-    setRejectionReason,
-  ] = useState("");
-
-  const [
-    showRejectionReason,
-    setShowRejectionReason,
-  ] = useState(false);
-
-const [
-    isSubmitting,
-    setIsSubmitting,
-  ] = useState(false);
-
+  const [tableData, setTableData] = useState([]);
+  const [summaryData, setSummaryData] = useState({ total: 0, menunggu: 0, diterima: 0, ditolak: 0 });
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
+  const [keyword, setKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [filterCabang, setFilterCabang] = useState([]);
+  const [filterCustomer, setFilterCustomer] = useState([]);
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [cabangOptions, setCabangOptions] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [selectedData, setSelectedData] = useState(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [showRejectionReason, setShowRejectionReason] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ===================================================
-  // SUMMARY
+  // FILTER OPTIONS
   // ===================================================
 
-  const summaryData = useMemo(
-    () => {
+  const getReferensi = async () => {
+    try {
+      const refCabang = await storeSchema.actions.getReferensiByJenis("cabang_id");
+      if (refCabang?.status === true) {
+        setCabangOptions((refCabang?.data || []).map((item) => ({ label: item?.ur_ref, value: item?.kd_ref })));
+      }
+    } catch (error) {
+      console.error("ERROR GET REFERENSI CABANG:", error);
+    }
+  };
 
-      const total =
-        allData.length;
+  const loadCustomerOptions = async () => {
+    try {
+      const res = await storeSchema.actions.getDataVerifikasiTukarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: "ALL",
+        customer: "ALL",
+        status: "ALL",
+        start_date: "",
+        end_date: "",
+      });
+      if (res?.status === true) {
+        const list = res?.data?.list_data || [];
+        const unique = [...new Map(list.map((item) => {
+          const value = firstValue(item, "customer", "kode_customer", "nama_customer", "customer_name");
+          const label = firstValue(item, "nama_customer", "customer_name", "customer", "kode_customer");
+          return [String(value || label || ""), { label: label || "-", value: value || label || "" }];
+        })).values()].filter((x) => x.value);
+        setCustomerOptions(unique);
+      }
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER OPTIONS:", error);
+    }
+  };
 
-      const menunggu =
-        allData.filter(
-          item =>
-            item.status_verifikasi_tukar ===
-            "MENUNGGU_VERIFIKASI"
-        ).length;
+  useEffect(() => {
+    getReferensi();
+    loadCustomerOptions();
+  }, []);
 
-      const sudah =
-        allData.filter(
-          item =>
-            item.status_verifikasi_tukar ===
-            "SUDAH_DIVERIFIKASI"
-        ).length;
+  // ===================================================
+  // GET DATA VERIFIKASI TUKAR FAKTUR
+  // ===================================================
 
-      const ditolak =
-        allData.filter(
-          item =>
-            item.status_verifikasi_tukar ===
-            "DITOLAK"
-        ).length;
-
-      return {
-        total,
-        menunggu,
-        sudah,
-        ditolak,
+  const getDataVerifikasiTukarFaktur = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        page: currentPage,
+        limit: perPage,
+        keyword: searchKeyword,
+        sales_office: filterCabang.length ? filterCabang : "ALL",
+        customer: filterCustomer.length ? filterCustomer : "ALL",
+        status: selectedStatus,
+        start_date: filterStartDate,
+        end_date: filterEndDate,
       };
+      const res = await storeSchema.actions.getDataVerifikasiTukarFaktur(payload);
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data Verifikasi Tukar Faktur");
+      const responseData = res?.data || {};
+      const list = responseData?.list_data || [];
+      setTableData(list.map((item, index) => normalizeRow(item, index, currentPage, perPage)));
+      const totalDataResponse = Number(responseData?.total_data || 0);
+      setTotalData(totalDataResponse);
+      setTotalPage(Number(responseData?.total_halaman || Math.ceil(totalDataResponse / perPage) || 0));
+      const summary = responseData?.summary || {};
+      setSummaryData({
+        total: Number(summary?.total_verifikasi ?? summary?.total_faktur ?? summary?.total ?? totalDataResponse),
+        menunggu: Number(summary?.menunggu_verifikasi ?? summary?.menunggu ?? 0),
+        diterima: Number(summary?.diterima ?? 0),
+        ditolak: Number(summary?.ditolak ?? 0),
+      });
+    } catch (error) {
+      console.error("ERROR GET DATA VERIFIKASI TUKAR FAKTUR:", error);
+      setTableData([]);
+      setTotalData(0);
+      setTotalPage(0);
+      setSummaryData({ total: 0, menunggu: 0, diterima: 0, ditolak: 0 });
+      await swal.error(error?.message || "Gagal mengambil data Verifikasi Tukar Faktur");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    },
-    [
-      allData,
-    ]
-  );
+  useEffect(() => {
+    getDataVerifikasiTukarFaktur();
+  }, [currentPage, perPage, searchKeyword, filterCabang, filterCustomer, selectedStatus, filterStartDate, filterEndDate]);
 
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchKeyword(keyword.trim());
+  };
 
-  // ===================================================
-  // FILTER DATA
-  // ===================================================
+  const resetFilter = () => {
+    setKeyword("");
+    setSearchKeyword("");
+    setFilterCabang([]);
+    setFilterCustomer([]);
+    setSelectedStatus("ALL");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setCurrentPage(1);
+  };
 
-  const filteredData = useMemo(
-    () => {
-
-      let data = [
-        ...allData,
-      ];
-
-
-      // STATUS
-
-      if (
-        selectedStatus !== "ALL"
-      ) {
-
-        data =
-          data.filter(
-            item =>
-              item.status_verifikasi_tukar ===
-              selectedStatus
-          );
-
-      }
-
-
-      // SEARCH
-
-      if (
-        keyword.trim()
-      ) {
-
-        const search =
-          keyword
-            .toLowerCase()
-            .trim();
-
-        data =
-          data.filter(
-            item =>
-
-              item.no_faktur
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.nama_customer
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.alamat
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.nama_dokumen_tukar
-                ?.toLowerCase()
-                .includes(search)
-
-              ||
-
-              item.create_document_number
-                ?.toLowerCase()
-                .includes(search)
-          );
-
-      }
-
-
-      return data;
-
-    },
-    [
-      allData,
-      keyword,
-      selectedStatus,
-    ]
-  );
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData =
-    filteredData.length;
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) *
-      perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  useEffect(
-    () => {
-
-      setCurrentPage(1);
-
-    },
-    [
-      keyword,
-      selectedStatus,
-      perPage,
-    ]
-  );
-
+  const handleRefresh = () => {
+    if (currentPage === 1) getDataVerifikasiTukarFaktur();
+    else setCurrentPage(1);
+  };
 
   // ===================================================
   // OPEN VERIFICATION
@@ -686,148 +435,125 @@ const [
   const handleVerification = async (
     action
   ) => {
-
     if (!selectedData) {
       return;
     }
 
-    // Jika Tolak, alasan wajib diisi.
     if (
       action === "TOLAK" &&
       !rejectionReason.trim()
     ) {
+      setShowRejectionReason(true);
 
-      setShowRejectionReason(
-        true
-      );
-
-      alert(
+      swal.warning(
         "Alasan penolakan wajib diisi."
       );
 
       return;
+    }
 
+    if (!selectedData?.tukar_faktur_id) {
+      swal.error(
+        "Tukar Faktur ID tidak ditemukan."
+      );
+
+      return;
+    }
+
+    if (!selectedData?.faktur_petugas_id) {
+      swal.error(
+        "Faktur Petugas ID tidak ditemukan."
+      );
+
+      return;
     }
 
     try {
+      setIsSubmitting(true);
 
-      setIsSubmitting(
-        true
-      );
-
-      const newStatus =
+      const kdStatus =
         action === "TERIMA"
-          ? "SUDAH_DIVERIFIKASI"
-          : "DITOLAK";
+          ? "S"
+          : "T";
 
       const alasanPenolakan =
         action === "TOLAK"
           ? rejectionReason.trim()
           : "";
 
-      // Payload verifikasi:
-      // Terima = tanpa input tambahan.
-      // Tolak = wajib membawa alasan_penolakan.
       const payload = {
+        tukar_faktur_id:
+          selectedData?.tukar_faktur_id,
 
-        faktur_id:
-          selectedData.id,
+        piutang_id:
+          selectedData?.piutang_id,
 
-        no_faktur:
-          selectedData.no_faktur,
+        faktur_petugas_id:
+          selectedData?.faktur_petugas_id,
 
-        nama_customer:
-          selectedData.nama_customer,
+        kegiatan:
+          "TUKAR_FAKTUR",
 
-        nominal:
-          selectedData.nominal,
+        kd_status:
+          kdStatus,
 
-        status_verifikasi_tukar:
-          newStatus,
-
-        alasan_penolakan:
+        keterangan:
           alasanPenolakan,
 
-        tanggal_verifikasi_tukar:
-          new Date().toISOString(),
+        no_faktur:
+          selectedData?.no_faktur,
 
         user_id:
-          loginAccess?.user_id ||
-          null,
+          loginAccess?.user_id || null,
 
         nip:
-          loginAccess?.nip ||
-          null,
+          loginAccess?.nip || null,
 
+        tanggal_verifikasi:
+          new Date().toISOString()
       };
 
-      if (
-        typeof onVerifikasiTukarFaktur ===
-        "function"
-      ) {
+      console.log(
+        "PAYLOAD VERIFIKASI TUKAR FAKTUR:",
+        payload
+      );
 
-        await onVerifikasiTukarFaktur(
+      const res =
+        await storeSchema.actions.verifikasiTukarFaktur(
           payload
         );
 
+      if (res?.status !== true) {
+        throw new Error(
+          res?.message ||
+          "Gagal melakukan verifikasi Tukar Faktur."
+        );
       }
 
-      // Update local data.
-      setAllData(
-        prev =>
-          prev.map(
-            item =>
-              item.id ===
-              selectedData.id
-                ? {
-
-                    ...item,
-
-                    status_verifikasi_tukar:
-                      newStatus,
-
-                    tanggal_verifikasi_tukar:
-                      new Date().toISOString(),
-
-                    alasan_penolakan:
-                      alasanPenolakan,
-
-                    keterangan_verifikasi_tukar:
-                      alasanPenolakan,
-
-                  }
-                : item
-          )
-      );
-
-      alert(
+      await swal.success(
         action === "TERIMA"
-          ? "Tukar Faktur berhasil diterima."
+          ? "Tukar Faktur berhasil disetujui."
           : "Tukar Faktur berhasil ditolak."
       );
 
       closeVerification();
 
-    } catch (error) {
+      await getDataVerifikasiTukarFaktur();
 
+    } catch (error) {
       console.error(
-        "Gagal verifikasi Tukar Faktur:",
+        "ERROR VERIFIKASI TUKAR FAKTUR:",
         error
       );
 
-      alert(
+      await swal.error(
         error?.message ||
         "Gagal melakukan verifikasi Tukar Faktur."
       );
 
     } finally {
-
-      setIsSubmitting(
-        false
-      );
-
+      setIsSubmitting(false);
     }
-
   };
 
 
@@ -841,7 +567,7 @@ const [
 
     const config =
       verificationStatusConfig[
-        status
+      status
       ];
 
 
@@ -985,17 +711,17 @@ const [
   const startIndex =
     totalData > 0
       ? (
-          currentPage -
-          1
-        ) *
-          perPage +
-          1
+        currentPage -
+        1
+      ) *
+      perPage +
+      1
       : 0;
 
   const endIndex =
     Math.min(
       currentPage *
-        perPage,
+      perPage,
       totalData
     );
 
@@ -1064,124 +790,95 @@ const [
     >
 
       {/* ================================================= */}
-      {/* SEARCH + STATUS */}
+      {/* SEARCH + FILTER */}
       {/* ================================================= */}
 
-      <div
-        className="
-          flex
-          flex-col
-          lg:flex-row
-          justify-between
-          gap-4
-          items-stretch
-          lg:items-center
-        "
-      >
-
-        <div
-          className="
-            input
-            input-sm
-            input-bordered
-            flex
-            items-center
-            gap-2
-            bg-white
-            rounded-full
-            border-gray-200
-            shadow-sm
-            w-full
-            lg:w-[380px]
-          "
-        >
-
-          <IoSearch
-            className="
-              text-gray-400
-            "
-          />
-
-          <input
-            type="text"
-            placeholder="
-              Cari nomor faktur / customer / create document...
-            "
-            className="grow"
-            value={
-              keyword
-            }
-            onChange={
-              e =>
-                setKeyword(
-                  e.target.value
-                )
-            }
-          />
-
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
+          <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+            <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari no faktur / customer / create document..."
+              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+              value={keyword}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            <button type="button" onClick={handleSearch} title="Cari" aria-label="Cari" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:opacity-90">
+              <FaSearch className="text-sm" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={resetFilter} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50">
+              <FaFilter /> Reset Filter
+            </button>
+            <button type="button" onClick={handleRefresh} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50">
+              <FaSyncAlt /> Refresh
+            </button>
+          </div>
         </div>
 
-
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-          "
-        >
-
-          <span
-            className="
-              text-sm
-              text-gray-500
-            "
-          >
-            Status:
-          </span>
-
-
-          <select
-            className="
-              select
-              select-sm
-              select-bordered
-              rounded-full
-              bg-white
-              min-w-[210px]
-            "
-            value={
-              selectedStatus
-            }
-            onChange={
-              e =>
-                setSelectedStatus(
-                  e.target.value
-                )
-            }
-          >
-
-            <option value="ALL">
-              Semua Status
-            </option>
-
-            <option value="MENUNGGU_VERIFIKASI">
-              Menunggu Verifikasi
-            </option>
-
-            <option value="SUDAH_DIVERIFIKASI">
-              Sudah Diverifikasi
-            </option>
-
-            <option value="DITOLAK">
-              Ditolak
-            </option>
-
-          </select>
-
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label>
+            <Select
+              isMulti
+              options={cabangOptions}
+              value={getSelectedFilterOptions(cabangOptions, filterCabang)}
+              onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); }}
+              placeholder="Semua Cabang"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
+            <Select
+              isMulti
+              options={customerOptions}
+              value={getSelectedFilterOptions(customerOptions, filterCustomer)}
+              onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }}
+              placeholder="Semua Customer"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full min-w-[190px] sm:w-[220px]">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
+            <Select
+              options={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Menunggu Verifikasi", value: "MENUNGGU_VERIFIKASI" },
+                { label: "Diterima", value: "DITERIMA" },
+                { label: "Ditolak", value: "DITOLAK" },
+              ]}
+              value={[
+                { label: "Semua Status", value: "ALL" },
+                { label: "Menunggu Verifikasi", value: "MENUNGGU_VERIFIKASI" },
+                { label: "Diterima", value: "DITERIMA" },
+                { label: "Ditolak", value: "DITOLAK" },
+              ].find((item) => item.value === selectedStatus)}
+              onChange={(selected) => { setCurrentPage(1); setSelectedStatus(selected?.value || "ALL"); }}
+              placeholder="Semua Status"
+              styles={filterSelectStyles}
+            />
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+              <FaCalendarAlt className="text-primary text-sm" />
+              <input type="date" value={filterStartDate} max={filterEndDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterStartDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
+              <span className="text-gray-300">-</span>
+              <input type="date" value={filterEndDate} min={filterStartDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterEndDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
+            </div>
+          </div>
         </div>
-
       </div>
-
 
       {/* ================================================= */}
       {/* SUMMARY */}
@@ -1352,7 +1049,7 @@ const [
                   text-green-700
                 "
               >
-                Sudah Diverifikasi
+                Diterima
               </p>
 
               <p
@@ -1363,7 +1060,7 @@ const [
                 "
               >
                 {
-                  summaryData.sudah
+                  summaryData.diterima
                 }
               </p>
 
@@ -1491,8 +1188,12 @@ const [
 
               <tr
                 className="
-                  bg-gray-50
-                  text-gray-600
+                  bg-primary
+                  text-white
+                  sticky
+                  top-0
+                  text-[13px]
+                  z-10
                 "
               >
 
@@ -1548,8 +1249,8 @@ const [
             <tbody>
 
               {
-                paginatedData.length ===
-                0 ? (
+                tableData.length ===
+                  0 ? (
 
                   <tr>
 
@@ -1572,7 +1273,7 @@ const [
 
                 ) : (
 
-                  paginatedData.map(
+                  tableData.map(
                     (
                       faktur,
                       index
@@ -1619,15 +1320,7 @@ const [
                           "
                         >
 
-                          {
-                            (
-                              currentPage -
-                              1
-                            ) *
-                              perPage +
-                              index +
-                              1
-                          }
+                          {faktur.No}
 
                         </td>
 
@@ -1980,7 +1673,7 @@ const [
 
             {
               totalPage >
-                0 && (
+              0 && (
 
                 <ReactPaginate
                   breakLabel="..."
@@ -2092,7 +1785,7 @@ const [
             className="
               fixed
               inset-0
-              z-[9999]
+              z-[500]
               bg-black/40
               backdrop-blur-sm
               flex
@@ -2281,7 +1974,7 @@ const [
                           leading-relaxed
                         "
                       >
-                        Periksa dokumen faktur pengganti sebelum menerima proses Tukar Faktur. 
+                        Periksa dokumen faktur pengganti sebelum menerima proses Tukar Faktur.
                       </p>
 
                     </div>
@@ -2654,7 +2347,7 @@ const [
                                   "string"
                                 ) {
                                   e.preventDefault();
-                                  alert(
+                                  swal.error(
                                     "Dokumen tersedia pada data aplikasi."
                                   );
                                 }
@@ -2778,47 +2471,46 @@ const [
 
                 {
                   selectedData.status_verifikasi_tukar !==
-                    "MENUNGGU_VERIFIKASI" && (
+                  "MENUNGGU_VERIFIKASI" && (
 
                     <div
                       className={`
-                        rounded-xl
-                        border
-                        p-4
-                        ${
-                          selectedData.status_verifikasi_tukar ===
-                          "SUDAH_DIVERIFIKASI"
-                            ? "bg-green-50 border-green-200"
-                            : "bg-red-50 border-red-200"
+        rounded-xl
+        border
+        p-4
+        ${selectedData.status_verifikasi_tukar ===
+                          "DITERIMA"
+                          ? "bg-green-50 border-green-200"
+                          : "bg-red-50 border-red-200"
                         }
-                      `}
+      `}
                     >
 
                       <div
                         className="
-                          flex
-                          items-start
-                          gap-3
-                        "
+          flex
+          items-start
+          gap-3
+        "
                       >
 
                         {
                           selectedData.status_verifikasi_tukar ===
-                          "SUDAH_DIVERIFIKASI"
+                            "DITERIMA"
                             ? (
                               <FaCheckCircle
                                 className="
-                                  text-green-600
-                                  mt-0.5
-                                "
+                  text-green-600
+                  mt-0.5
+                "
                               />
                             )
                             : (
                               <FaTimesCircle
                                 className="
-                                  text-red-600
-                                  mt-0.5
-                                "
+                  text-red-600
+                  mt-0.5
+                "
                               />
                             )
                         }
@@ -2827,43 +2519,73 @@ const [
 
                           <p
                             className={`
-                              text-sm
-                              font-semibold
-                              ${
-                                selectedData.status_verifikasi_tukar ===
-                                "SUDAH_DIVERIFIKASI"
-                                  ? "text-green-800"
-                                  : "text-red-800"
+              text-sm
+              font-semibold
+              ${selectedData.status_verifikasi_tukar ===
+                                "DITERIMA"
+                                ? "text-green-800"
+                                : "text-red-800"
                               }
-                            `}
+            `}
                           >
-
                             {
                               selectedData.status_verifikasi_tukar ===
-                              "SUDAH_DIVERIFIKASI"
-                                ? "Tukar Faktur Sudah Diverifikasi"
+                                "DITERIMA"
+                                ? "Tukar Faktur Diterima"
                                 : "Tukar Faktur Ditolak"
                             }
-
                           </p>
 
                           <p
                             className="
-                              text-xs
-                              mt-1
-                              text-gray-600
-                            "
+              text-xs
+              mt-1
+              text-gray-600
+            "
                           >
-
                             Tanggal verifikasi:{" "}
-
-                            {
-                              formatDate(
-                                selectedData.tanggal_verifikasi_tukar
-                              )
-                            }
-
+                            {selectedData?.tanggal_verifikasi || "-"}
                           </p>
+
+                          {
+                            selectedData.status_verifikasi_tukar ===
+                            "DITOLAK" &&
+                            selectedData?.status_keterangan && (
+
+                              <div
+                                className="
+                  mt-3
+                  pt-3
+                  border-t
+                  border-red-200
+                "
+                              >
+
+                                <p
+                                  className="
+                    text-xs
+                    font-semibold
+                    text-red-700
+                    mb-1
+                  "
+                                >
+                                  Keterangan Penolakan
+                                </p>
+
+                                <p
+                                  className="
+                    text-sm
+                    text-red-700
+                    leading-relaxed
+                  "
+                                >
+                                  {selectedData.status_keterangan}
+                                </p>
+
+                              </div>
+
+                            )
+                          }
 
                         </div>
 
@@ -2920,7 +2642,7 @@ const [
 
                 {
                   selectedData.status_verifikasi_tukar ===
-                    "MENUNGGU_VERIFIKASI" && (
+                  "MENUNGGU_VERIFIKASI" && (
                     <>
 
                       <button
