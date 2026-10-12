@@ -571,6 +571,9 @@ const TableDataPiutang = ({
   const [filterCabang, setFilterCabang] =
     useState([]);
 
+  const [filterCustomer, setFilterCustomer] =
+    useState([]);
+
   const [filterChannel, setFilterChannel] =
     useState([]);
 
@@ -595,6 +598,7 @@ const TableDataPiutang = ({
   const [options, setOptions] =
     useState({
       cabang: [],
+      customer: [],
       channel: [],
       principle: [],
     });
@@ -721,6 +725,100 @@ const TableDataPiutang = ({
   }, []);
 
   // ===================================================
+  // GET DATA CUSTOMER BERDASARKAN CABANG
+  // Customer aktif setelah cabang dipilih.
+  // Dropdown menampilkan kode_customer - name.
+  // ===================================================
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const getDataCustomer = async () => {
+      if (!filterCabang.length) {
+        setOptions((prev) => ({
+          ...prev,
+          customer: [],
+        }));
+        setFilterCustomer([]);
+        return;
+      }
+
+      try {
+        const res = await storeSchema.actions.getDataPelanggan({
+          page: 1,
+          limit: 9999,
+          cabang_id: filterCabang,
+        });
+
+        if (res?.status !== true) {
+          throw new Error(
+            res?.message || "Gagal mengambil data customer"
+          );
+        }
+
+        const responseData = res?.data;
+        const listData = Array.isArray(responseData)
+          ? responseData
+          : responseData?.list_data ||
+            responseData?.data ||
+            responseData?.rows ||
+            [];
+
+        const customerOptions = listData
+          .map((item) => {
+            const kodeCustomer = item?.kode_customer;
+            const namaCustomer = item?.name;
+
+            return {
+              label: `${kodeCustomer ?? ""}${namaCustomer ? ` - ${namaCustomer}` : ""}`,
+              value: kodeCustomer,
+            };
+          })
+          .filter(
+            (item) =>
+              item.value !== null &&
+              item.value !== undefined &&
+              String(item.value).trim() !== ""
+          );
+
+        if (isMounted) {
+          setOptions((prev) => ({
+            ...prev,
+            customer: customerOptions,
+          }));
+
+          setFilterCustomer((prev) =>
+            prev.filter((value) =>
+              customerOptions.some(
+                (option) => String(option.value) === String(value)
+              )
+            )
+          );
+        }
+      } catch (error) {
+        console.error("ERROR GET DATA CUSTOMER PIUTANG:", error);
+
+        if (isMounted) {
+          setOptions((prev) => ({
+            ...prev,
+            customer: [],
+          }));
+          setFilterCustomer([]);
+          await swal.error(
+            error?.message || "Gagal mengambil data customer"
+          );
+        }
+      }
+    };
+
+    getDataCustomer();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filterCabang]);
+
+  // ===================================================
   // GET DATA PIUTANG
   // ===================================================
 
@@ -736,6 +834,7 @@ const TableDataPiutang = ({
           searchKeyword,
 
         sales_office: filterCabang.length ? filterCabang : "ALL",
+        customer: filterCustomer.length ? filterCustomer : "ALL",
         channel: filterChannel.length ? filterChannel : "ALL",
         principle: filterPrinciple.length ? filterPrinciple : "ALL",
         start_date: filterStartDate,
@@ -945,6 +1044,7 @@ const TableDataPiutang = ({
     perPage,
     searchKeyword,
     filterCabang,
+    filterCustomer,
     filterChannel,
     filterPrinciple,
     filterStartDate,
@@ -987,6 +1087,7 @@ const TableDataPiutang = ({
     setKeyword("");
     setSearchKeyword("");
     setFilterCabang([]);
+    setFilterCustomer([]);
     setFilterChannel([]);
     setFilterPrinciple([]);
     setFilterStartDate("");
@@ -1126,6 +1227,7 @@ const TableDataPiutang = ({
               onChange={(selected) => {
                 setCurrentPage(1);
                 setFilterCabang((selected || []).map((item) => item.value));
+                setFilterCustomer([]);
               }}
               placeholder="Semua Cabang"
               closeMenuOnSelect={false}
@@ -1181,10 +1283,25 @@ const TableDataPiutang = ({
             </label>
             <Select
               isMulti
-              isDisabled
-              options={[]}
-              value={[]}
-              placeholder="Customer"
+              isDisabled={!filterCabang.length}
+              options={options?.customer || []}
+              value={getSelectedFilterOptions(
+                options?.customer || [],
+                filterCustomer
+              )}
+              onChange={(selected) => {
+                setCurrentPage(1);
+                setFilterCustomer(
+                  (selected || []).map((item) => item.value)
+                );
+              }}
+              placeholder={
+                !filterCabang.length
+                  ? "Pilih cabang dahulu"
+                  : "Semua Customer"
+              }
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
               components={filterSelectComponents}
               styles={filterSelectStyles}
             />

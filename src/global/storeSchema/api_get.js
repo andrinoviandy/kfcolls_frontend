@@ -2115,6 +2115,7 @@ const n2nGetService = {
     limit,
     keyword = "",
     sales_office = "ALL",
+    customer = "ALL",
     posting_status = "ALL",
     customer_group = "ALL",
     principle = "ALL",
@@ -2130,6 +2131,7 @@ const n2nGetService = {
             limit,
             keyword,
             sales_office,
+            customer,
             posting_status,
             customer_group,
             principle,
@@ -2150,6 +2152,7 @@ const n2nGetService = {
     keyword = "",
     status = "",
     sales_office = "ALL",
+    customer = "ALL",
     posting_status = "ALL",
     customer_group = "ALL",
     principle = "ALL",
@@ -2167,6 +2170,7 @@ const n2nGetService = {
             status,
             sales_office,
             posting_status,
+            customer,
             customer_group,
             principle,
             start_date,
@@ -2195,7 +2199,7 @@ const n2nGetService = {
       return error.response;
     }
   },
-  getDataPelanggan: async ({ page, limit, sortBy = "ASC", keyword = "", status = 'ALL', sales_office = 'ALL' }) => {
+  getDataPelanggan: async ({ page, limit, sortBy = "ASC", keyword = "", status = 'ALL', sales_office = 'ALL', cabang_id = "ALL" }) => {
     try {
       const response = await api.get("/getDataPelanggan", {
         params: {
@@ -2204,7 +2208,8 @@ const n2nGetService = {
           sortBy,
           keyword,
           status,
-          sales_office
+          sales_office,
+          cabang_id
         }
       });
       return response.data;
