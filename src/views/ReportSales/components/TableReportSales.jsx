@@ -31,8 +31,32 @@ import {
 } from "react-icons/io5";
 
 import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
 import * as XLSX from "xlsx";
 
+import storeSchema from "global/store";
+import { swal } from "global/helper/swal";
+
+
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input type="checkbox" checked={props.isSelected} readOnly className="checkbox checkbox-primary checkbox-xs mr-2" />
+    {props.label}
+  </selectComponents.Option>
+);
+const FilterMultiValue = () => null;
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
+  return <selectComponents.ValueContainer {...props}>{selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}{children[1]}</selectComponents.ValueContainer>;
+};
+const filterSelectComponents = { Option: FilterOption, MultiValue: FilterMultiValue, ValueContainer: FilterValueContainer };
+const filterSelectStyles = {
+  control: (base, state) => ({ ...base, minHeight: 40, borderRadius: 12, borderColor: state.isFocused ? "#60a5fa" : "#e5e7eb", boxShadow: state.isFocused ? "0 0 0 2px rgba(219,234,254,.8)" : "none", fontSize: "0.875rem", ":hover": { borderColor: "#60a5fa" } }),
+  valueContainer: (base) => ({ ...base, padding: "0 10px" }),
+  indicatorsContainer: (base) => ({ ...base, height: 38 }),
+  menu: (base) => ({ ...base, zIndex: 50 }),
+  option: (base, state) => ({ ...base, fontSize: "0.875rem", backgroundColor: state.isFocused ? "#eff6ff" : "white", color: "#374151" }),
+};
 
 // =====================================================
 // FORMAT DATE
@@ -947,30 +971,18 @@ const TableReportSales = ({
 }) => {
 
   // ===================================================
-  // STATE
+  // STATE - SERVER SIDE
   // ===================================================
-
-  const [
-    allData,
-    setAllData,
-  ] = useState(
-    dummyData
-  );
-
-  const [
-    keyword,
-    setKeyword,
-  ] = useState("");
-
-  const [
-    currentPage,
-    setCurrentPage,
-  ] = useState(1);
-
-  const [
-    perPage,
-    setPerPage,
-  ] = useState(10);
+  const [allData, setAllData] = useState([]);
+  const [keyword, setKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [apiSummary, setApiSummary] = useState(null);
+  const [apiOptions, setApiOptions] = useState({});
 
   // ===================================================
   // DETAIL MODAL STATE
@@ -1001,72 +1013,115 @@ const TableReportSales = ({
   ] = useState(false);
 
 
-  const openDetailMetric =
-    (item, type) => {
+  const getReportRows = (response) => {
+    const data = response?.data ?? response ?? {};
+    if (Array.isArray(data)) return data;
+    return data?.detail_data || data?.detail_list || data?.detail_penjualan ||
+      data?.list_data || data?.rows || data?.data || [];
+  };
 
-      const detailData =
-        type === "RETUR"
-          ? (
-              item.detailRetur ||
-              []
-            )
-          : (
-              item.detailPencairan ||
-              []
-            );
+  const getReportDetail = async (item, detailType) => {
+    const payload = {
+      page: 1,
+      limit: 9999,
+      keyword: "",
+      detail: true,
+      is_detail: true,
+      detail_type: detailType,
+      type: detailType,
+      id: item?.id ?? item?.report_sales_id ?? item?.sales_id ?? null,
+      report_sales_id: item?.report_sales_id ?? item?.id ?? null,
+      no_transaksi: item?.no_transaksi ?? item?.no_invoice ?? item?.billing_no ?? null,
+      tanggal: item?.tanggal ?? item?.posting_date ?? null,
+      customer: item?.customer_id ?? item?.customer ?? null,
+      principal: item?.principle_id ?? item?.principle ?? null,
+    };
+    const response = await storeSchema.actions.getDataReportSales(payload);
+    if (response?.status !== true) {
+      throw new Error(response?.message || "Gagal mengambil detail report sales");
+    }
+    return getReportRows(response);
+  };
 
-      setSelectedMetric({
-        item,
-        type,
-        detailData,
+  // Detail Penjualan memakai API khusus dan mengirim kode Sales.
+  const openDetailPenjualan = async (item) => {
+    setSelectedPenjualan({ ...item, detailPenjualan: [], detailLoading: true });
+    setIsDetailModalOpen(true);
+
+    try {
+      const kodeSales = item?.sales_id ?? item?.kode_sales ?? item?.sales ?? null;
+      if (kodeSales === null || kodeSales === undefined || kodeSales === "-") {
+        throw new Error("Kode Sales tidak ditemukan");
+      }
+
+      const response = await storeSchema.actions.getDetailPenjualan({
+        kode_sales: kodeSales,
       });
+      if (response?.status !== true) {
+        throw new Error(response?.message || "Gagal mengambil detail penjualan");
+      }
 
-      setIsMetricModalOpen(
-        true
-      );
-    };
+      const rows = getReportRows(response);
+      setSelectedPenjualan((previous) => previous ? {
+        ...previous,
+        detailPenjualan: rows,
+        detailLoading: false,
+      } : previous);
+    } catch (error) {
+      console.error("ERROR DETAIL PENJUALAN REPORT SALES:", error);
+      setSelectedPenjualan((previous) => previous ? {
+        ...previous,
+        detailPenjualan: [],
+        detailLoading: false,
+        detailError: error?.message,
+      } : previous);
+      await swal.error(error?.message || "Gagal mengambil detail penjualan");
+    }
+  };
 
+  const openDetailMetric = async (item, type) => {
+    setSelectedMetric({ item, type, detailData: [], loading: true });
+    setIsMetricModalOpen(true);
 
-  const closeDetailMetric =
-    () => {
+    try {
+      let rows = [];
 
-      setIsMetricModalOpen(
-        false
-      );
+      if (type === "PENCAIRAN") {
+        const kodeSales = item?.sales_id ?? item?.kode_sales ?? item?.sales ?? null;
+        if (kodeSales === null || kodeSales === undefined || kodeSales === "-") {
+          throw new Error("Kode Sales tidak ditemukan");
+        }
 
-      setSelectedMetric(
-        null
-      );
-    };
+        const response = await storeSchema.actions.getDetailPencairan({
+          kode_sales: kodeSales,
+        });
+        if (response?.status !== true) {
+          throw new Error(response?.message || "Gagal mengambil detail pencairan");
+        }
+        rows = getReportRows(response);
+      } else {
+        // Retur tetap memakai mekanisme sebelumnya; hanya Penjualan dan Pencairan
+        // yang dialihkan ke API khusus sesuai kebutuhan.
+        rows = await getReportDetail(item, type);
+      }
 
+      setSelectedMetric({ item, type, detailData: rows, loading: false });
+    } catch (error) {
+      console.error(`ERROR DETAIL ${type} REPORT SALES:`, error);
+      setSelectedMetric({ item, type, detailData: [], loading: false, error: error?.message });
+      await swal.error(error?.message || `Gagal mengambil detail ${String(type).toLowerCase()}`);
+    }
+  };
 
-  const openDetailPenjualan =
-    (item) => {
+  const closeDetailMetric = () => {
+    setIsMetricModalOpen(false);
+    setSelectedMetric(null);
+  };
 
-      setSelectedPenjualan(
-        item
-      );
-
-      setIsDetailModalOpen(
-        true
-      );
-    };
-
-
-  const closeDetailPenjualan =
-    () => {
-
-      setIsDetailModalOpen(
-        false
-      );
-
-      setSelectedPenjualan(
-        null
-      );
-    };
-
-
-  
+  const closeDetailPenjualan = () => {
+    setIsDetailModalOpen(false);
+    setSelectedPenjualan(null);
+  };
 
   // ===================================================
   // EXPORT DETAIL PENJUALAN KE EXCEL
@@ -1175,604 +1230,340 @@ const TableReportSales = ({
     };
 
 
-// ===================================================
-  // FILTER STATE
   // ===================================================
+  // FILTER STATE + REFERENSI FILTER DARI API
+  // ===================================================
+  // Array kosong berarti semua data; nilai terpilih dikirim sebagai array ke API.
+  const initialFilter = { cabang: [], principal: [], channel: [], customer: [], sales: [] };
+  const [filter, setFilter] = useState(initialFilter);
+  const [appliedFilter, setAppliedFilter] = useState(initialFilter);
+  const [filterOptions, setFilterOptions] = useState({
+    cabang: [], principal: [], channel: [], customer: [], sales: [],
+  });
 
-  const initialFilter = {
-    cabang: "Semua Cabang",
-    principal: "Semua Principal",
-    channel: "Semua Channel",
-    customer: "Semua Customer",
-    produk: "Semua Produk",
-  };
-
-  const [
-    filter,
-    setFilter,
-  ] = useState(initialFilter);
-
-  const [
-    appliedFilter,
-    setAppliedFilter,
-  ] = useState(initialFilter);
-
-
-  const handleFilterChange = (
-    key,
-    value
-  ) => {
-    setFilter((previous) => {
-      const next = {
-        ...previous,
-        [key]: value,
-      };
-
-      // Jika channel berubah, customer dikembalikan ke semua customer
-      // agar tidak membawa pilihan customer dari channel sebelumnya.
-      if (key === "channel") {
-        next.customer = "Semua Customer";
+  const normalizeOptions = (items, valueKeys, labelKeys) => {
+    if (!Array.isArray(items)) return [];
+    return items.map((item) => {
+      if (item && typeof item === "object") {
+        const value = valueKeys.map((key) => item?.[key]).find((v) => v !== undefined && v !== null && v !== "");
+        const label = labelKeys.map((key) => item?.[key]).find((v) => v !== undefined && v !== null && v !== "");
+        return value === undefined ? null : { value: String(value), label: String(label ?? value) };
       }
-
-      return next;
-    });
+      return item === undefined || item === null || item === "" ? null : { value: String(item), label: String(item) };
+    }).filter(Boolean).filter((item, index, arr) => arr.findIndex((other) => other.value === item.value) === index);
   };
 
+  const handleFilterChange = (key, value) => {
+    setFilter((previous) => ({
+      ...previous,
+      [key]: value,
+      ...(key === "cabang" ? { customer: [], sales: [] } : {}),
+      ...(key === "channel" ? { customer: [] } : {}),
+    }));
+  };
 
   const applyFilter = () => {
-    setAppliedFilter({
-      ...filter,
-    });
-
+    setAppliedFilter({ ...filter });
     setCurrentPage(1);
   };
-
 
   const resetFilter = () => {
-    setFilter({
-      ...initialFilter,
-    });
-
-    setAppliedFilter({
-      ...initialFilter,
-    });
-
+    setFilter({ ...initialFilter });
+    setAppliedFilter({ ...initialFilter });
+    setKeyword("");
+    setSearchKeyword("");
     setCurrentPage(1);
   };
 
+  // Referensi cabang/channel/principal diambil dari API, bukan hanya
+  // dari data halaman yang sedang tampil di tabel.
+  useEffect(() => {
+    let active = true;
+    const loadFilterReferences = async () => {
+      try {
+        const [refCabang, refChannel, refPrincipal] = await Promise.all([
+          storeSchema.actions.getReferensiByJenis("cabang_id"),
+          storeSchema.actions.getReferensiByJenis("channel_id"),
+          storeSchema.actions.getListPrinciple({ page: 1, limit: 9999, sortBy: "ASC" }),
+        ]);
+        if (!active) return;
+        setFilterOptions((prev) => ({
+          ...prev,
+          cabang: refCabang?.status === true
+            ? normalizeOptions(refCabang?.data, ["kd_ref", "value", "id"], ["ur_ref", "label", "name"])
+            : prev.cabang,
+          channel: refChannel?.status === true
+            ? normalizeOptions(refChannel?.data, ["kd_ref", "value", "id"], ["ur_ref", "label", "name"])
+            : prev.channel,
+          principal: refPrincipal?.status === true
+            ? normalizeOptions(refPrincipal?.data?.list_data || refPrincipal?.data, ["principle", "kode_principle", "value", "id"], ["nama_principle", "name", "label"])
+            : prev.principal,
+        }));
+      } catch (error) {
+        console.error("ERROR GET REFERENSI FILTER REPORT SALES:", error);
+      }
+    };
+    loadFilterReferences();
+    return () => { active = false; };
+  }, []);
 
-  // ===================================================
-  // FILTER OPTIONS
-  // ===================================================
-
-  const principalOptions =
-    useMemo(
-      () => [
-        "Semua Principal",
-        ...new Set(
-          allData
-            .map(
-              (item) =>
-                item.principal
-            )
-            .filter(Boolean)
-        ),
-      ],
-      [
-        allData,
-      ]
-    );
-
-
-  const cabangOptions =
-    useMemo(
-      () => [
-        "Semua Cabang",
-        ...new Set(
-          allData
-            .map(
-              (item) =>
-                item.cabang
-            )
-            .filter(Boolean)
-        ),
-      ],
-      [
-        allData,
-      ]
-    );
-
-
-  const channelOptions =
-    useMemo(
-      () => [
-        "Semua Channel",
-        ...new Set(
-          allData
-            .map(
-              (item) =>
-                item.channel
-            )
-            .filter(Boolean)
-        ),
-      ],
-      [
-        allData,
-      ]
-    );
-
-
-  const customerOptions =
-    useMemo(
-      () => {
-        const source =
-          filter.channel ===
-          "Semua Channel"
-            ? allData
-            : allData.filter(
-                (item) =>
-                  item.channel ===
-                  filter.channel
-              );
-
-        return [
-          "Semua Customer",
-          ...new Set(
-            source
-              .map(
-                (item) =>
-                  item.customer
-              )
-              .filter(Boolean)
-          ),
-        ];
-      },
-      [
-        allData,
-        filter.channel,
-      ]
-    );
-
-
-  const productOptions =
-    useMemo(
-      () => {
-        const products = [];
-
-        allData.forEach(
-          (item) => {
-            (item.detailPenjualan || [])
-              .forEach(
-                (detail) => {
-                  const product =
-                    detail[
-                      "Text Material"
-                    ];
-
-                  if (product) {
-                    products.push(product);
-                  }
-                }
-              );
-          }
-        );
-
-        return [
-          "Semua Produk",
-          ...new Set(products),
-        ];
-      },
-      [
-        allData,
-      ]
-    );
-
-
-  // ===================================================
-  // SUMMARY
-  // ===================================================
-
-  const summaryData =
-    useMemo(
-      () => {
-
-        const totalPenjualan =
-          allData.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.penjualan ||
-                0
-              ),
-            0
-          );
-
-        const totalRetur =
-          allData.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.retur ||
-                0
-              ),
-            0
-          );
-
-        const totalPencairan =
-          allData.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.pencairan ||
-                0
-              ),
-            0
-          );
-
-        const netSales =
-          totalPenjualan -
-          totalRetur;
-
-        const totalSisaPencairan =
-          netSales -
-          totalPencairan;
-
-        const totalTransaksi =
-          allData.length;
-
-        const totalCustomer =
-          new Set(
-            allData
-              .map(
-                item =>
-                  item.customer
-              )
-              .filter(Boolean)
-          ).size;
-
-        const totalReturPersentase =
-          totalPenjualan > 0
-            ? (
-                totalRetur /
-                totalPenjualan
-              ) * 100
-            : 0;
-
-        return {
-
-          totalPenjualan,
-
-          totalRetur,
-
-          totalPencairan,
-
-          totalSisaPencairan,
-
-          netSales,
-
-          totalTransaksi,
-
-          totalCustomer,
-
-          totalReturPersentase,
-
-        };
-
-      },
-      [
-        allData,
-      ]
-    );
-
-
-  // ===================================================
-  // FILTER DATA
-  // ===================================================
-
-  const filteredData =
-    useMemo(
-      () => {
-        let data = [
-          ...allData,
-        ];
-
-        if (
-          appliedFilter.cabang !==
-          "Semua Cabang"
-        ) {
-          data = data.filter(
-            (item) =>
-              item.cabang ===
-              appliedFilter.cabang
-          );
+  // Customer mengikuti cabang yang dipilih, sesuai pola filter pada lampiran.
+  useEffect(() => {
+    let active = true;
+    const loadCustomers = async () => {
+      if (!filter.cabang.length) {
+        setFilterOptions((prev) => ({ ...prev, customer: [] }));
+        setFilter((prev) => prev.customer.length ? { ...prev, customer: [] } : prev);
+        return;
+      }
+      try {
+        const res = await storeSchema.actions.getDataPelanggan({
+          page: 1,
+          limit: 9999,
+          cabang_id: filter.cabang,
+        });
+        if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data customer");
+        const data = Array.isArray(res?.data)
+          ? res.data
+          : res?.data?.list_data || res?.data?.data || res?.data?.rows || [];
+        const customers = normalizeOptions(data, ["kode_customer", "customer", "value", "id"], ["name", "customer_name", "nama_customer", "label"]);
+        if (active) {
+          setFilterOptions((prev) => ({ ...prev, customer: customers }));
+          setFilter((prev) => ({ ...prev, customer: prev.customer.filter((value) => customers.some((item) => item.value === String(value))) }));
         }
+      } catch (error) {
+        console.error("ERROR GET CUSTOMER FILTER REPORT SALES:", error);
+        if (active) setFilterOptions((prev) => ({ ...prev, customer: [] }));
+      }
+    };
+    loadCustomers();
+    return () => { active = false; };
+  }, [filter.cabang]);
 
-        if (
-          appliedFilter.principal !==
-          "Semua Principal"
-        ) {
-          data = data.filter(
-            (item) =>
-              item.principal ===
-              appliedFilter.principal
-          );
-        }
+  // Sales mengikuti cabang yang dipilih dan diambil dari API User Management.
+  useEffect(() => {
+    let active = true;
 
-        if (
-          appliedFilter.channel !==
-          "Semua Channel"
-        ) {
-          data = data.filter(
-            (item) =>
-              item.channel ===
-              appliedFilter.channel
-          );
-        }
-
-        if (
-          appliedFilter.customer !==
-          "Semua Customer"
-        ) {
-          data = data.filter(
-            (item) =>
-              item.customer ===
-              appliedFilter.customer
-          );
-        }
-
-        if (
-          appliedFilter.produk !==
-          "Semua Produk"
-        ) {
-          data = data.filter(
-            (item) =>
-              (item.detailPenjualan || [])
-                .some(
-                  (detail) =>
-                    detail[
-                      "Text Material"
-                    ] ===
-                    appliedFilter.produk
-                )
-          );
-        }
-
-        // Search tetap bekerja seperti sebelumnya.
-        if (
-          keyword.trim()
-        ) {
-          const search =
-            keyword
-              .toLowerCase()
-              .trim();
-
-          data = data.filter(
-            (item) =>
-              item.no_transaksi
-                ?.toLowerCase()
-                .includes(search)
-              ||
-              item.customer
-                ?.toLowerCase()
-                .includes(search)
-              ||
-              item.principal
-                ?.toLowerCase()
-                .includes(search)
-              ||
-              item.sales
-                ?.toLowerCase()
-                .includes(search)
-              ||
-              item.cabang
-                ?.toLowerCase()
-                .includes(search)
-              ||
-              item.channel
-                ?.toLowerCase()
-                .includes(search)
-          );
-        }
-
-        return data;
-      },
-      [
-        allData,
-        keyword,
-        appliedFilter,
-      ]
-    );
-
-
-  // ===================================================
-  // FILTERED SUMMARY
-  // ===================================================
-
-  const filteredSummary =
-    useMemo(
-      () => {
-
-        const totalPenjualan =
-          filteredData.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.penjualan ||
-                0
-              ),
-            0
-          );
-
-        const totalRetur =
-          filteredData.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.retur ||
-                0
-              ),
-            0
-          );
-
-        const totalPencairan =
-          filteredData.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.pencairan ||
-                0
-              ),
-            0
-          );
-
-        const netSales =
-          totalPenjualan -
-          totalRetur;
-
-        const sisaPencairan =
-          netSales -
-          totalPencairan;
-
-        return {
-
-          penjualan:
-            totalPenjualan,
-
-          retur:
-            totalRetur,
-
-          pencairan:
-            totalPencairan,
-
-          sisaPencairan,
-
-          netSales,
-
-        };
-
-      },
-      [
-        filteredData,
-      ]
-    );
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData =
-    filteredData.length;
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) * perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  // ===================================================
-  // RESET PAGE
-  // ===================================================
-
-  useEffect(
-    () => {
-
-      setCurrentPage(
-        1
-      );
-
-    },
-    [
-      keyword,
-      appliedFilter,
-      perPage,
-    ]
-  );
-
-
-  // ===================================================
-  // STATUS
-  // ===================================================
-
-  const renderStatus =
-    (
-      status
-    ) => {
-
-      const config =
-        statusConfig[
-          status
-        ];
-
-      if (!config) {
-        return "-";
+    const loadSales = async () => {
+      if (!filter.cabang.length) {
+        setFilterOptions((prev) => ({ ...prev, sales: [] }));
+        setFilter((prev) => prev.sales.length ? { ...prev, sales: [] } : prev);
+        return;
       }
 
-      return (
+      try {
+        const res = await storeSchema.actions.getListUserManagement({
+          page: 1,
+          limit: 9999,
+          sortBy: "Asc",
+          cabang_id: filter.cabang,
+          role_id: "04",
+        });
 
-        <span
-          className={`
-            inline-flex
-            items-center
-            gap-2
-            px-3
-            py-1.5
-            rounded-full
-            text-xs
-            font-semibold
-            whitespace-nowrap
-            ${config.className}
-          `}
-        >
+        if (res?.status !== true) {
+          throw new Error(res?.message || "Gagal mengambil data Sales");
+        }
 
-          <span
-            className="
-              w-1.5
-              h-1.5
-              rounded-full
-              bg-current
-            "
-          />
+        const data = Array.isArray(res?.data?.list_data)
+          ? res.data.list_data
+          : [];
 
-          {
-            config.label
-          }
+        const salesOptions = normalizeOptions(
+          data,
+          ["user_id"],
+          ["nama"]
+        );
 
-        </span>
-
-      );
+        if (active) {
+          setFilterOptions((prev) => ({ ...prev, sales: salesOptions }));
+          setFilter((prev) => ({
+            ...prev,
+            sales: prev.sales.filter((value) =>
+              salesOptions.some((item) => item.value === String(value))
+            ),
+          }));
+        }
+      } catch (error) {
+        console.error("ERROR GET SALES FILTER REPORT SALES:", error);
+        if (active) {
+          setFilterOptions((prev) => ({ ...prev, sales: [] }));
+          setFilter((prev) => prev.sales.length ? { ...prev, sales: [] } : prev);
+        }
+      }
     };
 
+    loadSales();
+    return () => { active = false; };
+  }, [filter.cabang]);
+
+  // Opsi produk dapat disediakan oleh API report (options/filter_options).
+  // Jika backend belum mengirimkannya, gunakan produk dari data yang diterima.
+  const optionList = (key, field) => {
+    const supplied = filterOptions[key];
+    if (supplied?.length) return supplied.filter((item) => item.value !== "ALL");
+    const apiSupplied = apiOptions?.[key];
+    const fromApi = normalizeOptions(apiSupplied, ["value", "id", "kode", "kode_produk", "produk"], ["label", "name", "nama", "nama_produk"]);
+    const fromRows = normalizeOptions(allData.map((item) => item[key]).filter(Boolean), ["value"], ["label"]);
+    const list = fromApi.length ? fromApi : fromRows;
+    return list.filter((item) => item.value !== "ALL");
+  };
+
+  const cabangOptions = useMemo(() => optionList("cabang", "Cabang"), [filterOptions, apiOptions, allData]);
+  const principalOptions = useMemo(() => optionList("principal", "Principal"), [filterOptions, apiOptions, allData]);
+  const channelOptions = useMemo(() => optionList("channel", "Channel"), [filterOptions, apiOptions, allData]);
+  const customerOptions = useMemo(() => optionList("customer", "Customer"), [filterOptions, apiOptions, allData]);
+  const salesOptions = useMemo(() => filterOptions.sales || [], [filterOptions]);
+
+  const filterLabel = (key, options, allLabel) => {
+    const selected = appliedFilter[key] || [];
+    if (!selected.length) return allLabel;
+    return selected.map((value) => options.find((item) => item.value === String(value))?.label || String(value)).join(", ");
+  };
+
+  // Backend mengirim rekap per Sales. Nilai summary_* berada pada setiap row.
+  const normalizeReportRow = (item, index) => {
+    const details = item?.detailPenjualan || item?.detail_penjualan || item?.details || [];
+    const totalPenjualan = Number(
+      item?.total_penjualan ??
+      item?.penjualan ??
+      item?.summary_total_penjualan ??
+      item?.total_sales ??
+      item?.nilai_penjualan ??
+      0
+    );
+    const totalPencairan = Number(
+      item?.total_pencairan ??
+      item?.pencairan ??
+      item?.summary_total_pencairan ??
+      item?.nilai_pencairan ??
+      0
+    );
+    const totalSisaPencairan = Number(
+      item?.total_sisa_pencairan ??
+      item?.sisa_pencairan ??
+      item?.summary_total_sisa_pencairan ??
+      (totalPenjualan - totalPencairan)
+    );
+
+    return {
+      ...item,
+      id: item?.id ?? item?.sales_id ?? item?.sales ?? item?.user_id ?? index,
+      sales: item?.nama_sales ?? item?.salesman_name ?? item?.name_salesman ?? item?.sales ?? "-",
+      sales_id: item?.sales ?? item?.sales_id ?? item?.user_id ?? "-",
+      nama_sales: item?.nama_sales ?? "-",
+      cabang: item?.nama_cabang ?? item?.sales_office_name ?? item?.desc_sales_office ?? item?.cabang ?? "-",
+      principle: item?.principle ?? null,
+      principal: item?.nama_principle ?? item?.principal_name ?? item?.principal ?? "-",
+      penjualan: totalPenjualan,
+      retur: Number(item?.summary_total_retur ?? item?.total_retur ?? item?.retur ?? item?.nilai_retur ?? 0),
+      pencairan: totalPencairan,
+      sisaPencairan: totalSisaPencairan,
+      totalTransaksi: Number(item?.summary_total_transaksi ?? item?.total_transaksi ?? 0),
+      totalCustomer: Number(item?.summary_total_customer ?? item?.total_customer ?? 0),
+      status: item?.status ?? item?.status_label ?? "PROSES",
+      detailPenjualan: Array.isArray(details) ? details : [],
+      detailRetur: item?.detailRetur ?? item?.detail_retur ?? [],
+      detailPencairan: item?.detailPencairan ?? item?.detail_pencairan ?? [],
+    };
+  };
+
+  const getDataReportSales = async () => {
+    setLoading(true);
+    try {
+      const payload = {
+        page: currentPage,
+        limit: perPage,
+        keyword: searchKeyword,
+        search: searchKeyword,
+        cabang: appliedFilter.cabang.length ? appliedFilter.cabang : "ALL",
+        principal: appliedFilter.principal.length ? appliedFilter.principal : "ALL",
+        channel: appliedFilter.channel.length ? appliedFilter.channel : "ALL",
+        customer: appliedFilter.customer.length ? appliedFilter.customer : "ALL",
+        sales: appliedFilter.sales.length ? appliedFilter.sales : "ALL",
+        sales_office: appliedFilter.cabang.length ? appliedFilter.cabang : "ALL",
+      };
+      const response = await storeSchema.actions.getDataReportSales(payload);
+      if (response?.status !== true) {
+        throw new Error(response?.message || "Gagal mengambil data report sales");
+      }
+      const responseData = response?.data ?? {};
+      const list = Array.isArray(responseData)
+        ? responseData
+        : responseData?.list_data ?? responseData?.rows ?? responseData?.data ?? [];
+      setAllData((Array.isArray(list) ? list : []).map(normalizeReportRow));
+      setTotalData(Number(responseData?.total_data ?? responseData?.total ?? response?.total_data ?? list.length) || 0);
+      setTotalPage(Number(responseData?.total_halaman ?? responseData?.total_page ?? responseData?.total_pages ?? response?.total_halaman) || Math.ceil((Number(responseData?.total_data ?? responseData?.total ?? list.length) || 0) / perPage));
+      // Ringkasan backend dikirim sebagai field summary_* pada row.
+      // Ambil row pertama untuk kartu summary, bukan hanya responseData.summary.
+      const firstRow = Array.isArray(list) ? list[0] : null;
+      setApiSummary(
+        responseData?.summary ??
+        responseData?.summary_data ??
+        (firstRow ? {
+          total_penjualan: firstRow?.summary_total_penjualan,
+          total_pencairan: firstRow?.summary_total_pencairan,
+          total_sisa_pencairan: firstRow?.summary_total_sisa_pencairan,
+          total_transaksi: firstRow?.summary_total_transaksi,
+          total_customer: firstRow?.summary_total_customer,
+        } : null)
+      );
+      setApiOptions(responseData?.options ?? responseData?.filter_options ?? {});
+    } catch (error) {
+      console.error("ERROR GET DATA REPORT SALES:", error);
+      setAllData([]);
+      setTotalData(0);
+      setTotalPage(0);
+      setApiSummary(null);
+      await swal.error(error?.message || "Gagal mengambil data report sales");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getDataReportSales();
+  }, [currentPage, perPage, searchKeyword, appliedFilter]);
+
+  const handleSearch = () => {
+    setCurrentPage(1);
+    setSearchKeyword(keyword.trim());
+  };
+
+  const summaryFallback = useMemo(() => {
+    const penjualan = allData.reduce((sum, item) => sum + Number(item.penjualan || 0), 0);
+    const retur = allData.reduce((sum, item) => sum + Number(item.retur || 0), 0);
+    const pencairan = allData.reduce((sum, item) => sum + Number(item.pencairan || 0), 0);
+    const sisaPencairan = allData.reduce((sum, item) => sum + Number(item.sisaPencairan ?? (item.penjualan - item.pencairan) ?? 0), 0);
+    const totalTransaksi = allData.reduce((sum, item) => sum + Number(item.totalTransaksi || 0), 0);
+    const totalCustomer = allData.reduce((sum, item) => sum + Number(item.totalCustomer || 0), 0);
+    return { penjualan, retur, pencairan, netSales: penjualan - retur, sisaPencairan, totalTransaksi, totalCustomer };
+  }, [allData]);
+
+  const filteredSummary = {
+    penjualan: Number(apiSummary?.penjualan ?? apiSummary?.total_penjualan ?? apiSummary?.summary_total_penjualan ?? apiSummary?.total_sales ?? summaryFallback.penjualan),
+    retur: Number(apiSummary?.retur ?? apiSummary?.total_retur ?? apiSummary?.summary_total_retur ?? summaryFallback.retur),
+    pencairan: Number(apiSummary?.pencairan ?? apiSummary?.total_pencairan ?? apiSummary?.summary_total_pencairan ?? summaryFallback.pencairan),
+    netSales: Number(apiSummary?.net_sales ?? apiSummary?.netSales ?? (Number(apiSummary?.penjualan ?? apiSummary?.total_penjualan ?? apiSummary?.summary_total_penjualan ?? summaryFallback.penjualan) - Number(apiSummary?.retur ?? apiSummary?.total_retur ?? apiSummary?.summary_total_retur ?? summaryFallback.retur))),
+    sisaPencairan: Number(apiSummary?.sisa_pencairan ?? apiSummary?.sisaPencairan ?? apiSummary?.total_sisa_pencairan ?? apiSummary?.summary_total_sisa_pencairan ?? summaryFallback.sisaPencairan),
+    totalTransaksi: Number(apiSummary?.total_transaksi ?? apiSummary?.summary_total_transaksi ?? summaryFallback.totalTransaksi),
+    totalCustomer: Number(apiSummary?.total_customer ?? apiSummary?.summary_total_customer ?? summaryFallback.totalCustomer),
+  };
+
+  const paginatedData = allData;
+
+  const startIndex = totalData > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const endIndex = Math.min(currentPage * perPage, totalData);
+
+  const renderStatus = (status) => {
+    const config = statusConfig[status];
+    if (!config) return "-";
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${config.className}`}>
+        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+        {config.label}
+      </span>
+    );
+  };
 
   // ===================================================
   // HEADER TABLE
@@ -1827,25 +1618,8 @@ const TableReportSales = ({
 
   // ===================================================
   // PAGINATION INFO
+  // startIndex dan endIndex sudah didefinisikan di atas.
   // ===================================================
-
-  const startIndex =
-    totalData > 0
-      ? (
-          currentPage -
-          1
-        ) *
-          perPage +
-        1
-      : 0;
-
-  const endIndex =
-    Math.min(
-      currentPage *
-        perPage,
-      totalData
-    );
-
 
   // ===================================================
   // RENDER
@@ -1908,13 +1682,12 @@ const TableReportSales = ({
             value={
               keyword
             }
-            onChange={
-              (e) =>
-                setKeyword(
-                  e.target.value
-                )
-            }
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
           />
+          <button type="button" onClick={handleSearch} title="Cari" className="text-blue-600 hover:text-blue-800">
+            <IoSearch />
+          </button>
 
         </div>
 
@@ -2010,13 +1783,7 @@ const TableReportSales = ({
               "
             >
               {
-                Object.values(
-                  appliedFilter
-                ).every(
-                  (value) =>
-                    !value ||
-                    value.startsWith?.("Semua ")
-                )
+                Object.values(appliedFilter).every((value) => !Array.isArray(value) || value.length === 0)
                   ? "Semua Data"
                   : "Terapan"
               }
@@ -2038,294 +1805,96 @@ const TableReportSales = ({
 
           {/* CABANG */}
           <div>
-            <label
-              className="
-                block
-                text-xs
-                font-semibold
-                text-gray-600
-                mb-1.5
-              "
-            >
-              Cabang
-            </label>
-
-            <select
-              value={
-                filter.cabang
-              }
-              onChange={(e) =>
-                handleFilterChange(
-                  "cabang",
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                h-10
-                px-3
-                rounded-xl
-                border
-                border-gray-200
-                bg-white
-                text-sm
-                text-gray-700
-                outline-none
-                focus:border-blue-400
-                focus:ring-2
-                focus:ring-blue-100
-              "
-            >
-              {cabangOptions.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
-            </select>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Cabang</label>
+            <Select
+              isMulti
+              options={cabangOptions.filter((item) => item.value !== "ALL")}
+              value={cabangOptions.filter((item) => (filter.cabang || []).includes(item.value))}
+              onChange={(selected) => handleFilterChange("cabang", (selected || []).map((item) => item.value))}
+              placeholder="Semua Cabang"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+              noOptionsMessage={() => "Tidak ada pilihan"}
+            />
           </div>
 
 
           {/* PRINCIPAL */}
           <div>
-            <label
-              className="
-                block
-                text-xs
-                font-semibold
-                text-gray-600
-                mb-1.5
-              "
-            >
-              Principal
-            </label>
-
-            <select
-              value={
-                filter.principal
-              }
-              onChange={(e) =>
-                handleFilterChange(
-                  "principal",
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                h-10
-                px-3
-                rounded-xl
-                border
-                border-gray-200
-                bg-white
-                text-sm
-                text-gray-700
-                outline-none
-                focus:border-blue-400
-                focus:ring-2
-                focus:ring-blue-100
-              "
-            >
-              {principalOptions.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
-            </select>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Principal</label>
+            <Select
+              isMulti
+              options={principalOptions.filter((item) => item.value !== "ALL")}
+              value={principalOptions.filter((item) => (filter.principal || []).includes(item.value))}
+              onChange={(selected) => handleFilterChange("principal", (selected || []).map((item) => item.value))}
+              placeholder="Semua Principal"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+              noOptionsMessage={() => "Tidak ada pilihan"}
+            />
           </div>
 
 
           {/* CHANNEL */}
           <div>
-            <label
-              className="
-                block
-                text-xs
-                font-semibold
-                text-gray-600
-                mb-1.5
-              "
-            >
-              Channel
-            </label>
-
-            <select
-              value={
-                filter.channel
-              }
-              onChange={(e) =>
-                handleFilterChange(
-                  "channel",
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                h-10
-                px-3
-                rounded-xl
-                border
-                border-gray-200
-                bg-white
-                text-sm
-                text-gray-700
-                outline-none
-                focus:border-blue-400
-                focus:ring-2
-                focus:ring-blue-100
-              "
-            >
-              {channelOptions.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
-            </select>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Channel</label>
+            <Select
+              isMulti
+              options={channelOptions.filter((item) => item.value !== "ALL")}
+              value={channelOptions.filter((item) => (filter.channel || []).includes(item.value))}
+              onChange={(selected) => handleFilterChange("channel", (selected || []).map((item) => item.value))}
+              placeholder="Semua Channel"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+              noOptionsMessage={() => "Tidak ada pilihan"}
+            />
           </div>
 
 
           {/* CUSTOMER */}
           <div>
-            <label
-              className="
-                block
-                text-xs
-                font-semibold
-                text-gray-600
-                mb-1.5
-              "
-            >
-              Customer
-            </label>
-
-            <select
-              value={
-                customerOptions.includes(
-                  filter.customer
-                )
-                  ? filter.customer
-                  : "Semua Customer"
-              }
-              onChange={(e) =>
-                handleFilterChange(
-                  "customer",
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                h-10
-                px-3
-                rounded-xl
-                border
-                border-gray-200
-                bg-white
-                text-sm
-                text-gray-700
-                outline-none
-                focus:border-blue-400
-                focus:ring-2
-                focus:ring-blue-100
-              "
-            >
-              {customerOptions.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
-            </select>
-
-            {
-              filter.channel !==
-                "Semua Channel" && (
-                <p
-                  className="
-                    text-[9px]
-                    text-blue-500
-                    mt-1
-                  "
-                >
-                  Customer mengikuti Channel {" "}
-                  <span className="font-bold">
-                    {filter.channel}
-                  </span>
-                </p>
-              )
-            }
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Customer</label>
+            <Select
+              isMulti
+              isDisabled={!filter.cabang.length}
+              options={customerOptions.filter((item) => item.value !== "ALL")}
+              value={customerOptions.filter((item) => (filter.customer || []).includes(item.value))}
+              onChange={(selected) => handleFilterChange("customer", (selected || []).map((item) => item.value))}
+              placeholder="Semua Customer"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+              noOptionsMessage={() => "Tidak ada pilihan"}
+            />
           </div>
 
 
-          {/* PRODUK */}
+          {/* SALES */}
           <div>
-            <label
-              className="
-                block
-                text-xs
-                font-semibold
-                text-gray-600
-                mb-1.5
-              "
-            >
-              Produk
-            </label>
-
-            <select
-              value={
-                filter.produk
-              }
-              onChange={(e) =>
-                handleFilterChange(
-                  "produk",
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                h-10
-                px-3
-                rounded-xl
-                border
-                border-gray-200
-                bg-white
-                text-sm
-                text-gray-700
-                outline-none
-                focus:border-blue-400
-                focus:ring-2
-                focus:ring-blue-100
-              "
-            >
-              {productOptions.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
-            </select>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Sales</label>
+            <Select
+              isMulti
+              isDisabled={!filter.cabang.length}
+              options={salesOptions.filter((item) => item.value !== "ALL")}
+              value={salesOptions.filter((item) => (filter.sales || []).includes(item.value))}
+              onChange={(selected) => handleFilterChange("sales", (selected || []).map((item) => item.value))}
+              placeholder="Semua Sales"
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              components={filterSelectComponents}
+              styles={filterSelectStyles}
+              noOptionsMessage={() => "Tidak ada pilihan"}
+            />
           </div>
+
+
 
 
         </div>
@@ -2352,23 +1921,23 @@ const TableReportSales = ({
           </span>
 
           <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-semibold">
-            {appliedFilter.cabang}
+            {filterLabel("cabang", cabangOptions, "Semua Cabang")}
           </span>
 
           <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-semibold">
-            {appliedFilter.principal}
+            {filterLabel("principal", principalOptions, "Semua Principal")}
           </span>
 
           <span className="px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-semibold">
-            {appliedFilter.channel}
+            {filterLabel("channel", channelOptions, "Semua Channel")}
           </span>
 
           <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-semibold max-w-[250px] truncate">
-            {appliedFilter.customer}
+            {filterLabel("customer", customerOptions, "Semua Customer")}
           </span>
 
           <span className="px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-600 text-[10px] font-semibold max-w-[250px] truncate">
-            {appliedFilter.produk}
+            {filterLabel("sales", salesOptions, "Semua Sales")}
           </span>
 
         </div>
@@ -2824,7 +2393,7 @@ const TableReportSales = ({
                 "
               >
                 {
-                  filteredData.length
+                  totalData
                 }
               </p>
 
@@ -3209,7 +2778,7 @@ const TableReportSales = ({
                             font-medium
                           "
                         >
-                          Tidak ada data sales
+                          {loading ? "Memuat data report sales..." : "Tidak ada data sales"}
                         </p>
 
                         <p
@@ -3245,10 +2814,9 @@ const TableReportSales = ({
                           );
 
                         const sisaPencairan =
-                          netSales -
                           Number(
-                            v.pencairan ||
-                            0
+                            v.sisaPencairan ??
+                            (netSales - Number(v.pencairan || 0))
                           );
 
                         return (
@@ -3958,6 +3526,11 @@ const TableReportSales = ({
                           : "Detail Pencairan"
                       }
                     </h3>
+                    {selectedMetric.loading && (
+                      <span className="text-xs text-white/80 animate-pulse">
+                        Memuat detail dari API...
+                      </span>
+                    )}
 
                   </div>
 
@@ -4156,7 +3729,7 @@ const TableReportSales = ({
                         text-gray-500
                       "
                     >
-                      Jumlah Detail Produk
+                      Jumlah Data
                     </p>
 
                     <p
@@ -4275,6 +3848,42 @@ const TableReportSales = ({
                     .detailData
                     ?.length > 0 ? (
 
+                    selectedMetric.type === "PENCAIRAN" ? (
+                      <table className="table w-full">
+                        <thead className="sticky top-0 z-20 text-white text-xs">
+                          <tr className="bg-green-600">
+                            <th className="px-4 py-3 whitespace-nowrap">No</th>
+                            <th className="px-4 py-3 whitespace-nowrap">Billing No</th>
+                            <th className="px-4 py-3 whitespace-nowrap">No Faktur</th>
+                            <th className="px-4 py-3 whitespace-nowrap">Customer</th>
+                            <th className="px-4 py-3 whitespace-nowrap">Sales</th>
+                            <th className="px-4 py-3 whitespace-nowrap">Tanggal Pelunasan</th>
+                            <th className="px-4 py-3 whitespace-nowrap text-right">Total Pembayaran</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedMetric.detailData.map((detail, index) => (
+                            <tr key={`${detail["Billing No"] || detail.no_billing || index}-${index}`} className="border-b border-gray-100 hover:bg-slate-50">
+                              <td className="px-4 py-3 text-sm text-gray-600">{detail.No ?? index + 1}</td>
+                              <td className="px-4 py-3 text-sm font-semibold text-primary whitespace-nowrap">{detail["Billing No"] ?? detail.no_billing ?? "-"}</td>
+                              <td className="px-4 py-3 text-sm whitespace-nowrap">{detail["No Faktur"] ?? detail.no_faktur ?? "-"}</td>
+                              <td className="px-4 py-3 text-sm whitespace-nowrap">{detail["Bill to party"] ?? detail.bill_to_party ?? detail.customer ?? "-"}</td>
+                              <td className="px-4 py-3 text-sm whitespace-nowrap">{detail["Name Salesman"] ?? detail.nama_sales ?? detail.sales ?? "-"}</td>
+                              <td className="px-4 py-3 text-sm whitespace-nowrap">{formatDate(detail["Tanggal Pelunasan"] ?? detail.tanggal_pelunasan)}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-green-700 whitespace-nowrap">{formatCurrency(detail["Total Pembayaran"] ?? detail.total_pembayaran ?? detail.nominal_bayar ?? 0)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="sticky bottom-0 bg-slate-100 border-t-2 border-gray-200">
+                          <tr>
+                            <td colSpan={6} className="px-4 py-4 text-right font-bold text-gray-700">Total Pembayaran</td>
+                            <td className="px-4 py-4 text-right font-bold text-green-800 whitespace-nowrap">
+                              {formatCurrency(selectedMetric.detailData.reduce((sum, detail) => sum + Number(detail["Total Pembayaran"] ?? detail.total_pembayaran ?? detail.nominal_bayar ?? 0), 0))}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    ) : (
                     <table
                       className="
                         table
@@ -4849,6 +4458,7 @@ const TableReportSales = ({
                       </tfoot>
 
                     </table>
+                    )
 
                   ) : (
 
@@ -4900,8 +4510,7 @@ const TableReportSales = ({
                           mt-1
                         "
                       >
-                        Detail produk/invoice
-                        belum tersedia.
+                        Data billing belum tersedia.
                       </p>
 
                     </div>
@@ -5306,7 +4915,7 @@ const TableReportSales = ({
                         text-gray-500
                       "
                     >
-                      Jumlah Detail Produk
+                      Jumlah Data
                     </p>
 
                     <p
@@ -5419,708 +5028,90 @@ const TableReportSales = ({
                 "
               >
 
-                <table
-                  className="
-                    table
-                    w-full
-                  "
-                >
-
-                  <thead
-                    className="
-                      sticky
-                      top-0
-                      z-20
-                      bg-primary
-                      text-white
-                      text-xs
-                    "
-                  >
-
-                    <tr>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                        "
-                      >
-                        No
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                        "
-                      >
-                        Billing No
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                        "
-                      >
-                        Posting Date
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          min-w-[260px]
-                        "
-                      >
-                        Produk
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                          text-right
-                        "
-                      >
-                        Qty
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                          text-right
-                        "
-                      >
-                        Harga Unit
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                          text-right
-                        "
-                      >
-                        Disc.
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                          text-right
-                        "
-                      >
-                        Total Penjualan
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                          text-right
-                        "
-                      >
-                        Tax
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                          text-right
-                        "
-                      >
-                        COGS
-                      </th>
-
-                      <th
-                        className="
-                          px-4
-                          py-3
-                          whitespace-nowrap
-                        "
-                      >
-                        Principal
-                      </th>
-
-                    </tr>
-
-                  </thead>
-
-
-                  <tbody>
-
-                    {
-                      (
-                        selectedPenjualan
-                          .detailPenjualan ||
-                        []
-                      ).map(
-                        (
-                          detail,
-                          index
-                        ) => (
-
-                          <tr
-                            key={`
-                              ${detail["Billing No"]}
-                              -
-                              ${detail.Material}
-                              -
-                              ${index}
-                            `}
-                            className="
-                              border-b
-                              border-gray-100
-                              hover:bg-blue-50
-                              transition
-                            "
-                          >
-
-                            {/* NO */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                font-semibold
-                                text-gray-600
-                              "
-                            >
-                              {
-                                index + 1
-                              }
-                            </td>
-
-
-                            {/* BILLING */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                font-semibold
-                                text-primary
-                                whitespace-nowrap
-                              "
-                            >
-                              {
-                                detail[
-                                  "Billing No"
-                                ]
-                              }
-                            </td>
-
-
-                            {/* DATE */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                text-gray-600
-                                whitespace-nowrap
-                              "
-                            >
-                              {
-                                formatDate(
-                                  detail[
-                                    "Posting Date"
-                                  ]
-                                )
-                              }
-                            </td>
-
-
-                            {/* PRODUCT */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                              "
-                            >
-
-                              <div
-                                className="
-                                  flex
-                                  items-center
-                                  gap-3
-                                  min-w-[230px]
-                                "
-                              >
-
-                                <div
-                                  className="
-                                    w-9
-                                    h-9
-                                    shrink-0
-                                    rounded-lg
-                                    bg-blue-50
-                                    text-blue-600
-                                    flex
-                                    items-center
-                                    justify-center
-                                  "
-                                >
-
-                                  <FaBoxOpen />
-
-                                </div>
-
-
-                                <div
-                                  className="
-                                    min-w-0
-                                  "
-                                >
-
-                                  <p
-                                    className="
-                                      font-semibold
-                                      text-gray-800
-                                    "
-                                  >
-                                    {
-                                      detail[
-                                        "Text Material"
-                                      ]
-                                    }
-                                  </p>
-
-                                  <p
-                                    className="
-                                      text-xs
-                                      text-gray-500
-                                    "
-                                  >
-                                    Material:{" "}
-
-                                    {
-                                      detail[
-                                        "Material"
-                                      ]
-                                    }
-
-                                  </p>
-
-                                  <p
-                                    className="
-                                      text-xs
-                                      text-gray-400
-                                    "
-                                  >
-                                    {
-                                      detail[
-                                        "Prod. Hierarchy3"
-                                      ]
-                                    }
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                            </td>
-
-
-                            {/* QTY */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                text-right
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <span
-                                className="
-                                  font-semibold
-                                "
-                              >
-                                {
-                                  detail[
-                                    "Quantity"
-                                  ]
-                                }
-                              </span>
-
-                              {" "}
-
-                              <span
-                                className="
-                                  text-gray-400
-                                "
-                              >
-                                {
-                                  detail[
-                                    "Sales Unit"
-                                  ]
-                                }
-                              </span>
-
-                            </td>
-
-
-                            {/* UNIT PRICE */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                text-right
-                                whitespace-nowrap
-                              "
-                            >
-                              {
-                                formatCurrency(
-                                  detail[
-                                    "Unit Price Penjualan"
-                                  ]
-                                )
-                              }
-                            </td>
-
-
-                            {/* DISCOUNT */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                text-right
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <div
-                                className="
-                                  font-semibold
-                                  text-red-600
-                                "
-                              >
-                                {
-                                  formatCurrency(
-                                    detail[
-                                      "Total Discount"
-                                    ]
-                                  )
-                                }
-                              </div>
-
-                              <div
-                                className="
-                                  text-xs
-                                  text-gray-400
-                                "
-                              >
-                                ZD03:{" "}
-
-                                {
-                                  detail[
-                                    "Dis% (ZD03)"
-                                  ]
-                                }%
-
-                              </div>
-
-                            </td>
-
-
-                            {/* TOTAL */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-right
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <span
-                                className="
-                                  font-bold
-                                  text-blue-700
-                                "
-                              >
-                                {
-                                  formatCurrency(
-                                    detail[
-                                      "Total Penjualan"
-                                    ]
-                                  )
-                                }
-                              </span>
-
-                            </td>
-
-
-                            {/* TAX */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-right
-                                whitespace-nowrap
-                                text-sm
-                                text-gray-600
-                              "
-                            >
-                              {
-                                formatCurrency(
-                                  detail[
-                                    "Tax Amount"
-                                  ]
-                                )
-                              }
-                            </td>
-
-
-                            {/* COGS */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-right
-                                whitespace-nowrap
-                                text-sm
-                                text-gray-600
-                              "
-                            >
-                              {
-                                formatCurrency(
-                                  detail[
-                                    "Total COGS"
-                                  ]
-                                )
-                              }
-                            </td>
-
-
-                            {/* PRINCIPAL */}
-
-                            <td
-                              className="
-                                px-4
-                                py-3
-                                text-sm
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <p
-                                className="
-                                  font-semibold
-                                  text-gray-700
-                                "
-                              >
-                                {
-                                  detail[
-                                    "Name Principle"
-                                  ]
-                                }
-                              </p>
-
-                              <p
-                                className="
-                                  text-xs
-                                  text-gray-400
-                                "
-                              >
-                                {
-                                  detail[
-                                    "Principle"
-                                  ]
-                                }
-                              </p>
-
-                            </td>
-
-                          </tr>
-
-                        )
-                      )
-                    }
-
-                  </tbody>
-
-                                    {/* ================================================= */}
-                  {/* DETAIL FOOTER */}
-                  {/* ================================================= */}
-
-                  <tfoot
-                    className="
-                      sticky
-                      bottom-0
-                      bg-slate-100
-                      border-t-2
-                      border-gray-200
-                    "
-                  >
-
-                    <tr>
-
-                      <td
-                        colSpan={7}
-                        className="
-                          px-4
-                          py-4
-                          text-right
-                          font-bold
-                          text-gray-700
-                        "
-                      >
-                        Total
-                      </td>
-
-
-                      {/* TOTAL PENJUALAN */}
-
-                      <td
-                        className="
-                          px-4
-                          py-4
-                          text-right
-                          font-bold
-                          text-blue-800
-                          whitespace-nowrap
-                        "
-                      >
-
-                        {
-                          formatCurrency(
-                            (
-                              selectedPenjualan
-                                .detailPenjualan ||
-                              []
-                            ).reduce(
-                              (
-                                sum,
-                                item
-                              ) =>
-                                sum +
-                                Number(
-                                  item[
-                                    "Total Penjualan"
-                                  ] ||
-                                  0
-                                ),
-                              0
-                            )
-                          )
-                        }
-
-                      </td>
-
-
-                      {/* TOTAL TAX */}
-
-                      <td
-                        className="
-                          px-4
-                          py-4
-                          text-right
-                          font-semibold
-                          text-gray-700
-                          whitespace-nowrap
-                        "
-                      >
-
-                        {
-                          formatCurrency(
-                            (
-                              selectedPenjualan
-                                .detailPenjualan ||
-                              []
-                            ).reduce(
-                              (
-                                sum,
-                                item
-                              ) =>
-                                sum +
-                                Number(
-                                  item[
-                                    "Tax Amount"
-                                  ] ||
-                                  0
-                                ),
-                              0
-                            )
-                          )
-                        }
-
-                      </td>
-
-
-                      {/* TOTAL COGS */}
-
-                      <td
-                        className="
-                          px-4
-                          py-4
-                          text-right
-                          font-semibold
-                          text-gray-700
-                          whitespace-nowrap
-                        "
-                      >
-
-                        {
-                          formatCurrency(
-                            (
-                              selectedPenjualan
-                                .detailPenjualan ||
-                              []
-                            ).reduce(
-                              (
-                                sum,
-                                item
-                              ) =>
-                                sum +
-                                Number(
-                                  item[
-                                    "Total COGS"
-                                  ] ||
-                                  0
-                                ),
-                              0
-                            )
-                          )
-                        }
-
-                      </td>
-
-
-                      <td />
-
-                    </tr>
-
-                  </tfoot>
-
-                </table>
+                <table className="table w-full">
+  <thead className="sticky top-0 z-10 bg-blue-900 text-white">
+    <tr>
+      {[
+        "No",
+        "Billing No",
+        "No Faktur",
+        "Document Type",
+        "Bill to Party",
+        "Salesman",
+        "Name Salesman",
+        "Cabang",
+        "Principal",
+        "Posting Date",
+        "Jatuh Tempo",
+        "Total Penjualan",
+        "Tax Amount",
+        "PPH",
+        "Aging",
+      ].map((column) => (
+        <th key={column} className="px-4 py-3 whitespace-nowrap text-xs font-semibold">
+          {column}
+        </th>
+      ))}
+    </tr>
+  </thead>
+
+  <tbody>
+    {(selectedPenjualan.detailPenjualan || []).map((detail, index) => (
+      <tr
+        key={`${detail["Billing No"] || index}-${index}`}
+        className="border-b border-gray-100 hover:bg-blue-50 transition"
+      >
+        <td className="px-4 py-3 text-sm">{detail["No"] ?? index + 1}</td>
+        <td className="px-4 py-3 text-sm font-semibold text-blue-700 whitespace-nowrap">
+          {detail["Billing No"] || "-"}
+        </td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap">{detail["No Faktur"] || "-"}</td>
+        <td className="px-4 py-3 text-sm">{detail["Document Type"] || "-"}</td>
+        <td className="px-4 py-3 text-sm">{detail["Bill to party"] || "-"}</td>
+        <td className="px-4 py-3 text-sm">{detail["Salesman"] || "-"}</td>
+        <td className="px-4 py-3 text-sm">{detail["Name Salesman"] || "-"}</td>
+        <td className="px-4 py-3 text-sm">{detail["Desc. S.Office"] || "-"}</td>
+        <td className="px-4 py-3 text-sm">{detail["Name Principle"] || "-"}</td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap">{formatDate(detail["Posting Date"])}</td>
+        <td className="px-4 py-3 text-sm whitespace-nowrap">{formatDate(detail["Jatuh Tempo"])}</td>
+        <td className="px-4 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">
+          {formatCurrency(detail["Total Penjualan"])}
+        </td>
+        <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
+          {formatCurrency(detail["Tax Amount"])}
+        </td>
+        <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
+          {formatCurrency(detail["PPH"])}
+        </td>
+        <td className="px-4 py-3 text-sm text-right">{detail["Aging"] ?? "-"}</td>
+      </tr>
+    ))}
+  </tbody>
+
+  <tfoot className="sticky bottom-0 bg-slate-100 border-t-2 border-gray-200">
+    <tr>
+      <td colSpan={11} className="px-4 py-4 text-right font-bold text-gray-700">
+        Total
+      </td>
+      <td className="px-4 py-4 text-right font-bold text-blue-800 whitespace-nowrap">
+        {formatCurrency((selectedPenjualan.detailPenjualan || []).reduce(
+          (sum, item) => sum + Number(item["Total Penjualan"] || 0), 0
+        ))}
+      </td>
+      <td className="px-4 py-4 text-right font-semibold whitespace-nowrap">
+        {formatCurrency((selectedPenjualan.detailPenjualan || []).reduce(
+          (sum, item) => sum + Number(item["Tax Amount"] || 0), 0
+        ))}
+      </td>
+      <td className="px-4 py-4 text-right font-semibold whitespace-nowrap">
+        {formatCurrency((selectedPenjualan.detailPenjualan || []).reduce(
+          (sum, item) => sum + Number(item["PPH"] || 0), 0
+        ))}
+      </td>
+      <td />
+    </tr>
+  </tfoot>
+</table>
 
               </div>
 

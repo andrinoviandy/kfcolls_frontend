@@ -32,6 +32,9 @@ import {
 import ReactPaginate
   from "react-paginate";
 
+import storeSchema from "global/store";
+import { swal } from "global/helper/swal";
+
 
 // =====================================================
 // FORMAT DATE
@@ -768,9 +771,12 @@ const TableListKonfirmasiPiutang = ({
   const [
     allData,
     setAllData,
-  ] = useState(
-    dummyData
-  );
+  ] = useState([]);
+
+  const [loading, setLoading] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [apiTotalData, setApiTotalData] = useState(0);
+  const [apiTotalPage, setApiTotalPage] = useState(0);
 
 
   const [
@@ -877,195 +883,102 @@ const TableListKonfirmasiPiutang = ({
   // SUMMARY
   // ===================================================
 
-  const summaryData =
-    useMemo(
-      () => {
-
-        return {
-
-          total:
-            allData.length,
-
-          menunggu:
-            allData.filter(
-              item =>
-                item.status ===
-                "MENUNGGU_KONFIRMASI"
-            ).length,
-
-          disetujui:
-            allData.filter(
-              item =>
-                item.status ===
-                "DISETUJUI_CUSTOMER"
-            ).length,
-
-          ditolak:
-            allData.filter(
-              item =>
-                item.status ===
-                "DITOLAK_CUSTOMER"
-            ).length,
-
-          otomatis:
-            allData.filter(
-              item =>
-                item.status ===
-                "DISETUJUI_OTOMATIS"
-            ).length,
-
-        };
-
-      },
-      [
-        allData,
-      ]
-    );
-
+  const summaryData = useMemo(() => {
+    const apiSummary = allData?.summary || {};
+    const rows = Array.isArray(allData) ? allData : [];
+    return {
+      total: Number(apiSummary.total ?? apiSummary.total_data ?? apiTotalData ?? rows.length),
+      menunggu: Number(apiSummary.menunggu ?? apiSummary.menunggu_konfirmasi ?? rows.filter(item => item.status === "MENUNGGU_KONFIRMASI").length),
+      disetujui: Number(apiSummary.disetujui ?? apiSummary.disetujui_customer ?? rows.filter(item => item.status === "DISETUJUI_CUSTOMER").length),
+      ditolak: Number(apiSummary.ditolak ?? apiSummary.ditolak_customer ?? rows.filter(item => item.status === "DITOLAK_CUSTOMER").length),
+      otomatis: Number(apiSummary.otomatis ?? apiSummary.disetujui_otomatis ?? rows.filter(item => item.status === "DISETUJUI_OTOMATIS").length),
+    };
+  }, [allData, apiTotalData]);
 
   // ===================================================
-  // FILTER
+  // GET DATA KONFIRMASI PIUTANG
   // ===================================================
 
-  const filteredData =
-    useMemo(
-      () => {
+  const getDataKonfirmasiPiutang = async (overrides = {}) => {
+    setLoading(true);
+    try {
+      const payload = {
+        page: overrides.page ?? currentPage,
+        limit: overrides.limit ?? perPage,
+        keyword: (overrides.keyword ?? keyword).trim(),
+        status: (overrides.status ?? selectedStatus) === "ALL"
+          ? ""
+          : (overrides.status ?? selectedStatus),
+      };
 
-        let data =
-          [
-            ...allData,
-          ];
+      const res = await storeSchema.actions.getDataKonfirmasiPiutang(payload);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil data konfirmasi piutang.");
+      }
 
+      const responseData = res?.data || {};
+      const list = Array.isArray(responseData?.list_data)
+        ? responseData.list_data
+        : Array.isArray(responseData?.data)
+          ? responseData.data
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
 
-        // STATUS
+      setAllData(list.map((item, index) => ({
+        ...item,
+        id: item?.id ?? item?.konfirmasi_piutang_id ?? item?.id_konfirmasi ?? item?.no_billing ?? item?.no_faktur ?? `${payload.page}-${index}`,
+      })));
+      setApiTotalData(Number(responseData?.total_data ?? responseData?.total ?? list.length));
+      setApiTotalPage(Number(responseData?.total_halaman ?? responseData?.total_page ?? Math.ceil(Number(responseData?.total_data ?? list.length) / payload.limit)));
+    } catch (error) {
+      console.error("ERROR GET DATA KONFIRMASI PIUTANG:", error);
+      setAllData([]);
+      setApiTotalData(0);
+      setApiTotalPage(0);
+      await swal.error(error?.message || "Gagal mengambil data konfirmasi piutang.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        if (
-          selectedStatus !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.status ===
-                selectedStatus
-            );
-
-        }
-
-
-        // SEARCH
-
-        if (
-          keyword.trim()
-        ) {
-
-          const search =
-            keyword
-              .toLowerCase();
-
-
-          data =
-            data.filter(
-              item =>
-
-                item.no_faktur
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.no_billing
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.nama_customer
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.nama_penagih
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.sales
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-            );
-
-        }
-
-
-        return data;
-
-      },
-      [
-        allData,
-        selectedStatus,
-        keyword,
-      ]
-    );
-
+  useEffect(() => {
+    getDataKonfirmasiPiutang();
+    // Initial fetch; subsequent fetches are triggered by search/filter/page actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ===================================================
-  // PAGINATION
+  // FILTER / PAGINATION SERVER SIDE
   // ===================================================
 
-  const totalData =
-    filteredData.length;
+  const filteredData = allData;
+  const totalData = apiTotalData;
+  const totalPage = apiTotalPage;
+  const paginatedData = allData;
 
+  const handleSearch = () => {
+    setKeyword(searchInput);
+    setCurrentPage(1);
+    getDataKonfirmasiPiutang({ page: 1, keyword: searchInput });
+  };
 
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
+  const handleStatusChange = (status) => {
+    setSelectedStatus(status);
+    setCurrentPage(1);
+    getDataKonfirmasiPiutang({ page: 1, status });
+  };
 
+  const handlePageChange = ({ selected }) => {
+    const nextPage = selected + 1;
+    setCurrentPage(nextPage);
+    getDataKonfirmasiPiutang({ page: nextPage });
+  };
 
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) *
-      perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  useEffect(
-    () => {
-
-      setCurrentPage(
-        1
-      );
-
-    },
-    [
-      keyword,
-      selectedStatus,
-      perPage,
-    ]
-  );
-
+  const handleRefresh = () => {
+    setSearchInput(keyword);
+    getDataKonfirmasiPiutang();
+  };
 
   // ===================================================
   // STATUS
@@ -1395,339 +1308,63 @@ const TableListKonfirmasiPiutang = ({
   // PROCESS SEND CONFIRMATION
   // ===================================================
 
-  const processSendConfirmation =
-    async () => {
+  const processSendConfirmation = async () => {
+    if (!sendData || isSendingConfirmation) return;
 
-      if (
-        !sendData
-      ) {
+    if (!sendViaWhatsApp && !sendViaEmail) {
+      setSendResult({ type: "error", message: "Silakan pilih minimal satu media pengiriman." });
+      return;
+    }
 
-        return;
+    if (sendViaWhatsApp && !sendData.no_wa_customer) {
+      setSendResult({ type: "error", message: "Nomor WhatsApp customer belum tersedia." });
+      return;
+    }
 
+    if (sendViaEmail && !sendData.email_customer) {
+      setSendResult({ type: "error", message: "Email customer belum tersedia." });
+      return;
+    }
+
+    setIsSendingConfirmation(true);
+    setSendResult(null);
+
+    try {
+      const payload = {
+        id: sendData.id,
+        konfirmasi_piutang_id: sendData.konfirmasi_piutang_id ?? sendData.id_konfirmasi ?? sendData.id,
+        no_faktur: sendData.no_faktur ?? "",
+        no_billing: sendData.no_billing ?? "",
+        customer: sendData.customer ?? sendData.customer_id ?? "",
+        nama_customer: sendData.nama_customer ?? "",
+        media_wa: Boolean(sendViaWhatsApp),
+        media_email: Boolean(sendViaEmail),
+        no_wa_customer: sendData.no_wa_customer ?? "",
+        email_customer: sendData.email_customer ?? "",
+      };
+
+      const res = await storeSchema.actions.konfirmasiPiutang(payload);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Konfirmasi piutang gagal diproses.");
       }
 
-
-      if (
-        !sendViaWhatsApp &&
-        !sendViaEmail
-      ) {
-
-        setSendResult({
-
-          type:
-            "error",
-
-          message:
-            "Silakan pilih minimal satu media pengiriman.",
-
-        });
-
-        return;
-
-      }
-
-
-      setIsSendingConfirmation(
-        true
-      );
-
-      setSendResult(
-        null
-      );
-
-
-      try {
-
-        const results =
-          [];
-
-
-        // =============================================
-        // WHATSAPP
-        // =============================================
-
-        if (
-          sendViaWhatsApp
-        ) {
-
-          if (
-            !sendData.no_wa_customer
-          ) {
-
-            throw new Error(
-              "Nomor WhatsApp customer belum tersedia."
-            );
-
-          }
-
-
-          const result =
-            await sendConfirmationWhatsApp(
-              sendData
-            );
-
-
-          results.push(
-            {
-              media:
-                "WhatsApp",
-
-              success:
-                result?.success !== false,
-
-              message:
-                result?.message ||
-                "Berhasil dikirim melalui WhatsApp.",
-            }
-          );
-
-        }
-
-
-        // =============================================
-        // EMAIL
-        // =============================================
-
-        if (
-          sendViaEmail
-        ) {
-
-          if (
-            !sendData.email_customer
-          ) {
-
-            throw new Error(
-              "Email customer belum tersedia."
-            );
-
-          }
-
-
-          const result =
-            await sendConfirmationEmail(
-              sendData
-            );
-
-
-          results.push(
-            {
-              media:
-                "Email",
-
-              success:
-                result?.success !== false,
-
-              message:
-                result?.message ||
-                "Berhasil dikirim melalui Email.",
-            }
-          );
-
-        }
-
-
-        // =============================================
-        // CEK HASIL
-        // =============================================
-
-        const failed =
-          results.filter(
-            item =>
-              !item.success
-          );
-
-
-        if (
-          failed.length > 0
-        ) {
-
-          throw new Error(
-            failed
-              .map(
-                item =>
-                  item.message
-              )
-              .join(
-                ", "
-              )
-          );
-
-        }
-
-
-        // =============================================
-        // TANGGAL KIRIM
-        // =============================================
-
-        const today =
-          new Date();
-
-
-        const tanggalKirim =
-          today
-            .toISOString()
-            .split(
-              "T"
-            )[0];
-
-
-        const batasKonfirmasi =
-          new Date(
-            today
-          );
-
-
-        batasKonfirmasi.setDate(
-          batasKonfirmasi.getDate() +
-          14
-        );
-
-
-        const batasKonfirmasiString =
-          batasKonfirmasi
-            .toISOString()
-            .split(
-              "T"
-            )[0];
-
-
-        // =============================================
-        // UPDATE DATA TABLE
-        // =============================================
-
-        setAllData(
-          prevData =>
-            prevData.map(
-              data => {
-
-                if (
-                  data.id !==
-                  sendData.id
-                ) {
-
-                  return data;
-
-                }
-
-
-                return {
-
-                  ...data,
-
-                  tanggal_kirim_konfirmasi:
-                    tanggalKirim,
-
-                  batas_konfirmasi:
-                    batasKonfirmasiString,
-
-                  media_wa:
-                    sendViaWhatsApp
-                      ? true
-                      : data.media_wa,
-
-                  media_email:
-                    sendViaEmail
-                      ? true
-                      : data.media_email,
-
-                  status:
-                    "MENUNGGU_KONFIRMASI",
-
-                };
-
-              }
-            )
-        );
-
-
-        // =============================================
-        // UPDATE SELECTED DATA
-        // =============================================
-
-        setSelectedData(
-          prev => {
-
-            if (
-              !prev ||
-              prev.id !==
-              sendData.id
-            ) {
-
-              return prev;
-
-            }
-
-
-            return {
-
-              ...prev,
-
-              tanggal_kirim_konfirmasi:
-                tanggalKirim,
-
-              batas_konfirmasi:
-                batasKonfirmasiString,
-
-              status:
-                "MENUNGGU_KONFIRMASI",
-
-            };
-
-          }
-        );
-
-
-        setSendResult({
-
-          type:
-            "success",
-
-          message:
-            `Konfirmasi berhasil dikirim melalui ${results
-              .map(
-                item =>
-                  item.media
-              )
-              .join(
-                " dan "
-              )
-            }. Batas konfirmasi sampai ${formatDate(
-              batasKonfirmasiString
-            )}.`,
-
-        });
-
-
-      } catch (
-      error
-      ) {
-
-        console.error(
-          "Error kirim konfirmasi:",
-          error
-        );
-
-
-        setSendResult({
-
-          type:
-            "error",
-
-          message:
-            error?.message ||
-            "Terjadi kesalahan saat mengirim konfirmasi.",
-
-        });
-
-      } finally {
-
-        setIsSendingConfirmation(
-          false
-        );
-
-      }
-
-    };
+      setSendResult({
+        type: "success",
+        message: res?.message || res?.data?.message || "Konfirmasi piutang berhasil diproses.",
+      });
+
+      setShowSendConfirmation(false);
+      setSendData(null);
+      await getDataKonfirmasiPiutang();
+      await swal.success(res?.message || "Konfirmasi piutang berhasil diproses.");
+    } catch (error) {
+      console.error("ERROR KONFIRMASI PIUTANG:", error);
+      setSendResult({ type: "error", message: error?.message || "Konfirmasi piutang gagal diproses." });
+      await swal.error(error?.message || "Konfirmasi piutang gagal diproses.");
+    } finally {
+      setIsSendingConfirmation(false);
+    }
+  };
 
 
   // ===================================================
@@ -1915,16 +1552,15 @@ const TableListKonfirmasiPiutang = ({
             className="
               grow
             "
-            value={
-              keyword
-            }
-            onChange={
-              e =>
-                setKeyword(
-                  e.target.value
-                )
-            }
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") handleSearch();
+            }}
           />
+          <button type="button" className="btn btn-ghost btn-xs" onClick={handleSearch} aria-label="Cari">
+            <IoSearch className="text-lg" />
+          </button>
 
         </div>
 
@@ -1961,12 +1597,7 @@ const TableListKonfirmasiPiutang = ({
             value={
               selectedStatus
             }
-            onChange={
-              e =>
-                setSelectedStatus(
-                  e.target.value
-                )
-            }
+            onChange={e => handleStatusChange(e.target.value)}
           >
 
             <option value="ALL">
@@ -2351,6 +1982,12 @@ const TableListKonfirmasiPiutang = ({
 
 
       {/* ================================================= */}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
+          <FaSpinner className="animate-spin" /> Memuat data konfirmasi piutang...
+        </div>
+      )}
+
       {/* TABLE */}
       {/* ================================================= */}
 
@@ -3211,14 +2848,12 @@ const TableListKonfirmasiPiutang = ({
                     value={
                       perPage
                     }
-                    onChange={
-                      e =>
-                        setPerPage(
-                          parseInt(
-                            e.target.value
-                          )
-                        )
-                    }
+                    onChange={e => {
+                      const limit = parseInt(e.target.value, 10);
+                      setPerPage(limit);
+                      setCurrentPage(1);
+                      getDataKonfirmasiPiutang({ page: 1, limit });
+                    }}
                   >
 
                     <option value="5">
@@ -3255,13 +2890,7 @@ const TableListKonfirmasiPiutang = ({
                     pageCount={
                       totalPage
                     }
-                    onPageChange={
-                      e =>
-                        setCurrentPage(
-                          e.selected +
-                          1
-                        )
-                    }
+                    onPageChange={handlePageChange}
                     forcePage={
                       currentPage -
                       1

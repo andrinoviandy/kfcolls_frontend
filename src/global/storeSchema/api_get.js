@@ -2416,6 +2416,148 @@ const n2nGetService = {
       return error.response;
     }
   },
+  getMonitoringPenugasan: async ({
+    page = 1,
+    limit = 10,
+    keyword = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    status_tukar_faktur = "ALL",
+    status_pembayaran = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getMonitoringPenugasan",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            customer,
+            status_tukar_faktur,
+            status_pembayaran,
+            start_date,
+            end_date,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataReportSales: async ({
+    page = 1,
+    limit = 10,
+    keyword = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    channel = "ALL",
+    principle = "ALL",
+    produk = "ALL",
+    start_date = "",
+    end_date = "",
+    detail = false,
+    detail_type = "",
+    id = "",
+    report_sales_id = "",
+    no_transaksi = "",
+    tanggal = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataReportSales",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            sales_office,
+            customer,
+            channel,
+            principle,
+            produk,
+            start_date,
+            end_date,
+            detail,
+            detail_type,
+            id,
+            report_sales_id,
+            no_transaksi,
+            tanggal,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataKonfirmasiPiutang: async ({
+    page = 1,
+    limit = 10,
+    keyword = "",
+    status = "ALL",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataKonfirmasiPiutang",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            status,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDetailPenjualan: async ({
+    kode_sales = ''
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDetailPenjualan",
+        {
+          params: {
+            kode_sales
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDetailPencairan: async ({
+    kode_sales = ''
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDetailPencairan",
+        {
+          params: {
+            kode_sales
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nGetService;
