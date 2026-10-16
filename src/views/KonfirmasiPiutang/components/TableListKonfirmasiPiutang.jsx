@@ -165,6 +165,27 @@ const statusConfig = {
 
 };
 
+// Normalisasi kode status dari backend ke status yang dipakai UI.
+// Kode singkat dapat disesuaikan dengan nilai aktual d_status.kd_status.
+const normalizeStatusKonfirmasi = (status) => {
+  if (!status) return null;
+
+  const value = String(status).trim().toUpperCase();
+
+  const statusMap = {
+    MK: "MENUNGGU_KONFIRMASI",
+    MENUNGGU_KONFIRMASI: "MENUNGGU_KONFIRMASI",
+    STJ: "DISETUJUI_CUSTOMER",
+    DISETUJUI_CUSTOMER: "DISETUJUI_CUSTOMER",
+    TLK: "DITOLAK_CUSTOMER",
+    DITOLAK_CUSTOMER: "DITOLAK_CUSTOMER",
+    OTO: "DISETUJUI_OTOMATIS",
+    DISETUJUI_OTOMATIS: "DISETUJUI_OTOMATIS",
+  };
+
+  return statusMap[value] || value;
+};
+
 
 // =====================================================
 // DUMMY DATA
@@ -777,6 +798,7 @@ const TableListKonfirmasiPiutang = ({
   const [searchInput, setSearchInput] = useState("");
   const [apiTotalData, setApiTotalData] = useState(0);
   const [apiTotalPage, setApiTotalPage] = useState(0);
+  const [apiSummaryData, setApiSummaryData] = useState({});
 
 
   const [
@@ -884,18 +906,38 @@ const TableListKonfirmasiPiutang = ({
   // ===================================================
 
   const summaryData = useMemo(() => {
-    const apiSummary = allData?.summary || {};
     const rows = Array.isArray(allData) ? allData : [];
+    const apiSummary = apiSummaryData || {};
+
     return {
       total: Number(apiSummary.total ?? apiSummary.total_data ?? apiTotalData ?? rows.length),
-      menunggu: Number(apiSummary.menunggu ?? apiSummary.menunggu_konfirmasi ?? rows.filter(item => item.status === "MENUNGGU_KONFIRMASI").length),
-      disetujui: Number(apiSummary.disetujui ?? apiSummary.disetujui_customer ?? rows.filter(item => item.status === "DISETUJUI_CUSTOMER").length),
-      ditolak: Number(apiSummary.ditolak ?? apiSummary.ditolak_customer ?? rows.filter(item => item.status === "DITOLAK_CUSTOMER").length),
-      otomatis: Number(apiSummary.otomatis ?? apiSummary.disetujui_otomatis ?? rows.filter(item => item.status === "DISETUJUI_OTOMATIS").length),
+      belum_dikirim: Number(
+        apiSummary.belum_dikirim ??
+        rows.filter(item => item.status_pengiriman_konfirmasi === "BELUM_DIKIRIM").length
+      ),
+      menunggu: Number(
+        apiSummary.menunggu ??
+        apiSummary.menunggu_konfirmasi ??
+        rows.filter(item => item.status_konfirmasi === "MENUNGGU_KONFIRMASI").length
+      ),
+      disetujui: Number(
+        apiSummary.disetujui ??
+        apiSummary.disetujui_customer ??
+        rows.filter(item => item.status_konfirmasi === "DISETUJUI_CUSTOMER").length
+      ),
+      ditolak: Number(
+        apiSummary.ditolak ??
+        apiSummary.ditolak_customer ??
+        rows.filter(item => item.status_konfirmasi === "DITOLAK_CUSTOMER").length
+      ),
+      otomatis: Number(
+        apiSummary.otomatis ??
+        apiSummary.disetujui_otomatis ??
+        rows.filter(item => item.status_konfirmasi === "DISETUJUI_OTOMATIS").length
+      ),
     };
-  }, [allData, apiTotalData]);
+  }, [allData, apiSummaryData, apiTotalData]);
 
-  // ===================================================
   // GET DATA KONFIRMASI PIUTANG
   // ===================================================
 
@@ -925,10 +967,52 @@ const TableListKonfirmasiPiutang = ({
             ? res.data
             : [];
 
-      setAllData(list.map((item, index) => ({
-        ...item,
-        id: item?.id ?? item?.konfirmasi_piutang_id ?? item?.id_konfirmasi ?? item?.no_billing ?? item?.no_faktur ?? `${payload.page}-${index}`,
-      })));
+      setAllData(list.map((item, index) => {
+        const tanggalKirim =
+          item?.tgl_kirim_konfirmasi ??
+          item?.tanggal_kirim_konfirmasi ??
+          null;
+
+        const statusPengiriman =
+          item?.status_pengiriman_konfirmasi ??
+          (item?.k_piutang_id || tanggalKirim
+            ? "SUDAH_DIKIRIM"
+            : "BELUM_DIKIRIM");
+
+        const rawStatus =
+          item?.kode_singkat_status ??
+          item?.status_konfirmasi ??
+          item?.kd_status ??
+          item?.status ??
+          null;
+
+        const tanggalBatas =
+          item?.batas_konfirmasi ??
+          (tanggalKirim
+            ? new Date(new Date(tanggalKirim).getTime() + 14 * 24 * 60 * 60 * 1000)
+                .toISOString()
+                .slice(0, 10)
+            : null);
+
+        return {
+          ...item,
+          id: item?.piutang_id ?? item?.id ?? item?.k_piutang_id ??
+            item?.no_billing ?? item?.no_faktur ?? `${payload.page}-${index}`,
+          customer_id: item?.customer_id ?? item?.customer ?? item?.kode_customer ?? "-",
+          nama_customer: item?.nama_customer ?? item?.customer_name ?? item?.name ?? "-",
+          alamat: item?.alamat ?? item?.alamat_customer ?? "-",
+          nama_penagih: item?.nama_penagih ?? item?.petugas ?? item?.nama_petugas ?? "-",
+          nominal_piutang: Number(item?.dpp ?? item?.nominal_piutang ?? 0),
+          dpp: Number(item?.dpp ?? item?.nominal_piutang ?? 0),
+          status_pengiriman_konfirmasi: statusPengiriman,
+          status_konfirmasi: normalizeStatusKonfirmasi(rawStatus),
+          tgl_kirim_konfirmasi: tanggalKirim,
+          batas_konfirmasi: tanggalBatas,
+          sales: item?.nama_sales ?? item?.sales ?? "-",
+        };
+      }));
+
+      setApiSummaryData(responseData?.summary || {});
       setApiTotalData(Number(responseData?.total_data ?? responseData?.total ?? list.length));
       setApiTotalPage(Number(responseData?.total_halaman ?? responseData?.total_page ?? Math.ceil(Number(responseData?.total_data ?? list.length) / payload.limit)));
     } catch (error) {
@@ -936,6 +1020,7 @@ const TableListKonfirmasiPiutang = ({
       setAllData([]);
       setApiTotalData(0);
       setApiTotalPage(0);
+      setApiSummaryData({});
       await swal.error(error?.message || "Gagal mengambil data konfirmasi piutang.");
     } finally {
       setLoading(false);
@@ -984,58 +1069,49 @@ const TableListKonfirmasiPiutang = ({
   // STATUS
   // ===================================================
 
-  const renderStatus =
-    (
-      status
-    ) => {
-
-      const config =
-        statusConfig[
-        status
-        ];
-
-
-      if (
-        !config
-      ) {
-
-        return "-";
-
-      }
-
-
-      const Icon =
-        config.icon;
-
-
+  const renderStatus = (status) => {
+    if (!status) {
       return (
-
-        <span
-          className={`
-            inline-flex
-            items-center
-            gap-2
-            px-3
-            py-1.5
-            rounded-full
-            text-xs
-            font-semibold
-            whitespace-nowrap
-            ${config.className}
-          `}
-        >
-
-          <Icon />
-
-          {
-            config.label
-          }
-
+        <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-500 whitespace-nowrap">
+          <FaInfoCircle />
+          Belum Ada Status
         </span>
-
       );
+    }
 
-    };
+    const config = statusConfig[status];
+
+    if (!config) {
+      return (
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 whitespace-nowrap">
+          <FaInfoCircle />
+          {String(status).replaceAll("_", " ")}
+        </span>
+      );
+    }
+
+    const Icon = config.icon;
+
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${config.className}`}>
+        <Icon />
+        {config.label}
+      </span>
+    );
+  };
+
+  const renderStatusPengiriman = (status) => {
+    const sudahDikirim = status === "SUDAH_DIKIRIM";
+
+    return (
+      <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+        sudahDikirim ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+      }`}>
+        {sudahDikirim ? <FaCheckCircle /> : <FaClock />}
+        {sudahDikirim ? "Sudah Dikirim" : "Belum Dikirim"}
+      </span>
+    );
+  };
 
 
   // ===================================================
@@ -1090,11 +1166,11 @@ const TableListKonfirmasiPiutang = ({
       );
 
       setSendViaWhatsApp(
-        item.media_wa === true
+        item.media_wa !== false
       );
 
       setSendViaEmail(
-        item.media_email === true
+        item.media_email !== false
       );
 
       setSendResult(
@@ -1331,8 +1407,10 @@ const TableListKonfirmasiPiutang = ({
 
     try {
       const payload = {
-        id: sendData.id,
-        konfirmasi_piutang_id: sendData.konfirmasi_piutang_id ?? sendData.id_konfirmasi ?? sendData.id,
+        // Sumber utama adalah d_piutang, gunakan piutang_id untuk proses kirim.
+        id: sendData.piutang_id ?? sendData.id,
+        piutang_id: sendData.piutang_id ?? sendData.id,
+        k_piutang_id: sendData.k_piutang_id ?? null,
         no_faktur: sendData.no_faktur ?? "",
         no_billing: sendData.no_billing ?? "",
         customer: sendData.customer ?? sendData.customer_id ?? "",
@@ -1383,10 +1461,26 @@ const TableListKonfirmasiPiutang = ({
 
     {
       label:
-        "Status",
+        "Pengiriman Konfirmasi",
+
+      icon:
+        <FaPaperPlane />,
+    },
+
+    {
+      label:
+        "Status Konfirmasi",
 
       icon:
         <FaInfoCircle />,
+    },
+
+    {
+      label:
+        "Tanggal Kirim",
+
+      icon:
+        <FaCalendarAlt />,
     },
 
     {
@@ -1581,7 +1675,7 @@ const TableListKonfirmasiPiutang = ({
               text-gray-500
             "
           >
-            Status:
+            Status Konfirmasi:
           </span>
 
 
@@ -1601,7 +1695,7 @@ const TableListKonfirmasiPiutang = ({
           >
 
             <option value="ALL">
-              Semua Status
+              Semua Status Konfirmasi
             </option>
 
             <option value="MENUNGGU_KONFIRMASI">
@@ -1636,7 +1730,8 @@ const TableListKonfirmasiPiutang = ({
           grid
           grid-cols-1
           sm:grid-cols-2
-          lg:grid-cols-4
+          lg:grid-cols-3
+          2xl:grid-cols-6
           gap-4
         "
       >
@@ -1710,6 +1805,22 @@ const TableListKonfirmasiPiutang = ({
 
         </div>
 
+
+        {/* BELUM DIKIRIM */}
+
+        <div className="rounded-2xl bg-rose-50 p-4 border border-rose-100">
+          <div className="flex justify-between">
+            <div>
+              <p className="text-sm text-rose-700">Belum Dikirim</p>
+              <p className="text-2xl font-bold text-rose-900">
+                {summaryData.belum_dikirim}
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-rose-100 flex items-center justify-center">
+              <FaPaperPlane className="text-rose-600" />
+            </div>
+          </div>
+        </div>
 
         {/* WAITING */}
 
@@ -1850,6 +1961,22 @@ const TableListKonfirmasiPiutang = ({
 
         </div>
 
+
+        {/* REJECTED */}
+
+        <div className="rounded-2xl bg-red-50 p-4 border border-red-100">
+          <div className="flex justify-between">
+            <div>
+              <p className="text-sm text-red-700">Ditolak Customer</p>
+              <p className="text-2xl font-bold text-red-900">
+                {summaryData.ditolak}
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center">
+              <FaTimesCircle className="text-red-600" />
+            </div>
+          </div>
+        </div>
 
         {/* AUTO */}
 
@@ -2024,6 +2151,8 @@ const TableListKonfirmasiPiutang = ({
               className="
                 table
                 w-full
+                border-collapse
+                border-spacing-0
               "
             >
 
@@ -2123,7 +2252,7 @@ const TableListKonfirmasiPiutang = ({
                             "
                           />
 
-                          Tidak ada data konfirmasi piutang
+                          Tidak ada data piutang yang sesuai dengan filter
 
                         </td>
 
@@ -2155,7 +2284,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2169,8 +2298,8 @@ const TableListKonfirmasiPiutang = ({
                               >
 
                                 {
-                                  v.status ===
-                                    "MENUNGGU_KONFIRMASI"
+                                  v.status_pengiriman_konfirmasi ===
+                                    "BELUM_DIKIRIM"
                                     ? (
 
                                       <button
@@ -2243,21 +2372,25 @@ const TableListKonfirmasiPiutang = ({
 
                             </td>
 
-                            {/* STATUS */}
+                            {/* STATUS PENGIRIMAN */}
 
-                            <td
-                              className="
-                                px-4
-                                py-3
-                              "
-                            >
+                            <td className="px-4 py-2">
+                              {renderStatusPengiriman(v.status_pengiriman_konfirmasi)}
+                            </td>
 
-                              {
-                                renderStatus(
-                                  v.status
-                                )
-                              }
+                            {/* STATUS KONFIRMASI */}
 
+                            <td className="px-4 py-2">
+                              {renderStatus(v.status_konfirmasi)}
+                            </td>
+
+                            {/* TANGGAL KIRIM KONFIRMASI */}
+
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <FaCalendarAlt className="text-primary" />
+                                {formatDate(v.tgl_kirim_konfirmasi)}
+                              </div>
                             </td>
 
                             {/* NO */}
@@ -2265,7 +2398,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 font-semibold
                                 text-gray-700
                               "
@@ -2289,7 +2422,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2362,7 +2495,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2432,7 +2565,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                               "
                             >
 
@@ -2500,7 +2633,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2556,7 +2689,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2569,7 +2702,7 @@ const TableListKonfirmasiPiutang = ({
                               >
                                 {
                                   formatRupiah(
-                                    v.nominal_tagihan
+                                    v.dpp
                                   )
                                 }
                               </span>
@@ -2582,7 +2715,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2619,7 +2752,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2672,7 +2805,7 @@ const TableListKonfirmasiPiutang = ({
                             <td
                               className="
                                 px-4
-                                py-3
+                                py-2
                                 whitespace-nowrap
                               "
                             >
@@ -2714,7 +2847,7 @@ const TableListKonfirmasiPiutang = ({
                                   "
                                 >
                                   {
-                                    v.sales
+                                    (v.nama_sales ?? v.sales ?? "-")
                                   }
                                 </span>
 
@@ -3141,12 +3274,18 @@ const TableListKonfirmasiPiutang = ({
                   "
                 >
 
-                  {
-                    renderStatus(
-                      selectedData.status
-                    )
-                  }
+                  <div className="flex flex-wrap items-center gap-2">
+                    {renderStatusPengiriman(selectedData.status_pengiriman_konfirmasi)}
+                    {renderStatus(selectedData.status_konfirmasi)}
+                  </div>
 
+                  <div className="text-sm text-gray-500">
+                    Tanggal kirim konfirmasi:
+                    {" "}
+                    <span className="font-semibold text-gray-700">
+                      {formatDate(selectedData.tgl_kirim_konfirmasi)}
+                    </span>
+                  </div>
 
                   <div
                     className="
@@ -3406,7 +3545,7 @@ const TableListKonfirmasiPiutang = ({
                     >
                       {
                         formatRupiah(
-                          selectedData.nominal_tagihan
+                          selectedData.dpp
                         )
                       }
                     </p>
@@ -3774,8 +3913,8 @@ const TableListKonfirmasiPiutang = ({
               >
 
                 {
-                  selectedData.status ===
-                  "MENUNGGU_KONFIRMASI" &&
+                  selectedData.status_pengiriman_konfirmasi ===
+                  "BELUM_DIKIRIM" &&
                   (
 
                     <button
@@ -4201,7 +4340,7 @@ const TableListKonfirmasiPiutang = ({
                     >
                       {
                         formatRupiah(
-                          sendData.nominal_tagihan
+                          sendData.dpp
                         )
                       }
                     </p>
@@ -4239,8 +4378,8 @@ const TableListKonfirmasiPiutang = ({
 
                     {/* WHATSAPP */}
 
-                    {
-                      sendData.media_wa && (
+                    {/* {
+                      sendData.media_wa !== false && (
 
                         <label
                           className={`
@@ -4350,13 +4489,13 @@ const TableListKonfirmasiPiutang = ({
                         </label>
 
                       )
-                    }
+                    } */}
 
 
                     {/* EMAIL */}
 
                     {
-                      sendData.media_email && (
+                      sendData.media_email !== false && (
 
                         <label
                           className={`
