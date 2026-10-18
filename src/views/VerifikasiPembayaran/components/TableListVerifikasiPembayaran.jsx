@@ -575,11 +575,7 @@ const TableVerifikasiPembayaran = ({
                 Number(
                   firstValue(
                     item,
-                    "nominal_tagihan",
-                    "nominal",
-                    "dpp",
-                    "nominal_bayar",
-                    "saldo_piutang"
+                    "nominal_bayar"
                   ) || 0
                 ),
               tanggal_pembayaran:
@@ -2410,11 +2406,15 @@ const TableVerifikasiPembayaran = ({
                                 <button
                                   type="button"
                                   className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
-                                  onClick={() =>
-                                    alert(
-                                      `Buka bukti: ${item.bukti_pembayaran || "-"}`
-                                    )
-                                  }
+                                  onClick={() => {
+                                    const files = item?.files;
+
+                                    if (files) {
+                                      window.open(files, "_blank");
+                                    } else {
+                                      swal.error("File bukti pembayaran tidak tersedia.");
+                                    }
+                                  }}
                                 >
                                   <FaFileAlt />
                                   Lihat Bukti

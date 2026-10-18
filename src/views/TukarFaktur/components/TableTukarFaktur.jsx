@@ -100,7 +100,10 @@ const getProsesRetur = (item) => firstValue(item, "proses_retur", "no_retur", "r
 const getCustomer = (item) => firstValue(item, "nama_customer", "customer_name", "customer") || "-";
 const getAlamat = (item) => firstValue(item, "alamat", "customer_address") || "-";
 const getJatuhTempo = (item) => firstValue(item, "jatuh_tempo", "due_date") || null;
-const getNominal = (item) => Number(firstValue(item, "nominal", "outstanding", "saldo_piutang", "dpp") || 0);
+const getDpp = (item) => Number(firstValue(item, "dpp", "DPP") || 0);
+const getPpn = (item) => Number(firstValue(item, "ppn", "PPN") || 0);
+const getPph = (item) => Number(firstValue(item, "pph", "PPH") || 0);
+const getTotalInvoice = (item) => getDpp(item) + getPpn(item);
 const getStatus = (item) => {
   const raw = String(
     firstValue(item, "status", "status_tukar_faktur", "status_tukar", "status_dokumen") || ""
@@ -122,7 +125,10 @@ const normalizeRow = (item, index, page, perPage) => ({
   nama_customer: getCustomer(item),
   alamat: getAlamat(item),
   jatuh_tempo: getJatuhTempo(item),
-  nominal: getNominal(item),
+  dpp: getDpp(item),
+  ppn: getPpn(item),
+  pph: getPph(item),
+  total_invoice: getTotalInvoice(item),
   status: getStatus(item),
   status_verifikasi_tukar: getStatusVerifikasi(item),
   tanggal_verifikasi: firstValue(item, "tanggal_verifikasi"),
@@ -799,7 +805,19 @@ const TableTukarFaktur = ({
     },
 
     {
-      label: "Nominal",
+      label: "DPP",
+      icon: <FaFileInvoiceDollar />,
+    },
+    {
+      label: "PPN",
+      icon: <FaFileInvoiceDollar />,
+    },
+    {
+      label: "PPh",
+      icon: <FaFileInvoiceDollar />,
+    },
+    {
+      label: "Total Invoice",
       icon: <FaFileInvoiceDollar />,
     },
 
@@ -1716,29 +1734,24 @@ const TableTukarFaktur = ({
                           </td>
 
 
-                          {/* NOMINAL */}
+                          {/* DPP */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-gray-700">
+                            {formatCurrency(v.dpp)}
+                          </td>
 
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
+                          {/* PPN */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-blue-700">
+                            {formatCurrency(v.ppn)}
+                          </td>
 
-                            <span
-                              className="
-                                font-semibold
-                                text-gray-700
-                              "
-                            >
-                              {
-                                formatCurrency(
-                                  v.nominal
-                                )
-                              }
-                            </span>
+                          {/* PPH */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-purple-700">
+                            {formatCurrency(v.pph)}
+                          </td>
 
+                          {/* TOTAL INVOICE */}
+                          <td className="px-4 py-3 whitespace-nowrap text-right font-bold text-primary">
+                            {formatCurrency(v.total_invoice)}
                           </td>
 
 
@@ -2168,7 +2181,7 @@ const TableTukarFaktur = ({
                       <span className="text-sm font-bold text-primary whitespace-nowrap">
                         {formatCurrency(
                           selectedFakturList.reduce(
-                            (sum, item) => sum + Number(item.nominal || 0),
+                            (sum, item) => sum + getTotalInvoice(item),
                             0
                           )
                         )}
@@ -2219,11 +2232,23 @@ const TableTukarFaktur = ({
                               </div>
                             </div>
 
-                            <div className="text-left sm:text-right shrink-0">
-                              <p className="text-xs text-gray-500">Nominal</p>
-                              <p className="font-bold text-orange-700">
-                                {formatCurrency(faktur.nominal)}
-                              </p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-right shrink-0 sm:min-w-[260px]">
+                              <div>
+                                <p className="text-xs text-gray-500">DPP</p>
+                                <p className="text-sm font-semibold text-gray-700">{formatCurrency(faktur.dpp)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">PPN</p>
+                                <p className="text-sm font-semibold text-blue-700">{formatCurrency(faktur.ppn)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">PPh</p>
+                                <p className="text-sm font-semibold text-purple-700">{formatCurrency(faktur.pph)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">Total Invoice</p>
+                                <p className="text-sm font-bold text-primary">{formatCurrency(faktur.total_invoice)}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2469,7 +2494,10 @@ const TableTukarFaktur = ({
                   ["Customer", selectedFaktur.nama_customer],
                   ["Proses Retur", selectedFaktur.proses_retur],
                   ["Jatuh Tempo", formatDate(selectedFaktur.jatuh_tempo)],
-                  ["Nominal", formatCurrency(selectedFaktur.nominal)],
+                  ["DPP", formatCurrency(selectedFaktur.dpp)],
+                  ["PPN", formatCurrency(selectedFaktur.ppn)],
+                  ["PPh", formatCurrency(selectedFaktur.pph)],
+                  ["Total Invoice", formatCurrency(selectedFaktur.total_invoice)],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-start justify-between gap-4 pb-3 border-b">
                     <span className="text-sm text-gray-500">{label}</span>

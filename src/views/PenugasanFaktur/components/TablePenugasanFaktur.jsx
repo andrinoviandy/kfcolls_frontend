@@ -162,6 +162,12 @@ const normalizeRow = (item, index, page, perPage) => ({
   cabang: getCabang(item),
   document_date: getDocumentDate(item),
   jatuh_tempo: firstValue(item, "jatuh_tempo", "due_date") || null,
+  dpp: Number(firstValue(item, "dpp", "DPP") || 0),
+  ppn: Number(firstValue(item, "ppn", "PPN") || 0),
+  pph: Number(firstValue(item, "pph", "PPH") || 0),
+  total_invoice:
+    Number(firstValue(item, "dpp", "DPP") || 0) +
+    Number(firstValue(item, "ppn", "PPN") || 0),
   outstanding: Number(
     firstValue(item, "outstanding", "saldo_piutang", "saldo") || 0
   ),
@@ -547,7 +553,10 @@ const TablePenugasanFaktur = ({
     { label: "Cabang", icon: <FaBuilding /> },
     { label: "Document Date", icon: <FaCalendarAlt /> },
     { label: "Jatuh Tempo", icon: <FaCalendarAlt /> },
-    { label: "Outstanding", icon: <FaFileInvoiceDollar /> },
+    { label: "DPP", icon: <FaFileInvoiceDollar /> },
+    { label: "PPN", icon: <FaFileInvoiceDollar /> },
+    { label: "PPh", icon: <FaFileInvoiceDollar /> },
+    { label: "Total Invoice", icon: <FaFileInvoiceDollar /> },
     { label: "Petugas Tukar Faktur", icon: <FaExchangeAlt /> },
     { label: "Petugas Penagihan", icon: <FaRoute /> },
     // { label: "Status", icon: <FaCheckCircle /> },
@@ -768,6 +777,15 @@ const TablePenugasanFaktur = ({
               <FaExchangeAlt />
               Tukar Faktur ({selectedIds.length})
             </button>
+            <button
+              type="button"
+              onClick={() => openAssignment("tukar_faktur_penagihan")}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 shadow-md"
+            >
+              <FaExchangeAlt />
+              <FaRoute />
+              Tukar Faktur &amp; Penagihan ({selectedIds.length})
+            </button>
           </div>
         </div>
       )}
@@ -930,7 +948,16 @@ const TablePenugasanFaktur = ({
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-700">
-                          {formatRupiah(v.outstanding)}
+                          {formatRupiah(v.dpp)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-blue-600">
+                          {formatRupiah(v.ppn)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-purple-600">
+                          {formatRupiah(v.pph)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-800">
+                          {formatRupiah(v.total_invoice)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {v.tukar_faktur_nama ? (
@@ -1045,6 +1072,8 @@ const TablePenugasanFaktur = ({
                   <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
                     {selectedAction === "TUKAR_FAKTUR" ? (
                       <FaExchangeAlt />
+                    ) : selectedAction === "tukar_faktur_penagihan" ? (
+                      <span className="flex items-center gap-1"><FaExchangeAlt /><FaRoute /></span>
                     ) : (
                       <FaRoute />
                     )}
@@ -1053,7 +1082,9 @@ const TablePenugasanFaktur = ({
                     <h3 className="font-bold text-lg">
                       {selectedAction === "TUKAR_FAKTUR"
                         ? "Penugasan Tukar Faktur"
-                        : "Penugasan Penagihan"}
+                        : selectedAction === "tukar_faktur_penagihan"
+                          ? "Penugasan Tukar Faktur & Penagihan"
+                          : "Penugasan Penagihan"}
                     </h3>
                     <p className="text-xs text-white/70">
                       {selectedIds.length} faktur akan ditugaskan
@@ -1112,7 +1143,9 @@ const TablePenugasanFaktur = ({
                   <p className="text-sm font-semibold text-gray-700">
                     {selectedAction === "TUKAR_FAKTUR"
                       ? "Faktur untuk Tukar Faktur"
-                      : "Faktur untuk Penagihan"}
+                      : selectedAction === "tukar_faktur_penagihan"
+                        ? "Faktur untuk Tukar Faktur & Penagihan"
+                        : "Faktur untuk Penagihan"}
                   </p>
                   <span className="text-xs font-semibold text-primary bg-blue-50 px-2.5 py-1 rounded-full">
                     {selectedIds.length} Faktur
@@ -1159,12 +1192,16 @@ const TablePenugasanFaktur = ({
               >
                 {selectedAction === "TUKAR_FAKTUR" ? (
                   <FaExchangeAlt />
+                ) : selectedAction === "tukar_faktur_penagihan" ? (
+                  <span className="flex items-center gap-1"><FaExchangeAlt /><FaRoute /></span>
                 ) : (
                   <FaRoute />
                 )}
                 {selectedAction === "TUKAR_FAKTUR"
                   ? "Tugaskan Tukar Faktur"
-                  : "Tugaskan Penagihan"}
+                  : selectedAction === "tukar_faktur_penagihan"
+                    ? "Tugaskan Tukar Faktur & Penagihan"
+                    : "Tugaskan Penagihan"}
               </button>
             </div>
           </div>

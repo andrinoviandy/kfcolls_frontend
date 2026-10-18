@@ -885,6 +885,10 @@ const TableListKonfirmasiPiutang = ({
   );
 
 
+  // Email penerima dapat diubah user, baik email customer sudah tersedia maupun belum.
+  const [emailRecipient, setEmailRecipient] = useState("");
+
+
   const [
     isSendingConfirmation,
     setIsSendingConfirmation,
@@ -1003,7 +1007,13 @@ const TableListKonfirmasiPiutang = ({
           alamat: item?.alamat ?? item?.alamat_customer ?? "-",
           nama_penagih: item?.nama_penagih ?? item?.petugas ?? item?.nama_petugas ?? "-",
           nominal_piutang: Number(item?.dpp ?? item?.nominal_piutang ?? 0),
-          dpp: Number(item?.dpp ?? item?.nominal_piutang ?? 0),
+          dpp: Number(item?.dpp ?? item?.DPP ?? item?.nominal_piutang ?? 0),
+          ppn: Number(item?.ppn ?? item?.PPN ?? 0),
+          pph: Number(item?.pph ?? item?.PPH ?? 0),
+          total_invoice: Number(
+            item?.total_invoice ?? item?.total_tagihan ?? item?.nominal_invoice ??
+            (Number(item?.dpp ?? item?.DPP ?? item?.nominal_piutang ?? 0) + Number(item?.ppn ?? item?.PPN ?? 0))
+          ),
           status_pengiriman_konfirmasi: statusPengiriman,
           status_konfirmasi: normalizeStatusKonfirmasi(rawStatus),
           tgl_kirim_konfirmasi: tanggalKirim,
@@ -1164,14 +1174,13 @@ const TableListKonfirmasiPiutang = ({
       setSendData(
         item
       );
+      setEmailRecipient(String(item?.email_customer || ""));
 
-      setSendViaWhatsApp(
-        item.media_wa !== false
-      );
+      // Pengiriman WhatsApp dinonaktifkan sementara.
+      setSendViaWhatsApp(false);
 
-      setSendViaEmail(
-        item.media_email !== false
-      );
+      // Email harus dicentang manual setiap kali modal dibuka.
+      setSendViaEmail(false);
 
       setSendResult(
         null
@@ -1206,6 +1215,7 @@ const TableListKonfirmasiPiutang = ({
       setSendData(
         null
       );
+      setEmailRecipient("");
 
       setSendResult(
         null
@@ -1387,18 +1397,23 @@ const TableListKonfirmasiPiutang = ({
   const processSendConfirmation = async () => {
     if (!sendData || isSendingConfirmation) return;
 
-    if (!sendViaWhatsApp && !sendViaEmail) {
-      setSendResult({ type: "error", message: "Silakan pilih minimal satu media pengiriman." });
+    if (!sendViaEmail) {
+      setSendResult({ type: "error", message: "Centang pilihan Email terlebih dahulu sebelum mengirim konfirmasi." });
       return;
     }
 
-    if (sendViaWhatsApp && !sendData.no_wa_customer) {
-      setSendResult({ type: "error", message: "Nomor WhatsApp customer belum tersedia." });
+    // if (sendViaWhatsApp && !sendData.no_wa_customer) {
+    //   setSendResult({ type: "error", message: "Nomor WhatsApp customer belum tersedia." });
+    //   return;
+    // }
+
+    const recipientEmail = String(emailRecipient || "").trim();
+    if (sendViaEmail && !recipientEmail) {
+      setSendResult({ type: "error", message: "Email penerima wajib diisi." });
       return;
     }
-
-    if (sendViaEmail && !sendData.email_customer) {
-      setSendResult({ type: "error", message: "Email customer belum tersedia." });
+    if (sendViaEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      setSendResult({ type: "error", message: "Format email penerima tidak valid." });
       return;
     }
 
@@ -1415,10 +1430,10 @@ const TableListKonfirmasiPiutang = ({
         no_billing: sendData.no_billing ?? "",
         customer: sendData.customer ?? sendData.customer_id ?? "",
         nama_customer: sendData.nama_customer ?? "",
-        media_wa: Boolean(sendViaWhatsApp),
+        media_wa: false,
         media_email: Boolean(sendViaEmail),
         no_wa_customer: sendData.no_wa_customer ?? "",
-        email_customer: sendData.email_customer ?? "",
+        email_customer: recipientEmail,
       };
 
       const res = await storeSchema.actions.konfirmasiPiutang(payload);
@@ -1493,14 +1508,6 @@ const TableListKonfirmasiPiutang = ({
 
     {
       label:
-        "No. Faktur",
-
-      icon:
-        <FaFileInvoiceDollar />,
-    },
-
-    {
-      label:
         "No. Billing",
 
       icon:
@@ -1524,11 +1531,20 @@ const TableListKonfirmasiPiutang = ({
     },
 
     {
-      label:
-        "Nominal Piutang",
-
-      icon:
-        <FaMoneyBillWave />,
+      label: "DPP",
+      icon: <FaMoneyBillWave />,
+    },
+    {
+      label: "PPN",
+      icon: <FaMoneyBillWave />,
+    },
+    {
+      label: "PPh",
+      icon: <FaMoneyBillWave />,
+    },
+    {
+      label: "Total Invoice",
+      icon: <FaMoneyBillWave />,
     },
 
     {
@@ -2417,79 +2433,6 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* NO FAKTUR */}
-
-                            <td
-                              className="
-                                px-4
-                                py-2
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <div
-                                className="
-                                  flex
-                                  items-center
-                                  gap-2
-                                "
-                              >
-
-                                <div
-                                  className="
-                                    w-9
-                                    h-9
-                                    rounded-lg
-                                    bg-blue-50
-                                    flex
-                                    items-center
-                                    justify-center
-                                  "
-                                >
-
-                                  <FaFileInvoiceDollar
-                                    className="
-                                      text-primary
-                                    "
-                                  />
-
-                                </div>
-
-
-                                <div>
-
-                                  <span
-                                    className="
-                                      font-semibold
-                                      text-primary
-                                    "
-                                  >
-                                    {
-                                      v.no_faktur
-                                    }
-                                  </span>
-
-
-                                  <p
-                                    className="
-                                      text-xs
-                                      text-gray-400
-                                    "
-                                  >
-                                    ID:
-                                    {" "}
-                                    {
-                                      v.customer_id
-                                    }
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                            </td>
-
-
                             {/* NO BILLING */}
 
                             <td
@@ -2684,29 +2627,24 @@ const TableListKonfirmasiPiutang = ({
                             </td>
 
 
-                            {/* NOMINAL PIUTANG */}
+                            {/* DPP */}
+                            <td className="px-4 py-2 whitespace-nowrap font-semibold text-gray-700">
+                              {formatRupiah(v.dpp)}
+                            </td>
 
-                            <td
-                              className="
-                                px-4
-                                py-2
-                                whitespace-nowrap
-                              "
-                            >
+                            {/* PPN */}
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-700">
+                              {formatRupiah(v.ppn)}
+                            </td>
 
-                              <span
-                                className="
-                                  font-bold
-                                  text-gray-700
-                                "
-                              >
-                                {
-                                  formatRupiah(
-                                    v.dpp
-                                  )
-                                }
-                              </span>
+                            {/* PPH */}
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-700">
+                              {formatRupiah(v.pph)}
+                            </td>
 
+                            {/* TOTAL INVOICE */}
+                            <td className="px-4 py-2 whitespace-nowrap font-bold text-primary">
+                              {formatRupiah(v.total_invoice)}
                             </td>
 
 
@@ -3122,7 +3060,7 @@ const TableListKonfirmasiPiutang = ({
             className="
               fixed
               inset-0
-              z-[999]
+              z-[500]
               bg-black/40
               backdrop-blur-sm
               flex
@@ -3326,75 +3264,6 @@ const TableListKonfirmasiPiutang = ({
                   "
                 >
 
-                  {/* NO FAKTUR */}
-
-                  <div
-                    className="
-                      bg-blue-50
-                      border
-                      border-blue-100
-                      rounded-xl
-                      p-4
-                    "
-                  >
-
-                    <div
-                      className="
-                        flex
-                        items-center
-                        gap-3
-                      "
-                    >
-
-                      <div
-                        className="
-                          w-10
-                          h-10
-                          rounded-lg
-                          bg-white
-                          text-primary
-                          flex
-                          items-center
-                          justify-center
-                        "
-                      >
-
-                        <FaFileInvoiceDollar />
-
-                      </div>
-
-
-                      <div>
-
-                        <p
-                          className="
-                            text-xs
-                            text-gray-400
-                            mb-1
-                          "
-                        >
-                          No. Faktur
-                        </p>
-
-
-                        <p
-                          className="
-                            font-bold
-                            text-primary
-                          "
-                        >
-                          {
-                            selectedData.no_faktur
-                          }
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-
                   {/* NO BILLING */}
 
                   <div
@@ -3514,42 +3383,21 @@ const TableListKonfirmasiPiutang = ({
                   </div>
 
 
-                  {/* NOMINAL */}
-
-                  <div
-                    className="
-                      bg-gray-50
-                      border
-                      rounded-xl
-                      p-4
-                    "
-                  >
-
-                    <p
-                      className="
-                        text-xs
-                        text-gray-400
-                        mb-1
-                      "
-                    >
-                      Nominal Piutang
-                    </p>
-
-
-                    <p
-                      className="
-                        text-xl
-                        font-bold
-                        text-primary
-                      "
-                    >
-                      {
-                        formatRupiah(
-                          selectedData.dpp
-                        )
-                      }
-                    </p>
-
+                  {/* RINCIAN NOMINAL INVOICE */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "DPP", value: selectedData.dpp },
+                      { label: "PPN", value: selectedData.ppn },
+                      { label: "PPh", value: selectedData.pph },
+                      { label: "Total Invoice", value: selectedData.total_invoice, total: true },
+                    ].map((amount) => (
+                      <div key={amount.label} className={`bg-gray-50 border rounded-xl p-4 ${amount.total ? "border-primary/30" : ""}`}>
+                        <p className="text-xs text-gray-400 mb-1">{amount.label}</p>
+                        <p className={`text-lg font-bold ${amount.total ? "text-primary" : "text-gray-700"}`}>
+                          {formatRupiah(amount.value)}
+                        </p>
+                      </div>
+                    ))}
                   </div>
 
 
@@ -3995,7 +3843,7 @@ const TableListKonfirmasiPiutang = ({
             className="
     fixed
     inset-0
-    z-[9999]
+    z-[500]
     bg-black/50
     flex
     items-center
@@ -4238,42 +4086,7 @@ const TableListKonfirmasiPiutang = ({
 
                   <div
                     className="
-            border
-            border-blue-100
-            bg-blue-50
-            rounded-xl
-            p-3
-          "
-                  >
-
-                    <p
-                      className="
-              text-[11px]
-              text-gray-500
-            "
-                    >
-                      No. Faktur
-                    </p>
-
-
-                    <p
-                      className="
-              text-sm
-              font-bold
-              text-primary
-              mt-1
-            "
-                    >
-                      {
-                        sendData.no_faktur
-                      }
-                    </p>
-
-                  </div>
-
-
-                  <div
-                    className="
+            col-span-2
             border
             border-orange-100
             bg-orange-50
@@ -4309,42 +4122,20 @@ const TableListKonfirmasiPiutang = ({
                   </div>
 
 
-                  <div
-                    className="
-            col-span-2
-            border
-            border-gray-200
-            bg-white
-            rounded-xl
-            p-3
-          "
-                  >
-
-                    <p
-                      className="
-              text-[11px]
-              text-gray-500
-            "
-                    >
-                      Nominal Piutang
-                    </p>
-
-
-                    <p
-                      className="
-              text-lg
-              font-bold
-              text-gray-800
-              mt-1
-            "
-                    >
-                      {
-                        formatRupiah(
-                          sendData.dpp
-                        )
-                      }
-                    </p>
-
+                  <div className="col-span-2 grid grid-cols-2 gap-3">
+                    {[
+                      { label: "DPP", value: sendData.dpp },
+                      { label: "PPN", value: sendData.ppn },
+                      { label: "PPh", value: sendData.pph },
+                      { label: "Total Invoice", value: sendData.total_invoice, total: true },
+                    ].map((amount) => (
+                      <div key={amount.label} className={`border rounded-xl p-3 ${amount.total ? "border-primary/30 bg-blue-50" : "border-gray-200 bg-white"}`}>
+                        <p className="text-[11px] text-gray-500">{amount.label}</p>
+                        <p className={`text-base font-bold mt-1 ${amount.total ? "text-primary" : "text-gray-800"}`}>
+                          {formatRupiah(amount.value)}
+                        </p>
+                      </div>
+                    ))}
                   </div>
 
                 </div>
@@ -4365,6 +4156,9 @@ const TableListKonfirmasiPiutang = ({
           "
                   >
                     Kirim melalui
+                  </p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Pilih Email untuk mengaktifkan tombol Kirim Konfirmasi. Pengiriman WhatsApp sementara dinonaktifkan.
                   </p>
 
 
@@ -4497,7 +4291,7 @@ const TableListKonfirmasiPiutang = ({
                     {
                       sendData.media_email !== false && (
 
-                        <label
+                        <div
                           className={`
                   flex
                   items-center
@@ -4564,18 +4358,23 @@ const TableListKonfirmasiPiutang = ({
                               </p>
 
 
-                              <p
-                                className="
-                        text-xs
-                        text-gray-500
-                        truncate
-                      "
-                              >
-                                {
-                                  sendData.email_customer ||
-                                  "Email belum tersedia"
-                                }
+                              <p className="text-xs text-gray-500 mb-2">
+                                Email penerima (bisa diubah)
                               </p>
+                              <input
+                                type="email"
+                                value={emailRecipient}
+                                onChange={(e) => {
+                                  setEmailRecipient(e.target.value);
+                                  if (sendResult?.type === "error") setSendResult(null);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                                placeholder="Masukkan email penerima"
+                                className="input input-bordered input-sm w-full min-w-[220px] bg-white text-sm"
+                                disabled={isSendingConfirmation}
+                                autoComplete="email"
+                              />
 
                             </div>
 
@@ -4602,7 +4401,7 @@ const TableListKonfirmasiPiutang = ({
                             }
                           />
 
-                        </label>
+                        </div>
 
                       )
                     }
@@ -4778,7 +4577,7 @@ const TableListKonfirmasiPiutang = ({
                         processSendConfirmation
                       }
                       disabled={
-                        isSendingConfirmation
+                        isSendingConfirmation || !sendViaEmail
                       }
                       className="
               px-6
@@ -4789,7 +4588,8 @@ const TableListKonfirmasiPiutang = ({
               text-sm
               font-semibold
               hover:opacity-90
-              disabled:opacity-60
+              disabled:opacity-40
+              disabled:cursor-not-allowed
               inline-flex
               items-center
               gap-2

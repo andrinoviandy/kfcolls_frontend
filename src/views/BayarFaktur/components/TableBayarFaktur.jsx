@@ -152,8 +152,17 @@ const normalizeStatus = (item, saldoPiutang = 0, dpp = 0) => {
 
 const normalizeBayarFakturRow = (item, index, page = 1, limit = 10) => {
   const dpp = Number(item?.dpp || 0);
-  const collections = Number(item?.collections ?? item?.total_dibayar ?? 0);
-  const saldoPiutang = Number(item?.saldo_piutang ?? (dpp - collections));
+  const ppn = Number(item?.ppn || 0);
+  const totalInvoice = Number(
+    firstValue(item, "total_invoice", "total_tagihan", "nominal_invoice") ??
+    (dpp + ppn)
+  ) || 0;
+  const collectionsMenungguVerifikasi = Number(item?.collections_menunggu_verifikasi ?? 0) || 0;
+  const collectionsTidakTerverifikasi = Number(item?.collections_tidak_terverifikasi ?? 0) || 0;
+  const collectionsTerverifikasi = Number(item?.collections_terverifikasi ?? item?.collections ?? item?.total_dibayar ?? 0) || 0;
+  // Saldo piutang hanya dikurangi pembayaran yang sudah terverifikasi.
+  const collections = collectionsTerverifikasi;
+  const saldoPiutang = Math.max(0, totalInvoice - collectionsTerverifikasi);
   const status = normalizeStatus(item, saldoPiutang, dpp);
   const statusLunas = saldoPiutang <= 0 ? "SUDAH_LUNAS" : "BELUM_LUNAS";
   const statusLunasLabel = saldoPiutang <= 0 ? "Sudah Lunas" : "Belum Lunas";
@@ -174,7 +183,10 @@ const normalizeBayarFakturRow = (item, index, page = 1, limit = 10) => {
     principle: item?.principle || "",
     nama_principle: item?.nama_principle || "-",
     collections,
-    total_dibayar: collections,
+    collections_menunggu_verifikasi: collectionsMenungguVerifikasi,
+    collections_tidak_terverifikasi: collectionsTidakTerverifikasi,
+    collections_terverifikasi: collectionsTerverifikasi,
+    total_dibayar: collectionsTerverifikasi,
     saldo_piutang: saldoPiutang,
     sisa_tagihan: saldoPiutang,
     posting_date: item?.posting_date || null,
@@ -203,6 +215,7 @@ const getHistoryPembayaran = (item) => {
         : firstValue(row, "metode_pembayaran", "payment_method", "metode", "method") || "-";
       const statusVerifikasi = firstValue(row, "status_verifikasi", "verification_status", "status_verifikasi_pembayaran", "status") || "-";
       const tanggalVerifikasi = firstValue(row, "tanggal_verifikasi", "verification_date", "verified_at");
+      const keterangan = firstValue(row, "keterangan") || "-";
 
       result.push({
         id: row?.id ?? row?.pembayaran_id ?? `${source}-${index}`,
@@ -211,6 +224,7 @@ const getHistoryPembayaran = (item) => {
         metode,
         status_verifikasi: statusVerifikasi,
         tanggal_verifikasi: tanggalVerifikasi,
+        keterangan,
         source,
       });
     });
@@ -253,13 +267,28 @@ const getDisplayInvoiceAmounts = (item) => {
   const dpp = Number(item?.dpp || 0);
   const ppn = Number(item?.ppn || 0);
   const pph = Number(item?.pph || 0);
-  const totalInvoice = dpp + ppn;
+  // Gunakan nilai total invoice dari API bila tersedia; fallback DPP + PPN.
+  const totalInvoice = Number(
+    firstValue(item, "total_invoice", "total_tagihan", "nominal_invoice") ??
+    (dpp + ppn)
+  ) || 0;
+
+  const collectionsMenungguVerifikasi = Number(item?.collections_menunggu_verifikasi ?? 0) || 0;
+  const collectionsTidakTerverifikasi = Number(item?.collections_tidak_terverifikasi ?? 0) || 0;
+  const collectionsTerverifikasi = Number(item?.collections_terverifikasi ?? item?.collections ?? item?.total_dibayar ?? 0) || 0;
+  const collections = collectionsTerverifikasi;
+  const saldoPiutang = Math.max(0, totalInvoice - collectionsTerverifikasi);
 
   return {
     dpp,
     ppn,
     pph,
     totalInvoice,
+    collections,
+    collectionsMenungguVerifikasi,
+    collectionsTidakTerverifikasi,
+    collectionsTerverifikasi,
+    saldoPiutang,
   };
 };
 
@@ -377,7 +406,7 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const [allData, setAllData] = useState([]);
-  const [summaryData, setSummaryData] = useState({ total: 0, belum_dibayar: 0, partial: 0, menunggu_pembayaran: 0, sudah_dibayar: 0, total_nominal: 0, total_collections: 0, total_saldo_piutang: 0 });
+  const [summaryData, setSummaryData] = useState({ total_faktur: 0, belum_dibayar: 0, total_collections_menunggu_verifikasi: 0, total_collections_tidak_terverifikasi: 0, total_collections_terverifikasi: 0, total_saldo_piutang: 0 });
   const [totalData, setTotalData] = useState(0);
   const [totalPage, setTotalPage] = useState(0);
   const [keyword, setKeyword] = useState("");
@@ -570,13 +599,11 @@ const TableBayarFaktur = ({
       setTotalPage(Number(responseData?.total_halaman || Math.ceil(totalDataResponse / perPage) || 0));
       const summary = responseData?.summary || {};
       setSummaryData({
-        total: Number(summary?.total_faktur ?? summary?.total ?? totalDataResponse),
-        belum_dibayar: Number(summary?.belum_dibayar ?? summary?.belum ?? 0),
-        partial: Number(summary?.partial ?? summary?.partial_payment ?? 0),
-        menunggu_pembayaran: Number(summary?.menunggu_pembayaran ?? summary?.menunggu ?? 0),
-        sudah_dibayar: Number(summary?.sudah_dibayar ?? summary?.sudah ?? 0),
-        total_nominal: Number(summary?.total_dpp ?? 0),
-        total_collections: Number(summary?.total_collections ?? 0),
+        total_faktur: Number(summary?.total_faktur ?? totalDataResponse),
+        belum_dibayar: Number(summary?.belum_dibayar ?? 0),
+        total_collections_menunggu_verifikasi: Number(summary?.total_collections_menunggu_verifikasi ?? 0),
+        total_collections_tidak_terverifikasi: Number(summary?.total_collections_tidak_terverifikasi ?? 0),
+        total_collections_terverifikasi: Number(summary?.total_collections_terverifikasi ?? 0),
         total_saldo_piutang: Number(summary?.total_saldo_piutang ?? 0),
       });
     } catch (error) {
@@ -584,7 +611,7 @@ const TableBayarFaktur = ({
       setAllData([]);
       setTotalData(0);
       setTotalPage(0);
-      setSummaryData({ total: 0, belum_dibayar: 0, partial: 0, menunggu_pembayaran: 0, sudah_dibayar: 0, total_nominal: 0, total_collections: 0, total_saldo_piutang: 0 });
+      setSummaryData({ total_faktur: 0, belum_dibayar: 0, total_collections_menunggu_verifikasi: 0, total_collections_tidak_terverifikasi: 0, total_collections_terverifikasi: 0, total_saldo_piutang: 0 });
       await swal.error(error?.message || "Gagal mengambil data Bayar Faktur");
     } finally {
       setLoading(false);
@@ -2033,8 +2060,16 @@ const TableBayarFaktur = ({
       icon: <FaMoneyBillWave />,
     },
     {
-      label: "Collections",
-      icon: <FaMoneyBillWave />,
+      label: "Collections (Menunggu Verifikasi)",
+      icon: <FaClock />,
+    },
+    {
+      label: "Collections (Tidak Terverifikasi)",
+      icon: <FaTimes />,
+    },
+    {
+      label: "Collections (Terverifikasi)",
+      icon: <FaCheckCircle />,
     },
     {
       label: "Saldo Piutang",
@@ -2206,41 +2241,64 @@ const TableBayarFaktur = ({
       {/* ================================================= */}
       {/* SUMMARY */}
       {/* ================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-blue-50 p-4 border border-blue-100">
-          <div className="flex justify-between">
-            <div>
-              <p className="text-sm text-blue-700">Total Faktur</p>
-              <p className="text-2xl font-bold text-blue-900">{summaryData.total}</p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center"><FaClipboardList className="text-blue-600" /></div>
-          </div>
-        </div>
-        <div className="rounded-2xl bg-amber-50 p-4 border border-amber-100">
-          <div className="flex justify-between">
-            <div>
-              <p className="text-sm text-amber-700">Belum Dibayar</p>
-              <p className="text-2xl font-bold text-amber-900">{summaryData.belum_dibayar}</p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center"><FaClock className="text-amber-600" /></div>
-          </div>
-        </div>
-        <div className="rounded-2xl bg-orange-50 p-4 border border-orange-100">
-          <div className="flex justify-between">
-            <div>
-              <p className="text-sm text-orange-700">Partial Payment</p>
-              <p className="text-2xl font-bold text-orange-900">{summaryData.partial}</p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center"><FaCreditCard className="text-orange-600" /></div>
-          </div>
-        </div>
-        <div className="rounded-2xl bg-green-50 p-4 border border-green-100">
-          <div className="flex justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm text-green-700">Total Saldo Piutang</p>
-              <p className="text-xl font-bold text-green-900 truncate">{formatRupiah(summaryData.total_saldo_piutang ?? 0)}</p>
+              <p className="text-sm text-blue-700">Total Faktur</p>
+              <p className="text-2xl font-bold text-blue-900">{summaryData.total_faktur}</p>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center"><FaMoneyBillWave className="text-green-600" /></div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-100 flex items-center justify-center"><FaClipboardList className="text-blue-600" /></div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-amber-50 p-4 border border-amber-100">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-amber-700">Belum Dibayar</p>
+              <p className="text-2xl font-bold text-amber-900">{summaryData.belum_dibayar ?? 0}</p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center"><FaClock className="text-amber-600" /></div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-orange-50 p-4 border border-orange-100">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-orange-700">Collections (Menunggu Verifikasi)</p>
+              <p className="text-xl font-bold text-orange-900 truncate">{formatRupiah(summaryData.total_collections_menunggu_verifikasi ?? 0)}</p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-orange-100 flex items-center justify-center"><FaClock className="text-orange-600" /></div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-red-50 p-4 border border-red-100">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-red-700">Collections (Tidak Terverifikasi)</p>
+              <p className="text-xl font-bold text-red-900 truncate">{formatRupiah(summaryData.total_collections_tidak_terverifikasi ?? 0)}</p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-red-100 flex items-center justify-center"><FaTimes className="text-red-600" /></div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-green-50 p-4 border border-green-100">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-green-700">Collections (Terverifikasi)</p>
+              <p className="text-xl font-bold text-green-900 truncate">{formatRupiah(summaryData.total_collections_terverifikasi ?? 0)}</p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-green-100 flex items-center justify-center"><FaCheckCircle className="text-green-600" /></div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-indigo-50 p-4 border border-indigo-100">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-indigo-700">Total Saldo Piutang</p>
+              <p className="text-xl font-bold text-indigo-900 truncate">{formatRupiah(summaryData.total_saldo_piutang ?? 0)}</p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-indigo-100 flex items-center justify-center"><FaMoneyBillWave className="text-indigo-600" /></div>
           </div>
         </div>
       </div>
@@ -2390,11 +2448,26 @@ const TableBayarFaktur = ({
 
           <div
             className="
+              relative
               overflow-auto
               rounded-2xl
               max-h-[65vh]
             "
           >
+
+            {/* ============================================= */}
+            {/* LOADING DATA */}
+            {/* ============================================= */}
+            {loading && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="loading loading-spinner loading-lg text-primary" />
+                  <span className="text-sm text-gray-600">
+                    Memuat data faktur...
+                  </span>
+                </div>
+              </div>
+            )}
 
             <table
               className="
@@ -2887,16 +2960,26 @@ const TableBayarFaktur = ({
                               </td>
 
 
-                              {/* COLLECTIONS */}
-
+                              {/* COLLECTIONS MENUNGGU VERIFIKASI */}
                               <td className="px-4 py-3 whitespace-nowrap text-right">
-
-                                <span className="font-semibold text-green-600">
-                                  {formatRupiah(v.collections || 0)}
+                                <span className="font-semibold text-amber-600">
+                                  {formatRupiah(invoiceAmounts.collectionsMenungguVerifikasi)}
                                 </span>
-
                               </td>
 
+                              {/* COLLECTIONS TIDAK TERVERIFIKASI */}
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                <span className="font-semibold text-red-600">
+                                  {formatRupiah(invoiceAmounts.collectionsTidakTerverifikasi)}
+                                </span>
+                              </td>
+
+                              {/* COLLECTIONS TERVERIFIKASI */}
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                <span className="font-semibold text-green-600">
+                                  {formatRupiah(invoiceAmounts.collectionsTerverifikasi)}
+                                </span>
+                              </td>
 
                               {/* SALDO PIUTANG */}
 
@@ -3006,6 +3089,9 @@ const TableBayarFaktur = ({
                                               <th className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">
                                                 Tanggal Verifikasi
                                               </th>
+                                              <th className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">
+                                                Keterangan
+                                              </th>
                                             </tr>
                                           </thead>
                                           <tbody>
@@ -3047,6 +3133,9 @@ const TableBayarFaktur = ({
                                                   </td>
                                                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                                                     {history?.tanggal_verifikasi || "-"}
+                                                  </td>
+                                                  <td className="px-4 py-3 text-sm text-gray-700 min-w-[180px]">
+                                                    {history?.keterangan || "-"}
                                                   </td>
                                                 </tr>
                                               );
@@ -3623,10 +3712,9 @@ const TableBayarFaktur = ({
                           >
                             {
                               formatRupiah(
-                                paymentItems[0]
-                                  .sisa_tagihan ??
-                                paymentItems[0]
-                                  .nominal_tagihan
+                                getDisplayInvoiceAmounts(
+                                  paymentItems[0]
+                                ).saldoPiutang
                               )
                             }
                           </span>
@@ -3703,7 +3791,7 @@ const TableBayarFaktur = ({
                                           text-gray-400
                                         "
                                       >
-                                        Sisa Tagihan
+                                        Nominal Tagihan
                                       </p>
 
                                       <p
@@ -3714,8 +3802,7 @@ const TableBayarFaktur = ({
                                       >
                                         {
                                           formatRupiah(
-                                            item.sisa_tagihan ??
-                                            item.nominal_tagihan
+                                            getDisplayInvoiceAmounts(item).saldoPiutang
                                           )
                                         }
                                       </p>
@@ -4673,18 +4760,21 @@ const TableBayarFaktur = ({
                       >
                         {
                           paymentMethod ===
-                            "DIRECT_TRANSFER"
-                            ? "Direct Transfer"
+                            "PARTIAL_PAYMENT"
+                            ? "Partial Payment"
                             : paymentMethod ===
-                              "GIRO"
-                              ? "Giro"
+                              "DIRECT_TRANSFER"
+                              ? "Direct Transfer"
                               : paymentMethod ===
-                                "MENUNGGU_PEMBAYARAN"
-                                ? "Menunggu Pembayaran"
+                                "GIRO"
+                                ? "Giro"
                                 : paymentMethod ===
-                                  "SSP"
-                                  ? "Surat Setor Pajak"
-                                  : "Cash"
+                                  "MENUNGGU_PEMBAYARAN"
+                                  ? "Menunggu Pembayaran"
+                                  : paymentMethod ===
+                                    "SSP"
+                                    ? "Surat Setor Pajak"
+                                    : "Cash"
                         }
                       </span>
 

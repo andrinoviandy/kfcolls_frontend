@@ -801,6 +801,14 @@ const n2nPostService = {
       return error.response;
     }
   },
+  konfirmasiPiutang: async (data) => {
+    try {
+      const response = await api.post("/konfirmasiPiutang", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nPostService;

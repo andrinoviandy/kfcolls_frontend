@@ -1,5040 +1,663 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import XLSX from "xlsx-js-style";
 import {
-  FaChartBar,
-  FaClipboardList,
-  FaMoneyBillWave,
-  FaTruck,
+  FaBuilding,
+  FaCalendarAlt,
+  FaChevronDown,
+  FaChevronUp,
   FaCheckCircle,
   FaClock,
-  FaTimesCircle,
-  FaHashtag,
-  FaFileInvoiceDollar,
-  FaBuilding,
-  FaStore,
-  FaUser,
-  FaCalendarAlt,
-  FaRoute,
-  FaCreditCard,
   FaEye,
-  FaFilter,
-  FaTimes,
-  FaFileAlt,
+  FaExclamationCircle,
   FaFileExcel,
+  FaFileInvoiceDollar,
+  FaFilter,
+  FaSearch,
+  FaStore,
+  FaSpinner,
+  FaSyncAlt,
+  FaTimes,
+  FaUser,
 } from "react-icons/fa";
-
-import {
-  IoSearch,
-} from "react-icons/io5";
-
-import ReactPaginate
-  from "react-paginate";
-
-
-// =====================================================
-// FORMAT DATE
-// =====================================================
-
-const formatDate = (
-  date
-) => {
-
-  if (!date) {
-    return "-";
-  }
-
-  return new Date(
-    date
-  ).toLocaleDateString(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
-
-};
-
-
-// =====================================================
-// UMUR PIUTANG
-// =====================================================
-// Umur piutang dihitung dari tanggal faktur sampai hari ini.
-const getUmurPiutang = (tanggalFaktur) => {
-  if (!tanggalFaktur) return 0;
-
-  const tanggal = new Date(tanggalFaktur);
-  if (Number.isNaN(tanggal.getTime())) return 0;
-
-  const today = new Date();
-
-  // Normalisasi waktu agar perhitungan berdasarkan hari kalender.
-  tanggal.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-
-  const diffTime = today.getTime() - tanggal.getTime();
-  return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-};
-
-
-// =====================================================
-// DETAIL NILAI PIUTANG
-// =====================================================
-// Asumsi:
-// - item.nominal = DPP/Komersil apabila backend belum
-//   mengirim field DPP/Komersil secara terpisah.
-// - PPN = DPP x 11%.
-// - PPh = DPP x 1,5%.
-// - Pembayaran mengambil field pencairan/pembayaran/
-//   dibayar/sudah_dibayar jika tersedia.
-// - Outstanding mengambil field outstanding jika tersedia,
-//   jika tidak maka dihitung dari DPP - pembayaran.
-//
-// Jika backend sudah mengirim field dpp/komersil,
-// pencairan/pembayaran, atau outstanding, helper ini
-// otomatis menggunakan field tersebut.
-// =====================================================
-
-const firstNumber = (...values) => {
-  for (const value of values) {
-    if (
-      value !== null &&
-      value !== undefined &&
-      value !== "" &&
-      !Number.isNaN(Number(value))
-    ) {
-      return Number(value);
-    }
-  }
-
-  return 0;
-};
-
-const getDppKomersil = (item) => {
-  return firstNumber(
-    item?.dpp,
-    item?.DPP,
-    item?.dpp_komersil,
-    item?.dpp_komersil_amount,
-    item?.komersil,
-    item?.nilai_komersil,
-    item?.nominal
-  );
-};
-
-const getPpn = (item) => {
-  const dpp = getDppKomersil(item);
-  return dpp * 0.11;
-};
-
-const getPph = (item) => {
-  const dpp = getDppKomersil(item);
-  return dpp * 0.015;
-};
-
-const getPembayaran = (item) => {
-  const explicitPayment = firstNumber(
-    item?.pencairan,
-    item?.pembayaran,
-    item?.payment,
-    item?.dibayar,
-    item?.sudah_dibayar
-  );
-
-  // Jika backend belum mengirim nominal pembayaran,
-  // status DITERIMA dianggap sudah membayar penuh.
-  if (
-    explicitPayment === 0 &&
-    item?.status_pembayaran === "DITERIMA"
-  ) {
-    return getDppKomersil(item);
-  }
-
-  return explicitPayment;
-};
-
-const getOutstanding = (item) => {
-  if (
-    item?.outstanding !== null &&
-    item?.outstanding !== undefined &&
-    item?.outstanding !== ""
-  ) {
-    return firstNumber(item.outstanding);
-  }
-
-  return Math.max(
-    0,
-    getDppKomersil(item) - getPembayaran(item)
-  );
-};
-
-const getKeteranganPiutang = (item) => {
-  const outstanding = Number(getOutstanding(item) || 0);
-  const ppn = Number(getPpn(item) || 0);
-  const pph = Number(getPph(item) || 0);
-
-  // Jangan memberikan keterangan pajak jika outstanding = 0.
-  // Outstanding 0 berarti tidak ada sisa piutang.
-  if (outstanding <= 0) {
-    return "Sisa Piutang";
-  }
-
-  // Bandingkan nilai setelah pembulatan ke rupiah penuh.
-  // Jadi misalnya 11.000.000 dan 11.000.000,00 tetap dianggap sama.
-  const sisa = Math.round(outstanding);
-  const nilaiPPN = Math.round(ppn);
-  const nilaiPPh = Math.round(pph);
-
-  // PRIORITAS 1: Outstanding sama dengan PPN
-  if (sisa === nilaiPPN) {
-    return "Sisa PPN";
-  }
-
-  // PRIORITAS 2: Outstanding sama dengan PPh
-  if (sisa === nilaiPPh) {
-    return "Sisa PPh";
-  }
-
-  // Selain nilai PPN dan PPh
-  return "Sisa Piutang";
-};
-
-const getDetailNilaiPiutang = (item) => {
-  const dpp = getDppKomersil(item);
-  const ppn = getPpn(item);
-  const pph = getPph(item);
-  const pembayaran = getPembayaran(item);
-  const outstanding = getOutstanding(item);
-
-  return {
-    dpp,
-    ppn,
-    pph,
-    pembayaran,
-    outstanding,
-    keterangan: getKeteranganPiutang(item),
-  };
-};
-
-
-// =====================================================
-// FORMAT CURRENCY
-// =====================================================
-
-const formatRupiah = (
-  value
-) => {
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
-
-    return "Rp0";
-
-  }
-
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style:
-        "currency",
-      currency:
-        "IDR",
-      minimumFractionDigits:
-        0,
-    }
-  ).format(
-    value
-  );
-
-};
-
-
-// =====================================================
-// DUMMY DATA
-// =====================================================
-
-const dummyData = [
-
-  {
-    id: 1,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00001",
-
-    no_tagihan:
-      "2806205873",
-
-    customer:
-      "Dinas Kesehatan Kota Medan",
-
-    cabang:
-      "KFTD MEDAN",
-
-    kolektor:
-      "Andri Noviandy",
-
-    nominal:
-      140000000,
-
-    // Dummy: Outstanding = PPN (11% DPP)
-    dpp:
-      140000000,
-
-    pencairan:
-      124600000,
-
-    outstanding:
-      15400000,
-
-    tanggal_faktur:
-      "2026-08-01",
-
-    jatuh_tempo:
-      "2026-08-22",
-
-    tanggal_penugasan:
-      "2026-08-02",
-
-    tanggal_pengantaran:
-      "2026-08-04",
-
-    tanggal_pembayaran:
-      "2026-08-10",
-
-    metode_pembayaran:
-      "GIRO",
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "DITERIMA",
-
-  },
-
-
-  {
-    id: 2,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00002",
-
-    no_tagihan:
-      "2806205852",
-
-    customer:
-      "Apotek Maju Djaya",
-
-    cabang:
-      "KFTD MEDAN",
-
-    kolektor:
-      "Budi Santoso",
-
-    nominal:
-      85000000,
-
-    // Dummy: Outstanding = PPh (1,5% DPP)
-    dpp:
-      85000000,
-
-    pencairan:
-      83725000,
-
-    outstanding:
-      1275000,
-
-    tanggal_faktur:
-      "2026-08-02",
-
-    jatuh_tempo:
-      "2026-08-25",
-
-    tanggal_penugasan:
-      "2026-08-03",
-
-    tanggal_pengantaran:
-      "2026-08-05",
-
-    tanggal_pembayaran:
-      "2026-08-11",
-
-    metode_pembayaran:
-      "DIRECT_TRANSFER",
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "DITERIMA",
-
-  },
-
-
-  {
-    id: 3,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00003",
-
-    no_tagihan:
-      "2806205863",
-
-    customer:
-      "Apotek Rusli",
-
-    cabang:
-      "KFTD MEDAN",
-
-    kolektor:
-      "Citra Lestari",
-
-    nominal:
-      140000000,
-
-    // Dummy: Outstanding bukan PPN dan bukan PPh
-    dpp:
-      140000000,
-
-    pencairan:
-      120000000,
-
-    outstanding:
-      20000000,
-
-    tanggal_faktur:
-      "2026-08-03",
-
-    jatuh_tempo:
-      "2026-08-27",
-
-    tanggal_penugasan:
-      "2026-08-04",
-
-    tanggal_pengantaran:
-      null,
-
-    tanggal_pembayaran:
-      null,
-
-    metode_pembayaran:
-      null,
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "BELUM_DIANTAR",
-
-    status_pembayaran:
-      "BELUM_DIBAYAR",
-
-  },
-
-
-  {
-    id: 4,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00004",
-
-    no_tagihan:
-      "2806275806",
-
-    customer:
-      "RSUD Pasuruan",
-
-    cabang:
-      "KFTD PASURUAN",
-
-    kolektor:
-      "Dimas Pratama",
-
-    nominal:
-      175000000,
-
-    tanggal_faktur:
-      "2026-08-04",
-
-    jatuh_tempo:
-      "2026-08-29",
-
-    tanggal_penugasan:
-      "2026-08-05",
-
-    tanggal_pengantaran:
-      "2026-08-07",
-
-    tanggal_pembayaran:
-      "2026-08-12",
-
-    metode_pembayaran:
-      "CASH",
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "DITOLAK",
-
-  },
-
-
-  {
-    id: 5,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00005",
-
-    no_tagihan:
-      "2806205662",
-
-    customer:
-      "RS Hermina Medan",
-
-    cabang:
-      "KFTD MEDAN",
-
-    kolektor:
-      "Eko Saputra",
-
-    nominal:
-      95000000,
-
-    tanggal_faktur:
-      "2026-08-05",
-
-    jatuh_tempo:
-      "2026-08-30",
-
-    tanggal_penugasan:
-      "2026-08-06",
-
-    tanggal_pengantaran:
-      null,
-
-    tanggal_pembayaran:
-      null,
-
-    metode_pembayaran:
-      null,
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "BELUM_DIANTAR",
-
-    status_pembayaran:
-      "BELUM_DIBAYAR",
-
-  },
-
-
-  {
-    id: 6,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00006",
-
-    no_tagihan:
-      "2806205788",
-
-    customer:
-      "Apotek Sehat Sentosa",
-
-    cabang:
-      "KFTD JAKARTA",
-
-    kolektor:
-      "Fajar Hidayat",
-
-    nominal:
-      65000000,
-
-    tanggal_faktur:
-      "2026-08-06",
-
-    jatuh_tempo:
-      "2026-09-01",
-
-    tanggal_penugasan:
-      "2026-08-07",
-
-    tanggal_pengantaran:
-      "2026-08-09",
-
-    tanggal_pembayaran:
-      "2026-08-13",
-
-    metode_pembayaran:
-      "SURAT_SETOR_PAJAK",
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "DITERIMA",
-
-  },
-
-
-  {
-    id: 7,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00007",
-
-    no_tagihan:
-      "2806205791",
-
-    customer:
-      "Klinik Medika Utama",
-
-    cabang:
-      "KFTD JAKARTA",
-
-    kolektor:
-      "Gilang Ramadhan",
-
-    nominal:
-      72500000,
-
-    tanggal_faktur:
-      "2026-08-07",
-
-    jatuh_tempo:
-      "2026-09-03",
-
-    tanggal_penugasan:
-      "2026-08-08",
-
-    tanggal_pengantaran:
-      "2026-08-10",
-
-    tanggal_pembayaran:
-      null,
-
-    metode_pembayaran:
-      null,
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "BELUM_DIBAYAR",
-
-  },
-
-
-  {
-    id: 8,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00008",
-
-    no_tagihan:
-      "2806205812",
-
-    customer:
-      "RS Siloam Medan",
-
-    cabang:
-      "KFTD MEDAN",
-
-    kolektor:
-      "Andri Noviandy",
-
-    nominal:
-      210000000,
-
-    tanggal_faktur:
-      "2026-08-08",
-
-    jatuh_tempo:
-      "2026-09-05",
-
-    tanggal_penugasan:
-      "2026-08-09",
-
-    tanggal_pengantaran:
-      null,
-
-    tanggal_pembayaran:
-      null,
-
-    metode_pembayaran:
-      null,
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "BELUM_DIANTAR",
-
-    status_pembayaran:
-      "BELUM_DIBAYAR",
-
-  },
-
-
-  {
-    id: 9,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00009",
-
-    no_tagihan:
-      "2806205821",
-
-    customer:
-      "Dinas Kesehatan Deli Serdang",
-
-    cabang:
-      "KFTD MEDAN",
-
-    kolektor:
-      "Budi Santoso",
-
-    nominal:
-      125000000,
-
-    tanggal_faktur:
-      "2026-08-09",
-
-    jatuh_tempo:
-      "2026-09-07",
-
-    tanggal_penugasan:
-      "2026-08-10",
-
-    tanggal_pengantaran:
-      "2026-08-12",
-
-    tanggal_pembayaran:
-      "2026-08-14",
-
-    metode_pembayaran:
-      "DIRECT_TRANSFER",
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "MENUNGGU_VERIFIKASI",
-
-  },
-
-
-  {
-    id: 10,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00010",
-
-    no_tagihan:
-      "2806205830",
-
-    customer:
-      "Apotek Kimia Sehat",
-
-    cabang:
-      "KFTD JAKARTA",
-
-    kolektor:
-      "Eko Saputra",
-
-    nominal:
-      45000000,
-
-    tanggal_faktur:
-      "2026-08-10",
-
-    jatuh_tempo:
-      "2026-09-10",
-
-    tanggal_penugasan:
-      "2026-08-11",
-
-    tanggal_pengantaran:
-      "2026-08-13",
-
-    tanggal_pembayaran:
-      "2026-08-15",
-
-    metode_pembayaran:
-      "GIRO",
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "DITERIMA",
-
-  },
-
-
-  {
-    id: 11,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00011",
-
-    no_tagihan:
-      "2806205844",
-
-    customer:
-      "RSUD Kota Bogor",
-
-    cabang:
-      "KFTD BOGOR",
-
-    kolektor:
-      "Fajar Hidayat",
-
-    nominal:
-      185000000,
-
-    tanggal_faktur:
-      "2026-08-11",
-
-    jatuh_tempo:
-      "2026-09-12",
-
-    tanggal_penugasan:
-      null,
-
-    tanggal_pengantaran:
-      null,
-
-    tanggal_pembayaran:
-      null,
-
-    metode_pembayaran:
-      null,
-
-    status_penugasan:
-      "BELUM_DITUGASKAN",
-
-    status_pengantaran:
-      "BELUM_DIANTAR",
-
-    status_pembayaran:
-      "BELUM_DIBAYAR",
-
-  },
-
-
-  {
-    id: 12,
-
-    periode:
-      "2026-08",
-
-    no_faktur:
-      "INV-2026-00012",
-
-    no_tagihan:
-      "2806205855",
-
-    customer:
-      "Apotek Berkah Farma",
-
-    cabang:
-      "KFTD BOGOR",
-
-    kolektor:
-      "Gilang Ramadhan",
-
-    nominal:
-      55000000,
-
-    tanggal_faktur:
-      "2026-08-12",
-
-    jatuh_tempo:
-      "2026-09-15",
-
-    tanggal_penugasan:
-      "2026-08-13",
-
-    tanggal_pengantaran:
-      "2026-08-15",
-
-    tanggal_pembayaran:
-      null,
-
-    metode_pembayaran:
-      null,
-
-    status_penugasan:
-      "DITUGASKAN",
-
-    status_pengantaran:
-      "SUDAH_DIANTAR",
-
-    status_pembayaran:
-      "BELUM_DIBAYAR",
-
-  },
-
+import ReactPaginate from "react-paginate";
+import Select, { components as selectComponents } from "react-select";
+import { swal } from "global/helper/swal";
+import storeSchema from "global/store";
+
+const penjualanDetailColumns = [
+  { key: "Sales Office", label: "Profit Center" },
+  { key: "Desc. S.Office", label: "Profit Center Desc" },
+  { key: "Document Date", label: "Document Date", type: "date" },
+  { key: "Tanggal Jatuh Tempo", label: "Tanggal Jatuh Tempo", type: "date" },
+  { key: "Billing No", label: "Billing No" },
+  { key: "Bill to party", label: "Bill to Party" },
+  { key: "Name Bill to", label: "Customer" },
+  { key: "Address", label: "Address" },
+  { key: "Material", label: "Material" },
+  { key: "Text Material", label: "Text Material" },
+  { key: "Material Group 1", label: "Material Group" },
+  { key: "Desc Material Group 1", label: "Desc. Material Group" },
+  { key: "Quantity", label: "Quantity", type: "number" },
+  { key: "Sales Unit", label: "Sales Unit" },
+  { key: "Unit Price Penjualan", label: "Harga Jual", type: "currency" },
+  { key: "Total Discount", label: "Total Discount", type: "currency" },
+  { key: "Total Penjualan", label: "DPP", type: "currency" },
+  { key: "Tax Amount", label: "PPN", type: "currency" },
+  { key: "PPh", label: "PPh", type: "currency" },
+  { key: "Total COGS", label: "Total COGS", type: "currency" },
+  { key: "Persentase COGS", label: "Persentase COGS", type: "percent" },
+  { key: "Margin", label: "Margin", type: "currency" },
+  { key: "Persentase Margin", label: "Persentase Margin", type: "percent" },
+  { key: "Principle", label: "Principle" },
+  { key: "Name Principle", label: "Nama Principle" },
+  { key: "Desc. Cust. Grp4", label: "Lini" },
+  { key: "TOP", label: "TOP", type: "top" },
+  { key: "Salesman", label: "Salesman" },
+  { key: "Name Salesman", label: "Nama Salesman" },
+  { key: "PO Number", label: "PO Number" },
+  { key: "Quotation Number", label: "Quotation Number" },
 ];
 
+const normalizePenjualanDetail = (item) => ({
+  ...item,
+  "Sales Office": item?.sales_office,
+  "Desc. S.Office": item?.desc_s_office,
+  "Document Date": item?.document_date || item?.documentDate || item?.doc_date || item?.tanggal_dokumen || item?.DOCUMENT_DATE || item?.posting_date,
+  "Posting Date": item?.posting_date || item?.postingDate || item?.tanggal_posting,
+  "Billing No": item?.billing_no || item?.no_billing,
+  "TOP": item?.["TOP"] ?? item?.top ?? item?.top_days ?? item?.term_of_payment,
+  "Tanggal Jatuh Tempo": item?.tanggal_jatuh_tempo || item?.jatuh_tempo,
+  "Bill to party": item?.bill_to_party,
+  "Name Bill to": item?.name_bill_to,
+  "Address": item?.address,
+  "Material": item?.material,
+  "Material Group 1": item?.material_group_1,
+  "Desc Material Group 1": item?.desc_material_group_1,
+  "Text Material": item?.text_material,
+  "Quantity": item?.quantity,
+  "Sales Unit": item?.sales_unit,
+  "Unit Price Penjualan": item?.unit_price_penjualan,
+  "Dis% (ZD01)": item?.dis_pct_zd01,
+  "DisAmt (ZD01)": item?.dis_amt_zd01,
+  "Dis% (ZD02)": item?.dis_pct_zd02,
+  "DisAmt (ZD02)": item?.dis_amt_zd02,
+  "Dis% (ZD03)": item?.dis_pct_zd03,
+  "DisAmt (ZD03)": item?.dis_amt_zd03,
+  "Dis% (ZD04)": item?.dis_pct_zd04,
+  "DisAmt (ZD04)": item?.dis_amt_zd04,
+  "Dis% (ZD05)": item?.dis_pct_zd05,
+  "DisAmt (ZD05)": item?.dis_amt_zd05,
+  "Dis% (ZD06)": item?.dis_pct_zd06,
+  "DisAmt (ZD06)": item?.dis_amt_zd06,
+  "Disc. Upfront % (ZD07)": item?.disc_upfront_pct_zd07,
+  "Disc. Upfront Amt (ZD07)": item?.disc_upfront_amt_zd07,
+  "Disc. Beban KFTD Upf % (ZD08)": item?.disc_beban_kftd_upf_pct_zd08,
+  "Disc. Beban KFTD Upf Amt (ZD08)": item?.disc_beban_kftd_upf_amt_zd08,
+  "Disc. Beban Principle Upf % (ZD09)": item?.disc_beban_principle_upf_pct_zd09,
+  "Disc. Beban Principle Upf Amt (ZD09)": item?.disc_beban_principle_upf_amt_zd09,
+  "Disc. Pengembalian Upf % (ZD10)": item?.disc_pengembalian_upf_pct_zd10,
+  "Disc. Pengembalian Upf Amt (ZD10)": item?.disc_pengembalian_upf_amt_zd10,
+  "Dis% (ZD12)": item?.dis_pct_zd12,
+  "DisAmt (ZD12)": item?.dis_amt_zd12,
+  "Dis% (ZD14)": item?.dis_pct_zd14,
+  "DisAmt (ZD14)": item?.dis_amt_zd14,
+  "Dis% (ZD15)": item?.dis_pct_zd15,
+  "DisAmt (ZD15)": item?.dis_amt_zd15,
+  "Total Discount": item?.total_discount,
+  "Total Penjualan": item?.total_penjualan ?? item?.total_penjualan_neto ?? item?.dpp,
+  "Tax Amount": item?.tax_amount ?? item?.ppn,
+  "PPh": item?.pph,
+  "Total COGS": item?.total_cogs,
+  "Persentase COGS": item?.persentase_cogs,
+  "Margin": item?.margin,
+  "Persentase Margin": item?.persentase_margin,
+  "Principle": item?.principle,
+  "Name Principle": item?.name_principle,
+  "Desc. Cust. Grp4": item?.desc_cust_grp4,
+  "Salesman": item?.salesman,
+  "Name Salesman": item?.name_salesman,
+  "PO Number": item?.po_number,
+  "Quotation Number": item?.quotation_number,
+});
 
-// =====================================================
-// STATUS
-// =====================================================
 
-const statusPembayaranConfig = {
-
-  BELUM_DIBAYAR: {
-
-    label:
-      "Belum Dibayar",
-
-    icon:
-      FaClock,
-
-    className:
-      "bg-amber-100 text-amber-700",
-
-  },
-
-  MENUNGGU_VERIFIKASI: {
-
-    label:
-      "Menunggu Verifikasi",
-
-    icon:
-      FaClock,
-
-    className:
-      "bg-blue-100 text-blue-700",
-
-  },
-
-  DITERIMA: {
-
-    label:
-      "Pembayaran Diterima",
-
-    icon:
-      FaCheckCircle,
-
-    className:
-      "bg-green-100 text-green-700",
-
-  },
-
-  DITOLAK: {
-
-    label:
-      "Pembayaran Ditolak",
-
-    icon:
-      FaTimesCircle,
-
-    className:
-      "bg-red-100 text-red-700",
-
-  },
-
+const FilterOption = (props) => (
+  <selectComponents.Option {...props}>
+    <input type="checkbox" checked={props.isSelected} readOnly className="checkbox checkbox-primary checkbox-xs mr-2" />
+    {props.label}
+  </selectComponents.Option>
+);
+const FilterMultiValue = () => null;
+const FilterValueContainer = ({ children, ...props }) => {
+  const selectedCount = props.getValue().length;
+  return (
+    <selectComponents.ValueContainer {...props}>
+      {selectedCount > 0 ? `${selectedCount} dipilih` : children[0]}
+      {children[1]}
+    </selectComponents.ValueContainer>
+  );
+};
+const filterSelectComponents = { Option: FilterOption, MultiValue: FilterMultiValue, ValueContainer: FilterValueContainer };
+const filterSelectStyles = {
+  control: (base, state) => ({ ...base, minHeight: 36, borderRadius: 9999, borderColor: state.isFocused ? "#2563eb" : "#d1d5db", boxShadow: "none", fontSize: "0.875rem", ":hover": { borderColor: "#2563eb" } }),
+  valueContainer: (base) => ({ ...base, padding: "0 10px" }),
+  indicatorsContainer: (base) => ({ ...base, height: 36 }),
+  menu: (base) => ({ ...base, zIndex: 50 }),
+};
+const getSelectedFilterOptions = (options, selectedValues) => options.filter((option) => selectedValues.includes(option.value));
+const formatNumber = (value) => {
+  if (value === null || value === undefined || value === "") return "0";
+  return new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(Number(value) || 0);
+};
+const addDaysToDate = (dateValue, days) => {
+  if (!dateValue || days === null || days === undefined || days === "") return null;
+  const rawDate = String(dateValue).trim();
+  const match = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(dateValue);
+  const parsedDays = Number(String(days).match(/-?\d+(?:[.,]\d+)?/)?.[0]?.replace(",", "."));
+  if (Number.isNaN(date.getTime()) || !Number.isFinite(parsedDays)) return null;
+  date.setDate(date.getDate() + parsedDays);
+  return date;
+};
+const getTanggalJatuhTempoPenjualan = (item) => {
+  const postingDate = item?.["Posting Date"] || item?.posting_date || item?.postingDate || item?.tanggal_posting;
+  const top = item?.TOP ?? item?.top ?? item?.top_days ?? item?.term_of_payment;
+  return addDaysToDate(postingDate, top);
+};
+const formatTOP = (value) => {
+  if (value === null || value === undefined || value === "") return "-";
+  const parsed = String(value).match(/-?\d+(?:[.,]\d+)?/);
+  return parsed ? `${formatNumber(Number(parsed[0].replace(",", ".")))} Hari` : value;
 };
 
-
-// =====================================================
-// COMPONENT
-// =====================================================
-
-const TableLaporan = ({
-  dimensionScreenW,
-  check,
-  loginAccess,
-}) => {
-
-  // ===================================================
-  // STATE
-  // ===================================================
-
-  const [
-    allData,
-    setAllData,
-  ] = useState(
-    dummyData
-  );
-
-
-  const [
-    keyword,
-    setKeyword,
-  ] = useState(
-    ""
-  );
-
-
-  const [
-    selectedPeriode,
-    setSelectedPeriode,
-  ] = useState(
-    "ALL"
-  );
-
-
-  const [
-    selectedCabang,
-    setSelectedCabang,
-  ] = useState(
-    "ALL"
-  );
-
-
-  const [
-    selectedKolektor,
-    setSelectedKolektor,
-  ] = useState(
-    "ALL"
-  );
-
-
-  const [
-    selectedStatusPembayaran,
-    setSelectedStatusPembayaran,
-  ] = useState(
-    "ALL"
-  );
-
-
-  const [
-    currentPage,
-    setCurrentPage,
-  ] = useState(
-    1
-  );
-
-
-  const [
-    perPage,
-    setPerPage,
-  ] = useState(
-    10
-  );
-
-
-  const [
-    showFilter,
-    setShowFilter,
-  ] = useState(
-    false
-  );
-
-
-  const [
-    selectedData,
-    setSelectedData,
-  ] = useState(
-    null
-  );
-
-
-  // ===================================================
-  // FILTER OPTIONS
-  // ===================================================
-
-  const periodeOptions =
-    [
-      "ALL",
-      ...new Set(
-        allData.map(
-          item =>
-            item.periode
-        )
-      ),
-    ];
-
-
-  const cabangOptions =
-    [
-      "ALL",
-      ...new Set(
-        allData.map(
-          item =>
-            item.cabang
-        )
-      ),
-    ];
-
-
-  const kolektorOptions =
-    [
-      "ALL",
-      ...new Set(
-        allData.map(
-          item =>
-            item.kolektor
-        )
-      ),
-    ];
-
-
-  // ===================================================
-  // FILTER DATA
-  // ===================================================
-
-  const filteredData =
-    useMemo(
-      () => {
-
-        let data =
-          [
-            ...allData,
-          ];
-
-
-        // SEARCH
-
-        if (
-          keyword.trim()
-        ) {
-
-          const search =
-            keyword
-              .toLowerCase();
-
-
-          data =
-            data.filter(
-              item =>
-
-                item.no_faktur
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.no_tagihan
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.customer
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.cabang
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-                ||
-
-                item.kolektor
-                  ?.toLowerCase()
-                  .includes(
-                    search
-                  )
-
-            );
-
-        }
-
-
-        // PERIODE
-
-        if (
-          selectedPeriode !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.periode ===
-                selectedPeriode
-            );
-
-        }
-
-
-        // CABANG
-
-        if (
-          selectedCabang !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.cabang ===
-                selectedCabang
-            );
-
-        }
-
-
-        // KOLEKTOR
-
-        if (
-          selectedKolektor !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.kolektor ===
-                selectedKolektor
-            );
-
-        }
-
-
-        // STATUS PEMBAYARAN
-
-        if (
-          selectedStatusPembayaran !==
-          "ALL"
-        ) {
-
-          data =
-            data.filter(
-              item =>
-                item.status_pembayaran ===
-                selectedStatusPembayaran
-            );
-
-        }
-
-
-        return data;
-
-      },
-      [
-        allData,
-        keyword,
-        selectedPeriode,
-        selectedCabang,
-        selectedKolektor,
-        selectedStatusPembayaran,
-      ]
-    );
-
-
-  // ===================================================
-  // SUMMARY
-  // ===================================================
-
-  const summaryData =
-    useMemo(
-      () => {
-
-        const total =
-          filteredData.length;
-
-
-        const totalNominal =
-          filteredData.reduce(
-            (
-              sum,
-              item
-            ) =>
-              sum +
-              item.nominal,
-            0
-          );
-
-
-        const sudahDiantar =
-          filteredData.filter(
-            item =>
-              item.status_pengantaran ===
-              "SUDAH_DIANTAR"
-          ).length;
-
-
-        const belumDiantar =
-          filteredData.filter(
-            item =>
-              item.status_pengantaran ===
-              "BELUM_DIANTAR"
-          ).length;
-
-
-        const pembayaranDiterima =
-          filteredData.filter(
-            item =>
-              item.status_pembayaran ===
-              "DITERIMA"
-          ).length;
-
-
-        const pembayaranDitolak =
-          filteredData.filter(
-            item =>
-              item.status_pembayaran ===
-              "DITOLAK"
-          ).length;
-
-
-        const menungguVerifikasi =
-          filteredData.filter(
-            item =>
-              item.status_pembayaran ===
-              "MENUNGGU_VERIFIKASI"
-          ).length;
-
-
-        const totalDibayar =
-          filteredData
-            .filter(
-              item =>
-                item.status_pembayaran ===
-                "DITERIMA"
-            )
-            .reduce(
-              (
-                sum,
-                item
-              ) =>
-                sum +
-                item.nominal,
-              0
-            );
-
-
-        const collectionRate =
-          totalNominal > 0
-            ? (
-              totalDibayar /
-              totalNominal
-            ) *
-            100
-            : 0;
-
-
-        return {
-
-          total,
-
-          totalNominal,
-
-          sudahDiantar,
-
-          belumDiantar,
-
-          pembayaranDiterima,
-
-          pembayaranDitolak,
-
-          menungguVerifikasi,
-
-          totalDibayar,
-
-          collectionRate,
-
-        };
-
-      },
-      [
-        filteredData,
-      ]
-    );
-
-
-  // ===================================================
-  // PAGINATION
-  // ===================================================
-
-  const totalData =
-    filteredData.length;
-
-
-  const totalPage =
-    Math.ceil(
-      totalData /
-      perPage
-    );
-
-
-  const paginatedData =
-    filteredData.slice(
-      (
-        currentPage -
-        1
-      ) *
-      perPage,
-
-      currentPage *
-      perPage
-    );
-
-
-  // ===================================================
-  // RESET PAGE
-  // ===================================================
-
-  useEffect(
-    () => {
-
-      setCurrentPage(
-        1
-      );
-
-    },
-    [
-      keyword,
-      selectedPeriode,
-      selectedCabang,
-      selectedKolektor,
-      selectedStatusPembayaran,
-      perPage,
-    ]
-  );
-
-
-  // ===================================================
-  // RESET FILTER
-  // ===================================================
-
-  const resetFilter =
-    () => {
-
-      setKeyword("");
-
-      setSelectedPeriode(
-        "ALL"
-      );
-
-      setSelectedCabang(
-        "ALL"
-      );
-
-      setSelectedKolektor(
-        "ALL"
-      );
-
-      setSelectedStatusPembayaran(
-        "ALL"
-      );
-
-      setCurrentPage(
-        1
-      );
-
-    };
-
-
-  // ===================================================
-  // STATUS PEMBAYARAN
-  // ===================================================
-
-  const renderStatusPembayaran =
-    (
-      status
-    ) => {
-
-      const config =
-        statusPembayaranConfig[
-        status
-        ];
-
-
-      if (!config) {
-        return "-";
+const firstNumber = (...values) => {
+  for (const value of values) if (value !== null && value !== undefined && value !== "" && !Number.isNaN(Number(value))) return Number(value);
+  return 0;
+};
+const formatRupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(value) || 0);
+const formatCompactRupiah = (value) => {
+  const amount = Number(value) || 0;
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000_000_000) return `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(amount / 1_000_000_000_000)} T`;
+  if (abs >= 1_000_000_000) return `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(amount / 1_000_000_000)} M`;
+  if (abs >= 1_000_000) return `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(amount / 1_000_000)} Juta`;
+  return formatRupiah(amount);
+};
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+};
+const displayValue = (value) => value === null || value === undefined || value === "" ? "-" : value;
+const getDpp = (item) => firstNumber(item?.dpp, item?.DPP, item?.nominal, item?.nominal_piutang);
+const getPpn = (item) => firstNumber(item?.ppn, item?.PPN, getDpp(item) * 0.11);
+const getPph = (item) => firstNumber(item?.pph, item?.PPH, getDpp(item) * 0.015);
+const getCollection = (item) => firstNumber(item?.collection, item?.pencairan, item?.pembayaran, item?.dibayar, item?.sudah_dibayar);
+const getOutstanding = (item) => {
+  const value = item?.saldo_piutang ?? item?.outstanding ?? item?.sisa_piutang;
+  return value !== null && value !== undefined && value !== "" ? firstNumber(value) : Math.max(0, getDpp(item) + getPpn(item) - getCollection(item));
+};
+const getPiutangStatus = (item) => getOutstanding(item) <= 0 ? "LUNAS" : "BELUM_LUNAS";
+const getUmurPiutang = (item) => {
+  const rawDate = item?.document_date || item?.documentDate || item?.tanggal_faktur || item?.posting_date;
+  if (!rawDate) return 0;
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return 0;
+  const today = new Date();
+  date.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((today.getTime() - date.getTime()) / 86400000));
+};
+const getTukarFakturStatus = (item) => {
+  const value = String(item?.status_tukar_faktur ?? item?.status_tukar ?? item?.status_verifikasi_tukar_faktur ?? "").toUpperCase();
+  if (["TERVERIFIKASI", "VERIFIED", "DISETUJUI", "APPROVED", "S"].includes(value)) return "TERVERIFIKASI";
+  if (["DITOLAK", "REJECTED", "REJECT", "R"].includes(value)) return "DITOLAK";
+  return "MENUNGGU_VERIFIKASI";
+};
+const getStatusLunas = (item) => {
+  const explicit = String(item?.status_lunas ?? item?.status_pelunasan ?? "").toUpperCase();
+  if (["LUNAS", "SUDAH_LUNAS", "PAID", "Y", "S"].includes(explicit)) return "LUNAS";
+  if (["BELUM_LUNAS", "BELUM LUNAS", "UNPAID", "N", "B"].includes(explicit)) return "BELUM_LUNAS";
+  return getPiutangStatus(item);
+};
+const getSalesman = (item) => item?.nama_sales ?? item?.nama_salesman ?? item?.salesman_name ?? item?.sales_name ?? item?.salesman ?? "-";
+const getPetugasTukarFaktur = (item) => item?.tukar_faktur_nama ?? item?.nama_petugas_tukar_faktur ?? item?.nama_salesman_tukar_faktur ?? getSalesman(item);
+const getTanggalTukarFaktur = (item) => item?.tukar_faktur_assigned_at ?? item?.tanggal_penugasan_tukar_faktur ?? item?.tgl_penugasan_tukar_faktur ?? item?.tanggal_penugasan_tukar ?? item?.tanggal_penugasan ?? null;
+const getPenagih = (item) => item?.penagihan_nama ?? item?.nama_penagih ?? item?.penagih ?? item?.nama_kolektor ?? item?.kolektor ?? "-";
+const getTanggalPenagihan = (item) => item?.penagihan_assigned_at ?? item?.tanggal_penugasan_penagihan ?? item?.tgl_penugasan_penagihan ?? item?.tanggal_penugasan_penagih ?? item?.tanggal_penagihan ?? null;
+const getInvoiceAmounts = (item) => {
+  const dpp = getDpp(item); const ppn = getPpn(item); const pph = getPph(item);
+  const collection = getCollection(item); const saldoPiutang = getOutstanding(item);
+  let keterangan = "Sisa Piutang";
+  if (saldoPiutang > 0 && Math.round(saldoPiutang) === Math.round(ppn)) keterangan = "Sisa PPN";
+  else if (saldoPiutang > 0 && Math.round(saldoPiutang) === Math.round(pph)) keterangan = "Sisa PPh";
+  return { dpp, ppn, pph, totalInvoice: dpp + ppn, collection, saldoPiutang, keterangan };
+};
+
+const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setReloadData }) => {
+  const [tableData, setTableData] = useState([]);
+  const [summaryData, setSummaryData] = useState({ total_data: 0, total_nominal: 0, total_collection: 0, lunas_count: 0, belum_lunas_count: 0, tukar_menunggu: 0, tukar_terverifikasi: 0, tukar_ditolak: 0 });
+  const [totalData, setTotalData] = useState(0);
+  const [totalPage, setTotalPage] = useState(0);
+  const [keyword, setKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [filterCabang, setFilterCabang] = useState([]);
+  const [filterCustomer, setFilterCustomer] = useState([]);
+  const [filterChannel, setFilterChannel] = useState([]);
+  const [filterPrinciple, setFilterPrinciple] = useState([]);
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState({ cabang: [], customer: [], channel: [], principle: [] });
+  const [selectedData, setSelectedData] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
+  const [penjualanDetails, setPenjualanDetails] = useState({});
+  const [loadingPenjualanDetails, setLoadingPenjualanDetails] = useState({});
+
+  const getReferensi = useCallback(async () => {
+    try {
+      const [refCabang, refChannel] = await Promise.all([
+        storeSchema.actions.getReferensiByJenis("cabang_id"),
+        storeSchema.actions.getReferensiByJenis("channel_id"),
+      ]);
+      if (refCabang?.status === true) setOptions((prev) => ({ ...prev, cabang: (refCabang?.data || []).map((item) => ({ label: item?.ur_ref, value: item?.kd_ref })) }));
+      if (refChannel?.status === true) setOptions((prev) => ({ ...prev, channel: (refChannel?.data || []).map((item) => ({ label: item?.ur_ref, value: item?.kd_ref })) }));
+      const principleRes = await storeSchema.actions.getListPrinciple({ page: 1, limit: 9999, sortBy: "ASC" });
+      if (principleRes?.status === true) setOptions((prev) => ({ ...prev, principle: (principleRes?.data?.list_data || []).map((item) => ({ label: item?.nama_principle, value: item?.principle })) }));
+    } catch (error) { console.error("ERROR GET REFERENSI LAPORAN:", error); }
+  }, []);
+
+  useEffect(() => { getReferensi(); }, [getReferensi]);
+
+  useEffect(() => {
+    let mounted = true;
+    const getCustomers = async () => {
+      if (!filterCabang.length) {
+        setOptions((prev) => ({ ...prev, customer: [] }));
+        setFilterCustomer([]);
+        return;
       }
-
-
-      const Icon =
-        config.icon;
-
-
-      return (
-
-        <span
-          className={`
-            inline-flex
-            items-center
-            gap-2
-            px-3
-            py-1.5
-            rounded-full
-            text-xs
-            font-semibold
-            whitespace-nowrap
-            ${config.className}
-          `}
-        >
-
-          <Icon />
-
-          {
-            config.label
-          }
-
-        </span>
-
-      );
-
-    };
-
-
-  // ===================================================
-  // PAYMENT METHOD
-  // ===================================================
-
-  const renderPaymentMethod =
-    (
-      method
-    ) => {
-
-      if (!method) {
-        return (
-          <span
-            className="
-              text-xs
-              text-gray-400
-            "
-          >
-            -
-          </span>
-        );
-      }
-
-
-      const config = {
-
-        GIRO: {
-          label:
-            "Giro",
-          icon:
-            FaCreditCard,
-          className:
-            "text-orange-500",
-        },
-
-        CASH: {
-          label:
-            "Cash",
-          icon:
-            FaMoneyBillWave,
-          className:
-            "text-green-500",
-        },
-
-        DIRECT_TRANSFER: {
-          label:
-            "Direct Transfer",
-          icon:
-            FaMoneyBillWave,
-          className:
-            "text-blue-600",
-        },
-
-        SURAT_SETOR_PAJAK: {
-          label:
-            "SSP",
-          icon:
-            FaFileAlt,
-          className:
-            "text-purple-500",
-        },
-
-      }[method];
-
-
-      if (!config) {
-        return "-";
-      }
-
-
-      const Icon =
-        config.icon;
-
-
-      return (
-
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-            whitespace-nowrap
-          "
-        >
-
-          <Icon
-            className={
-              config.className
-            }
-          />
-
-          <span
-            className="
-              text-sm
-              text-gray-700
-            "
-          >
-            {
-              config.label
-            }
-          </span>
-
-        </div>
-
-      );
-
-    };
-
-
-  // ===================================================
-  // DETAIL
-  // ===================================================
-
-  const openDetail =
-    (
-      data
-    ) => {
-
-      setSelectedData(
-        data
-      );
-
-    };
-
-
-  // ===================================================
-  // PAGINATION INFO
-  // ===================================================
-
-  const startIndex =
-    totalData > 0
-      ? (
-        currentPage -
-        1
-      ) *
-      perPage +
-      1
-      : 0;
-
-
-  const endIndex =
-    Math.min(
-      currentPage *
-      perPage,
-      totalData
-    );
-
-  // ===================================================
-  // EXPORT EXCEL
-  // ===================================================
-
-  const handleExportExcel = () => {
-
-    if (!filteredData || filteredData.length === 0) {
-      alert("Tidak ada data untuk diexport.");
-      return;
-    }
-
-    // =================================================
-    // DATA EXCEL
-    // =================================================
-
-    const excelData = filteredData.map(
-      (item, index) => ({
-        "No": index + 1,
-
-        "No. Faktur":
-          item.no_faktur || "-",
-
-        "No. Tagihan":
-          item.no_tagihan || "-",
-
-        "Umur Piutang":
-          `${getUmurPiutang(item.tanggal_faktur)} hari`,
-
-        "Pelanggan":
-          item.customer || "-",
-
-        "Cabang":
-          item.cabang || "-",
-
-        "Kolektor":
-          item.kolektor || "-",
-
-        "DPP/Komersil":
-          getDetailNilaiPiutang(item).dpp,
-
-        "PPN (11%)":
-          getDetailNilaiPiutang(item).ppn,
-
-        "PPh (1,5%)":
-          getDetailNilaiPiutang(item).pph,
-
-        "Pencairan/Pembayaran":
-          getDetailNilaiPiutang(item).pembayaran,
-
-        "Sisa/Outstanding Piutang":
-          getDetailNilaiPiutang(item).outstanding,
-
-        "Keterangan":
-          getDetailNilaiPiutang(item).keterangan,
-
-        "Tanggal Faktur":
-          item.tanggal_faktur || null,
-
-        "Jatuh Tempo":
-          item.jatuh_tempo || null,
-
-        "Tanggal Penugasan":
-          item.tanggal_penugasan || null,
-
-        "Tanggal Pengantaran":
-          item.tanggal_pengantaran || null,
-
-        "Tanggal Pembayaran":
-          item.tanggal_pembayaran || null,
-
-        "Metode Pembayaran":
-          item.metode_pembayaran === "DIRECT_TRANSFER"
-            ? "Direct Transfer"
-            : item.metode_pembayaran === "GIRO"
-              ? "Giro"
-              : item.metode_pembayaran === "CASH"
-                ? "Cash"
-                : item.metode_pembayaran === "SURAT_SETOR_PAJAK"
-                  ? "Surat Setor Pajak"
-                  : "-",
-
-        "Status Penugasan":
-          item.status_penugasan === "DITUGASKAN"
-            ? "Ditugaskan"
-            : item.status_penugasan === "BELUM_DITUGASKAN"
-              ? "Belum Ditugaskan"
-              : "-",
-
-        "Status Pengantaran":
-          item.status_pengantaran === "SUDAH_DIANTAR"
-            ? "Sudah Diantar"
-            : item.status_pengantaran === "GAGAL_DIANTAR"
-              ? "Gagal Diantar"
-              : "Belum Diantar",
-
-        "Status Pembayaran":
-          item.status_pembayaran === "DITERIMA"
-            ? "Pembayaran Diterima"
-            : item.status_pembayaran === "DITOLAK"
-              ? "Pembayaran Ditolak"
-              : item.status_pembayaran === "MENUNGGU_VERIFIKASI"
-                ? "Menunggu Verifikasi"
-                : "Belum Dibayar",
-
-      })
-    );
-
-
-    // =================================================
-    // CREATE WORKSHEET
-    // =================================================
-
-    const worksheet =
-      XLSX.utils.json_to_sheet(
-        excelData
-      );
-
-
-    // =================================================
-    // HEADER STYLE
-    // =================================================
-
-    const headerRange =
-      XLSX.utils.decode_range(
-        worksheet["!ref"]
-      );
-
-    for (
-      let col = headerRange.s.c;
-      col <= headerRange.e.c;
-      col++
-    ) {
-
-      const cellAddress =
-        XLSX.utils.encode_cell({
-          r: 0,
-          c: col,
-        });
-
-      if (worksheet[cellAddress]) {
-
-        worksheet[cellAddress].s = {
-
-          fill: {
-            fgColor: {
-              rgb: "000080",
-            },
-          },
-
-          font: {
-            bold: true,
-            color: {
-              rgb: "FFFFFF",
-            },
-            sz: 11,
-          },
-
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-          },
-
-          border: {
-            top: {
-              style: "thin",
-              color: {
-                rgb: "D1D5DB",
-              },
-            },
-            bottom: {
-              style: "thin",
-              color: {
-                rgb: "D1D5DB",
-              },
-            },
-            left: {
-              style: "thin",
-              color: {
-                rgb: "D1D5DB",
-              },
-            },
-            right: {
-              style: "thin",
-              color: {
-                rgb: "D1D5DB",
-              },
-            },
-          },
-
-        };
-
-      }
-
-    }
-
-
-    // =================================================
-    // COLUMN WIDTH
-    // =================================================
-
-    worksheet["!cols"] = [
-
-      { wch: 6 },   // No
-      { wch: 20 },  // Faktur
-      { wch: 18 },  // No. Tagihan
-      { wch: 16 },  // Umur Piutang
-      { wch: 30 },  // Customer
-      { wch: 18 },  // Cabang
-      { wch: 22 },  // Kolektor
-      { wch: 18 },  // DPP/Komersil
-      { wch: 18 },  // PPN
-      { wch: 18 },  // PPh
-      { wch: 20 },  // Pencairan/Pembayaran
-      { wch: 22 },  // Sisa/Outstanding Piutang
-      { wch: 20 },  // Keterangan
-      { wch: 16 },  // Tgl Faktur
-      { wch: 16 },  // Jatuh Tempo
-      { wch: 20 },  // Penugasan
-      { wch: 20 },  // Pengantaran
-      { wch: 20 },  // Pembayaran
-      { wch: 22 },  // Metode
-      { wch: 22 },  // Status Penugasan
-      { wch: 22 },  // Status Pengantaran
-      { wch: 24 },  // Status Pembayaran
-
-    ];
-
-
-    // =================================================
-    // FORMAT CURRENCY
-    // =================================================
-
-    for (
-      let row = 1;
-      row <= excelData.length;
-      row++
-    ) {
-
-      // Kolom nominal yang diformat sebagai Rupiah:
-      // DPP/Komersil (7), PPN (8), PPh (9),
-      // Pencairan/Pembayaran (10), Outstanding (11).
-      [7, 8, 9, 10, 11].forEach(
-        (columnIndex) => {
-
-          const cell =
-            worksheet[
-            XLSX.utils.encode_cell({
-              r: row,
-              c: columnIndex,
-            })
-            ];
-
-          if (cell) {
-
-            cell.z =
-              '"Rp" #,##0';
-
-            cell.s = {
-
-              alignment: {
-                horizontal: "right",
-              },
-
-            };
-
-          }
-
+      try {
+        const res = await storeSchema.actions.getDataPelanggan({ page: 1, limit: 9999, cabang_id: filterCabang });
+        if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data customer");
+        const response = res?.data;
+        const list = Array.isArray(response) ? response : response?.list_data || response?.data || response?.rows || [];
+        const customerOptions = list.map((item) => ({ label: `${item?.kode_customer ?? ""}${item?.name ? ` - ${item.name}` : ""}`, value: item?.kode_customer })).filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== "");
+        if (mounted) {
+          setOptions((prev) => ({ ...prev, customer: customerOptions }));
+          setFilterCustomer((prev) => prev.filter((value) => customerOptions.some((option) => String(option.value) === String(value))));
         }
-      );
-
-    }
-
-
-    // =================================================
-    // FREEZE HEADER
-    // =================================================
-
-    worksheet["!freeze"] = {
-      xSplit: 0,
-      ySplit: 1,
-    };
-
-
-    // =================================================
-    // WORKBOOK
-    // =================================================
-
-    const workbook =
-      XLSX.utils.book_new();
-
-
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Laporan"
-    );
-
-
-    // =================================================
-    // SUMMARY SHEET
-    // =================================================
-
-    const summaryExcel = [
-
-      {
-        "Informasi":
-          "Periode",
-        "Nilai":
-          selectedPeriode === "ALL"
-            ? "Semua Periode"
-            : selectedPeriode,
-      },
-
-      {
-        "Informasi":
-          "Cabang",
-        "Nilai":
-          selectedCabang === "ALL"
-            ? "Semua Cabang"
-            : selectedCabang,
-      },
-
-      {
-        "Informasi":
-          "Kolektor",
-        "Nilai":
-          selectedKolektor === "ALL"
-            ? "Semua Kolektor"
-            : selectedKolektor,
-      },
-
-      {
-        "Informasi":
-          "Status Pembayaran",
-        "Nilai":
-          selectedStatusPembayaran === "ALL"
-            ? "Semua Status"
-            : selectedStatusPembayaran,
-      },
-
-      {
-        "Informasi":
-          "Total Faktur",
-        "Nilai":
-          summaryData.total,
-      },
-
-      {
-        "Informasi":
-          "Total Nilai Tagihan",
-        "Nilai":
-          summaryData.totalNominal,
-      },
-
-      {
-        "Informasi":
-          "Sudah Diantar",
-        "Nilai":
-          summaryData.sudahDiantar,
-      },
-
-      {
-        "Informasi":
-          "Belum Diantar",
-        "Nilai":
-          summaryData.belumDiantar,
-      },
-
-      {
-        "Informasi":
-          "Pembayaran Diterima",
-        "Nilai":
-          summaryData.pembayaranDiterima,
-      },
-
-      {
-        "Informasi":
-          "Pembayaran Ditolak",
-        "Nilai":
-          summaryData.pembayaranDitolak,
-      },
-
-      {
-        "Informasi":
-          "Menunggu Verifikasi",
-        "Nilai":
-          summaryData.menungguVerifikasi,
-      },
-
-      {
-        "Informasi":
-          "Collection Rate",
-        "Nilai":
-          `${summaryData.collectionRate.toFixed(2)}%`,
-      },
-
-    ];
-
-
-    const summaryWorksheet =
-      XLSX.utils.json_to_sheet(
-        summaryExcel
-      );
-
-
-    summaryWorksheet["!cols"] = [
-      { wch: 28 },
-      { wch: 30 },
-    ];
-
-
-    // Header summary
-
-    ["A1", "B1"].forEach(
-      (cell) => {
-
-        if (summaryWorksheet[cell]) {
-
-          summaryWorksheet[cell].s = {
-
-            font: {
-              bold: true,
-              color: {
-                rgb: "FFFFFF",
-              },
-            },
-
-            fill: {
-              fgColor: {
-                rgb: "000080",
-              },
-            },
-
-            alignment: {
-              horizontal: "center",
-            },
-
-          };
-
-        }
-
+      } catch (error) {
+        console.error("ERROR GET CUSTOMER LAPORAN:", error);
+        if (mounted) { setOptions((prev) => ({ ...prev, customer: [] })); setFilterCustomer([]); }
       }
-    );
+    };
+    getCustomers();
+    return () => { mounted = false; };
+  }, [filterCabang]);
 
+  const buildPayload = useCallback((page = currentPage, limit = perPage, keywordOverride = searchKeyword) => ({
+    page,
+    limit,
+    keyword: keywordOverride,
+    sales_office: filterCabang.length ? filterCabang : "ALL",
+    customer: filterCustomer.length ? filterCustomer : "ALL",
+    channel: filterChannel.length ? filterChannel : "ALL",
+    principle: filterPrinciple.length ? filterPrinciple : "ALL",
+    start_date: filterStartDate,
+    end_date: filterEndDate,
+  }), [currentPage, perPage, searchKeyword, filterCabang, filterCustomer, filterChannel, filterPrinciple, filterStartDate, filterEndDate]);
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      summaryWorksheet,
-      "Summary"
-    );
+  const getDataLaporan = useCallback(async (overrides = {}) => {
+    try {
+      setLoading(true);
+      const payload = { ...buildPayload(), ...overrides };
+      const res = await storeSchema.actions.getDataLaporan(payload);
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data laporan");
+      const responseData = res?.data || {};
+      const list = Array.isArray(responseData?.list_data) ? responseData.list_data : Array.isArray(responseData?.data) ? responseData.data : Array.isArray(res?.data) ? res.data : [];
+      setTableData(list.map((item, index) => ({ ...item, id: item?.id ?? item?.piutang_id ?? item?.billing_id ?? item?.no_billing ?? item?.no_tagihan ?? item?.no_faktur ?? `${payload.page}-${index}` })));
+      setTotalData(Number(responseData?.total_data ?? responseData?.total ?? list.length));
+      setTotalPage(Number(responseData?.total_halaman ?? responseData?.total_page ?? Math.ceil(Number(responseData?.total_data ?? list.length) / Number(payload.limit || perPage))));
+      const summary = responseData?.summary || {};
+      const rows = list;
+      setSummaryData({
+        total_data: firstNumber(summary?.total_data, responseData?.total_data, list.length),
+        total_nominal: firstNumber(summary?.total_nominal, summary?.total_piutang, summary?.total_dpp, rows.reduce((sum, item) => sum + getDpp(item), 0)),
+        total_collection: firstNumber(summary?.total_collection, summary?.total_dibayar, summary?.collection, rows.reduce((sum, item) => sum + getCollection(item), 0)),
+        lunas_count: firstNumber(summary?.lunas_count, summary?.sudah_lunas, rows.filter((item) => getStatusLunas(item) === "LUNAS").length),
+        belum_lunas_count: firstNumber(summary?.belum_lunas_count, summary?.belum_lunas, rows.filter((item) => getStatusLunas(item) !== "LUNAS").length),
+        tukar_menunggu: firstNumber(summary?.tukar_menunggu, summary?.menunggu_verifikasi, rows.filter((item) => getTukarFakturStatus(item) === "MENUNGGU_VERIFIKASI").length),
+        tukar_terverifikasi: firstNumber(summary?.tukar_terverifikasi, summary?.terverifikasi, rows.filter((item) => getTukarFakturStatus(item) === "TERVERIFIKASI").length),
+        tukar_ditolak: firstNumber(summary?.tukar_ditolak, summary?.ditolak, rows.filter((item) => getTukarFakturStatus(item) === "DITOLAK").length),
+      });
+    } catch (error) {
+      console.error("ERROR GET DATA LAPORAN:", error);
+      setTableData([]); setTotalData(0); setTotalPage(0);
+      setSummaryData({ total_data: 0, total_nominal: 0, total_collection: 0, lunas_count: 0, belum_lunas_count: 0, tukar_menunggu: 0, tukar_terverifikasi: 0, tukar_ditolak: 0 });
+      await swal.error(error?.message || "Gagal mengambil data laporan");
+    } finally { setLoading(false); }
+  }, [buildPayload, perPage]);
 
+  useEffect(() => { getDataLaporan(); }, [getDataLaporan]);
+  useEffect(() => {
+    if (!reloadData) return;
+    if (currentPage !== 1) setCurrentPage(1); else getDataLaporan();
+    if (setReloadData) setReloadData(false);
+  }, [reloadData, currentPage, getDataLaporan, setReloadData]);
 
-    // =================================================
-    // FILE NAME
-    // =================================================
+  const handleSearch = () => { setCurrentPage(1); setSearchKeyword(keyword.trim()); };
+  const resetFilter = () => {
+    setKeyword(""); setSearchKeyword(""); setFilterCabang([]); setFilterCustomer([]); setFilterChannel([]); setFilterPrinciple([]); setFilterStartDate(""); setFilterEndDate(""); setCurrentPage(1);
+  };
+  const handleRefresh = () => { if (currentPage !== 1) setCurrentPage(1); else getDataLaporan(); };
+  const handlePageChange = ({ selected }) => setCurrentPage(selected + 1);
+  const startIndex = totalData > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const endIndex = Math.min(currentPage * perPage, totalData);
 
-    const now =
-      new Date();
-
-    const tanggal =
-      now
-        .toISOString()
-        .slice(
-          0,
-          10
-        );
-
-
-    const fileName =
-      `Laporan_KFCOLLS_${tanggal}.xlsx`;
-
-
-    // =================================================
-    // DOWNLOAD
-    // =================================================
-
-    XLSX.writeFile(
-      workbook,
-      fileName
-    );
-
+  const renderStatusTukarFaktur = (item) => {
+    const status = getTukarFakturStatus(item);
+    const config = {
+      MENUNGGU_VERIFIKASI: { label: "Menunggu Verifikasi", icon: FaClock, cls: "bg-amber-100 text-amber-700" },
+      TERVERIFIKASI: { label: "Terverifikasi", icon: FaCheckCircle, cls: "bg-green-100 text-green-700" },
+      DITOLAK: { label: "Ditolak", icon: FaExclamationCircle, cls: "bg-red-100 text-red-700" },
+    }[status];
+    const Icon = config.icon;
+    return <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${config.cls}`}><Icon />{config.label}</span>;
+  };
+  const renderStatusLunas = (item) => {
+    const lunas = getStatusLunas(item) === "LUNAS";
+    return <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${lunas ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>{lunas ? <FaCheckCircle /> : <FaClock />}{lunas ? "Sudah Lunas" : "Belum Lunas"}</span>;
   };
 
-  // ===================================================
-  // RENDER
-  // ===================================================
+  const handleExpandPenjualan = async (item, rowKey) => {
+    if (expandedRows[rowKey]) {
+      setExpandedRows((prev) => ({ ...prev, [rowKey]: false }));
+      return;
+    }
+    setExpandedRows((prev) => ({ ...prev, [rowKey]: true }));
+    if (Object.prototype.hasOwnProperty.call(penjualanDetails, rowKey)) return;
+    const noBilling = item?.no_billing || item?.no_tagihan || item?.billing_no;
+    if (!noBilling) {
+      setPenjualanDetails((prev) => ({ ...prev, [rowKey]: [] }));
+      return;
+    }
+    try {
+      setLoadingPenjualanDetails((prev) => ({ ...prev, [rowKey]: true }));
+      const res = await storeSchema.actions.getDataPenjualan({ page: 1, limit: 9999, keyword: String(noBilling) });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil detail data penjualan");
+      const responseData = res?.data || {};
+      const listData = Array.isArray(responseData) ? responseData : responseData?.list_data || responseData?.data || responseData?.rows || [];
+      const filteredData = listData.filter((detail) => {
+        const detailBilling = detail?.billing_no || detail?.no_billing || detail?.["Billing No"];
+        return detailBilling === null || detailBilling === undefined || String(detailBilling) === String(noBilling);
+      });
+      setPenjualanDetails((prev) => ({ ...prev, [rowKey]: filteredData.map(normalizePenjualanDetail) }));
+    } catch (error) {
+      console.error("ERROR GET DETAIL DATA PENJUALAN:", error);
+      setPenjualanDetails((prev) => ({ ...prev, [rowKey]: [] }));
+      await swal.error(error?.message || "Gagal mengambil detail data penjualan");
+    } finally {
+      setLoadingPenjualanDetails((prev) => ({ ...prev, [rowKey]: false }));
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setLoading(true);
+      // Ambil seluruh data sesuai filter aktif, bukan hanya halaman yang sedang tampil.
+      const payload = buildPayload(1, Math.max(totalData, perPage, 99999), searchKeyword);
+      const res = await storeSchema.actions.getDataLaporan(payload);
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data untuk export");
+      const responseData = res?.data || {};
+      const rows = Array.isArray(responseData?.list_data) ? responseData.list_data : Array.isArray(responseData?.data) ? responseData.data : Array.isArray(res?.data) ? res.data : [];
+      if (!rows.length) { await swal.error("Tidak ada data untuk diexport."); return; }
+      const excelData = rows.map((item, index) => ({
+        No: index + 1,
+        "No. Faktur": item?.no_faktur || item?.faktur || "-",
+        "No. Billing": item?.no_billing || item?.no_tagihan || item?.billing_no || "-",
+        "Document Date": item?.document_date || item?.documentDate || item?.tanggal_faktur || item?.posting_date || null,
+        "Document Type": item?.document_type || item?.documentType || item?.doc_type || "-",
+        "Kode Customer": item?.kode_customer || item?.customer_code || item?.customer || "-",
+        "Nama Customer": item?.nama_customer || item?.customer_name || item?.name || item?.customer || "-",
+        Salesman: item?.sales || item?.salesman || item?.kode_salesman || item?.sales_code || "-",
+        "Nama Sales": item?.nama_sales || item?.nama_salesman || item?.sales_name || getSalesman(item),
+        "Profit Center": item?.profit_center || item?.profit_center_name || "-",
+        Cabang: item?.nama_cabang || item?.cabang || item?.sales_office_name || "-",
+        Channel: item?.nama_channel || item?.channel_name || item?.channel || "-",
+        "Kode Principle": item?.principle || item?.kode_principle || "-",
+        "Nama Principle": item?.nama_principle || item?.principle_name || "-",
+        "Lini Penjualan": item?.lini_penjualan || item?.sales_line || "-",
+        TOP: item?.top || item?.TOP || "-",
+        "Posting Date": item?.posting_date || item?.tanggal_posting || null,
+        "Jatuh Tempo": item?.jatuh_tempo || item?.due_date || null,
+        "Umur Piutang (Hari)": item?.aging ?? getUmurPiutang(item),
+        DPP: getDpp(item), PPN: getPpn(item), PPh: getPph(item),
+        "Total Invoice": getDpp(item) + getPpn(item),
+        Collection: getCollection(item), "Saldo Piutang": getOutstanding(item),
+        "Keterangan Outstanding": item?.keterangan_outstanding || item?.keterangan || getInvoiceAmounts(item).keterangan,
+        Status: item?.status || item?.status_piutang || "-",
+        "Tukar Faktur - Petugas": getPetugasTukarFaktur(item),
+        "Tukar Faktur - Tanggal Penugasan": getTanggalTukarFaktur(item),
+        "Status Tukar Faktur": ({ MENUNGGU_VERIFIKASI: "Menunggu Verifikasi", TERVERIFIKASI: "Terverifikasi", DITOLAK: "Ditolak" })[getTukarFakturStatus(item)],
+        "Penagihan - Penagih": getPenagih(item),
+        "Penagihan - Tanggal Penugasan": getTanggalPenagihan(item),
+        "Status Lunas": getStatusLunas(item) === "LUNAS" ? "Sudah Lunas" : "Belum Lunas",
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      if (worksheet["!ref"]) {
+        const range = XLSX.utils.decode_range(worksheet["!ref"]);
+        for (let col = range.s.c; col <= range.e.c; col += 1) {
+          const address = XLSX.utils.encode_cell({ r: 0, c: col });
+          if (worksheet[address]) worksheet[address].s = { fill: { fgColor: { rgb: "000080" } }, font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin", color: { rgb: "D1D5DB" } }, bottom: { style: "thin", color: { rgb: "D1D5DB" } }, left: { style: "thin", color: { rgb: "D1D5DB" } }, right: { style: "thin", color: { rgb: "D1D5DB" } } } };
+        }
+      }
+      worksheet["!cols"] = Array.from({ length: Object.keys(excelData[0] || {}).length }, (_, index) => ({ wch: index === 0 ? 6 : 22 }));
+      for (let row = 1; row <= excelData.length; row += 1) [17, 18, 19, 20, 21, 22].forEach((columnIndex) => { const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: columnIndex })]; if (cell) { cell.z = '"Rp" #,##0'; cell.s = { alignment: { horizontal: "right" } }; } });
+      worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
+      const summaryRows = [
+        { Informasi: "Cabang", Nilai: filterCabang.length ? filterCabang.join(", ") : "Semua Cabang" },
+        { Informasi: "Channel", Nilai: filterChannel.length ? filterChannel.join(", ") : "Semua Channel" },
+        { Informasi: "Principle", Nilai: filterPrinciple.length ? filterPrinciple.join(", ") : "Semua Principle" },
+        { Informasi: "Customer", Nilai: filterCustomer.length ? filterCustomer.join(", ") : "Semua Customer" },
+        { Informasi: "Kata Pencarian", Nilai: searchKeyword || "-" },
+        { Informasi: "Jumlah Data Diexport", Nilai: rows.length },
+      ];
+      const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+      summarySheet["!cols"] = [{ wch: 28 }, { wch: 45 }];
+      ["A1", "B1"].forEach((cell) => { if (summarySheet[cell]) summarySheet[cell].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "000080" } }, alignment: { horizontal: "center" } }; });
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "Filter");
+      XLSX.writeFile(workbook, `Laporan_Tukar_Faktur_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (error) {
+      console.error("ERROR EXPORT LAPORAN:", error);
+      await swal.error(error?.message || "Gagal export Excel");
+    } finally { setLoading(false); }
+  };
+
+  const statusLabel = (value) => String(value ?? "").replaceAll("_", " ");
 
   return (
-
-    <div
-      className="
-        flex
-        flex-col
-        gap-5
-      "
-    >
-
-      {/* ================================================= */}
-      {/* SEARCH + FILTER */}
-      {/* ================================================= */}
-
-      <div
-        className="
-    flex
-    flex-col
-    lg:flex-row
-    justify-between
-    gap-4
-  "
-      >
-
-        {/* SEARCH */}
-
-        <div
-          className="
-      input
-      input-sm
-      input-bordered
-      flex
-      items-center
-      gap-2
-      bg-white
-      rounded-full
-      border-gray-200
-      shadow-sm
-      w-full
-      lg:w-[420px]
-    "
-        >
-
-          <IoSearch
-            className="
-        text-gray-400
-        text-lg
-      "
-          />
-
-          <input
-            type="text"
-            placeholder="
-        Cari faktur / pelanggan / kolektor...
-      "
-            className="grow"
-            value={keyword}
-            onChange={(e) =>
-              setKeyword(
-                e.target.value
-              )
-            }
-          />
-
+    <div className="flex flex-col gap-5">
+      {/* PENCARIAN DAN FILTER - mengikuti tampilan TableDataPiutang */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row justify-between gap-4 items-stretch lg:items-center">
+          <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+            <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
+            <input type="text" placeholder="Cari billing / faktur / customer / salesman..." className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0" value={keyword} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} onChange={(e) => setKeyword(e.target.value)} />
+            <button type="button" onClick={handleSearch} title="Cari" aria-label="Cari" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:opacity-90"><FaSearch className="text-sm" /></button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <button type="button" onClick={resetFilter} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"><FaFilter />Reset Filter</button>
+            <button type="button" onClick={handleRefresh} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"><FaSyncAlt />Refresh</button>
+            <button type="button" onClick={handleExportExcel} disabled={loading} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold shadow-md hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed"><FaFileExcel />Export Excel</button>
+          </div>
         </div>
-
-
-        {/* ACTION */}
-
-        <div
-          className="
-      flex
-      flex-wrap
-      items-center
-      gap-2
-      justify-end
-    "
-        >
-
-          {/* FILTER */}
-
-          <button
-            type="button"
-            onClick={() =>
-              setShowFilter(
-                !showFilter
-              )
-            }
-            className="
-        inline-flex
-        items-center
-        justify-center
-        gap-2
-        px-5
-        py-2.5
-        rounded-full
-        border
-        border-primary
-        text-primary
-        bg-white
-        text-sm
-        font-semibold
-        hover:bg-blue-50
-        transition
-      "
-          >
-
-            <FaFilter />
-
-            Opsi Filter
-
-          </button>
-
-
-          {/* EXPORT */}
-
-          <button
-            type="button"
-            onClick={
-              handleExportExcel
-            }
-            disabled={
-              filteredData.length === 0
-            }
-            className="
-        inline-flex
-        items-center
-        justify-center
-        gap-2
-        px-5
-        py-2.5
-        rounded-full
-        bg-primary
-        text-white
-        text-sm
-        font-semibold
-        shadow-md
-        hover:opacity-90
-        transition
-        disabled:bg-gray-300
-        disabled:cursor-not-allowed
-      "
-          >
-
-            <FaFileExcel />
-
-            Export Excel
-
-          </button>
-
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full min-w-[190px] sm:w-[220px]"><label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label><Select isMulti options={options.cabang} value={getSelectedFilterOptions(options.cabang, filterCabang)} onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); setFilterCustomer([]); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
+          <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Channel</label><Select isMulti options={options.channel} value={getSelectedFilterOptions(options.channel, filterChannel)} onChange={(selected) => { setCurrentPage(1); setFilterChannel((selected || []).map((item) => item.value)); }} placeholder="Semua Channel" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
+          <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Principle</label><Select isMulti options={options.principle} value={getSelectedFilterOptions(options.principle, filterPrinciple)} onChange={(selected) => { setCurrentPage(1); setFilterPrinciple((selected || []).map((item) => item.value)); }} placeholder="Semua Principle" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
+          <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Customer</label><Select isMulti isDisabled={!filterCabang.length} options={options.customer} value={getSelectedFilterOptions(options.customer, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
+          <div className="w-full sm:w-auto"><label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label><div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm"><FaCalendarAlt className="text-primary text-sm" /><input type="date" value={filterStartDate} max={filterEndDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterStartDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" title="Tanggal mulai" /><span className="text-gray-300">-</span><input type="date" value={filterEndDate} min={filterStartDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterEndDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" title="Tanggal akhir" /></div></div>
         </div>
-
       </div>
 
-
-      {/* ================================================= */}
-      {/* FILTER PANEL */}
-      {/* ================================================= */}
-
-      {
-        showFilter && (
-
-          <div
-            className="
-              rounded-2xl
-              bg-blue-50
-              border
-              border-blue-100
-              p-5
-            "
-          >
-
-            <div
-              className="
-                grid
-                grid-cols-1
-                md:grid-cols-2
-                lg:grid-cols-4
-                gap-4
-              "
-            >
-
-              {/* PERIODE */}
-
-              <div>
-
-                <label
-                  className="
-                    block
-                    text-xs
-                    font-semibold
-                    text-gray-600
-                    mb-2
-                  "
-                >
-                  Periode
-                </label>
-
-
-                <select
-                  className="
-                    select
-                    select-bordered
-                    select-sm
-                    rounded-xl
-                    bg-white
-                    w-full
-                  "
-                  value={
-                    selectedPeriode
-                  }
-                  onChange={
-                    e =>
-                      setSelectedPeriode(
-                        e.target.value
-                      )
-                  }
-                >
-
-                  <option value="ALL">
-                    Semua Periode
-                  </option>
-
-
-                  {
-                    periodeOptions
-                      .filter(
-                        item =>
-                          item !==
-                          "ALL"
-                      )
-                      .map(
-                        periode => (
-
-                          <option
-                            key={
-                              periode
-                            }
-                            value={
-                              periode
-                            }
-                          >
-                            {
-                              periode
-                            }
-                          </option>
-
-                        )
-                      )
-                  }
-
-                </select>
-
-              </div>
-
-
-              {/* CABANG */}
-
-              <div>
-
-                <label
-                  className="
-                    block
-                    text-xs
-                    font-semibold
-                    text-gray-600
-                    mb-2
-                  "
-                >
-                  Cabang
-                </label>
-
-
-                <select
-                  className="
-                    select
-                    select-bordered
-                    select-sm
-                    rounded-xl
-                    bg-white
-                    w-full
-                  "
-                  value={
-                    selectedCabang
-                  }
-                  onChange={
-                    e =>
-                      setSelectedCabang(
-                        e.target.value
-                      )
-                  }
-                >
-
-                  <option value="ALL">
-                    Semua Cabang
-                  </option>
-
-
-                  {
-                    cabangOptions
-                      .filter(
-                        item =>
-                          item !==
-                          "ALL"
-                      )
-                      .map(
-                        cabang => (
-
-                          <option
-                            key={
-                              cabang
-                            }
-                            value={
-                              cabang
-                            }
-                          >
-                            {
-                              cabang
-                            }
-                          </option>
-
-                        )
-                      )
-                  }
-
-                </select>
-
-              </div>
-
-
-              {/* KOLEKTOR */}
-
-              <div>
-
-                <label
-                  className="
-                    block
-                    text-xs
-                    font-semibold
-                    text-gray-600
-                    mb-2
-                  "
-                >
-                  Kolektor
-                </label>
-
-
-                <select
-                  className="
-                    select
-                    select-bordered
-                    select-sm
-                    rounded-xl
-                    bg-white
-                    w-full
-                  "
-                  value={
-                    selectedKolektor
-                  }
-                  onChange={
-                    e =>
-                      setSelectedKolektor(
-                        e.target.value
-                      )
-                  }
-                >
-
-                  <option value="ALL">
-                    Semua Kolektor
-                  </option>
-
-
-                  {
-                    kolektorOptions
-                      .filter(
-                        item =>
-                          item !==
-                          "ALL"
-                      )
-                      .map(
-                        kolektor => (
-
-                          <option
-                            key={
-                              kolektor
-                            }
-                            value={
-                              kolektor
-                            }
-                          >
-                            {
-                              kolektor
-                            }
-                          </option>
-
-                        )
-                      )
-                  }
-
-                </select>
-
-              </div>
-
-
-              {/* STATUS */}
-
-              <div>
-
-                <label
-                  className="
-                    block
-                    text-xs
-                    font-semibold
-                    text-gray-600
-                    mb-2
-                  "
-                >
-                  Status Pembayaran
-                </label>
-
-
-                <select
-                  className="
-                    select
-                    select-bordered
-                    select-sm
-                    rounded-xl
-                    bg-white
-                    w-full
-                  "
-                  value={
-                    selectedStatusPembayaran
-                  }
-                  onChange={
-                    e =>
-                      setSelectedStatusPembayaran(
-                        e.target.value
-                      )
-                  }
-                >
-
-                  <option value="ALL">
-                    Semua Status
-                  </option>
-
-                  <option value="BELUM_DIBAYAR">
-                    Belum Dibayar
-                  </option>
-
-                  <option value="MENUNGGU_VERIFIKASI">
-                    Menunggu Verifikasi
-                  </option>
-
-                  <option value="DITERIMA">
-                    Pembayaran Diterima
-                  </option>
-
-                  <option value="DITOLAK">
-                    Pembayaran Ditolak
-                  </option>
-
-                </select>
-
-              </div>
-
-            </div>
-
-
-            {/* RESET */}
-
-            <div
-              className="
-                flex
-                justify-end
-                mt-4
-              "
-            >
-
-              <button
-                type="button"
-                onClick={
-                  resetFilter
-                }
-                className="
-                  px-4
-                  py-2
-                  rounded-xl
-                  bg-white
-                  border
-                  border-gray-200
-                  text-gray-600
-                  text-sm
-                  font-semibold
-                  hover:bg-gray-100
-                "
-              >
-
-                Reset Filter
-
-              </button>
-
-            </div>
-
-          </div>
-
-        )
-      }
-
-
-      {/* ================================================= */}
-      {/* SUMMARY */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          grid
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-4
-          gap-4
-        "
-      >
-
-        {/* TOTAL */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-blue-50
-            border
-            border-blue-100
-            p-4
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
-            <div>
-
-              <p
-                className="
-                  text-sm
-                  text-blue-700
-                "
-              >
-                Total Faktur
-              </p>
-
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-blue-900
-                "
-              >
-                {
-                  summaryData.total
-                }
-              </p>
-
-            </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-blue-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaClipboardList
-                className="
-                  text-blue-600
-                "
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* NILAI TAGIHAN */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-purple-50
-            border
-            border-purple-100
-            p-4
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
-            <div>
-
-              <p
-                className="
-                  text-sm
-                  text-purple-700
-                "
-              >
-                Total Nilai Tagihan
-              </p>
-
-
-              <p
-                className="
-                  text-xl
-                  font-bold
-                  text-purple-900
-                "
-              >
-                {
-                  formatRupiah(
-                    summaryData.totalNominal
-                  )
-                }
-              </p>
-
-            </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-purple-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaMoneyBillWave
-                className="
-                  text-purple-600
-                "
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* DITERIMA */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-green-50
-            border
-            border-green-100
-            p-4
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
-            <div>
-
-              <p
-                className="
-                  text-sm
-                  text-green-700
-                "
-              >
-                Pembayaran Diterima
-              </p>
-
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-green-900
-                "
-              >
-                {
-                  summaryData.pembayaranDiterima
-                }
-              </p>
-
-
-              <p
-                className="
-                  text-xs
-                  text-green-600
-                  mt-1
-                "
-              >
-                {
-                  formatRupiah(
-                    summaryData.totalDibayar
-                  )
-                }
-              </p>
-
-            </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-green-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaCheckCircle
-                className="
-                  text-green-600
-                "
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* COLLECTION RATE */}
-
-        <div
-          className="
-            rounded-2xl
-            bg-orange-50
-            border
-            border-orange-100
-            p-4
-          "
-        >
-
-          <div
-            className="
-              flex
-              justify-between
-            "
-          >
-
-            <div>
-
-              <p
-                className="
-                  text-sm
-                  text-orange-700
-                "
-              >
-                Collection Rate
-              </p>
-
-
-              <p
-                className="
-                  text-2xl
-                  font-bold
-                  text-orange-900
-                "
-              >
-                {
-                  summaryData.collectionRate.toFixed(
-                    2
-                  )
-                }%
-              </p>
-
-
-              <p
-                className="
-                  text-xs
-                  text-orange-600
-                  mt-1
-                "
-              >
-                {
-                  summaryData.sudahDiantar
-                }{" "}
-                faktur sudah diantar
-              </p>
-
-            </div>
-
-
-            <div
-              className="
-                w-11
-                h-11
-                rounded-xl
-                bg-orange-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-
-              <FaChartBar
-                className="
-                  text-orange-600
-                "
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
+      {/* RINGKASAN */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4"><p className="text-sm text-blue-700">Total Data</p><p className="text-2xl font-bold text-blue-900">{summaryData.total_data || totalData}</p></div>
+        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4"><p className="text-sm text-purple-700">Total DPP</p><p className="text-xl font-bold text-purple-900">{formatCompactRupiah(summaryData.total_nominal)}</p></div>
+        <div className="rounded-2xl bg-green-50 border border-green-100 p-4"><p className="text-sm text-green-700">Sudah Lunas</p><p className="text-2xl font-bold text-green-900">{summaryData.lunas_count}</p></div>
+        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-4"><p className="text-sm text-orange-700">Belum Lunas</p><p className="text-2xl font-bold text-orange-900">{summaryData.belum_lunas_count}</p></div>
+        <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4"><p className="text-sm text-indigo-700">Collection</p><p className="text-xl font-bold text-indigo-900">{formatCompactRupiah(summaryData.total_collection)}</p></div>
       </div>
 
-
-      {/* ================================================= */}
-      {/* SECONDARY SUMMARY */}
-      {/* ================================================= */}
-
-      <div
-        className="
-          grid
-          grid-cols-2
-          lg:grid-cols-4
-          gap-3
-        "
-      >
-
-        <div
-          className="
-            rounded-xl
-            border
-            border-amber-100
-            bg-amber-50
-            px-4
-            py-3
-          "
-        >
-
-          <p
-            className="
-              text-xs
-              text-amber-700
-            "
-          >
-            Belum Diantar
-          </p>
-
-          <p
-            className="
-              text-lg
-              font-bold
-              text-amber-900
-            "
-          >
-            {
-              summaryData.belumDiantar
-            }
-          </p>
-
-        </div>
-
-
-        <div
-          className="
-            rounded-xl
-            border
-            border-blue-100
-            bg-blue-50
-            px-4
-            py-3
-          "
-        >
-
-          <p
-            className="
-              text-xs
-              text-blue-700
-            "
-          >
-            Menunggu Verifikasi
-          </p>
-
-          <p
-            className="
-              text-lg
-              font-bold
-              text-blue-900
-            "
-          >
-            {
-              summaryData.menungguVerifikasi
-            }
-          </p>
-
-        </div>
-
-
-        <div
-          className="
-            rounded-xl
-            border
-            border-red-100
-            bg-red-50
-            px-4
-            py-3
-          "
-        >
-
-          <p
-            className="
-              text-xs
-              text-red-700
-            "
-          >
-            Pembayaran Ditolak
-          </p>
-
-          <p
-            className="
-              text-lg
-              font-bold
-              text-red-900
-            "
-          >
-            {
-              summaryData.pembayaranDitolak
-            }
-          </p>
-
-        </div>
-
-
-        <div
-          className="
-            rounded-xl
-            border
-            border-green-100
-            bg-green-50
-            px-4
-            py-3
-          "
-        >
-
-          <p
-            className="
-              text-xs
-              text-green-700
-            "
-          >
-            Sudah Diantar
-          </p>
-
-          <p
-            className="
-              text-lg
-              font-bold
-              text-green-900
-            "
-          >
-            {
-              summaryData.sudahDiantar
-            }
-          </p>
-
-        </div>
-
-      </div>
-
-
-      {/* ================================================= */}
-      {/* TABLE */}
-      {/* ================================================= */}
-
-      <div
-        className={
-          dimensionScreenW <
-            768 &&
-            check
-            ? "bringToBack"
-            : ""
-        }
-      >
-
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            shadow-xl
-            overflow-hidden
-            border
-            border-gray-200
-          "
-        >
-
-          <div
-            className="
-              overflow-auto
-              rounded-2xl
-              max-h-[65vh]
-            "
-          >
-
-            <table
-              className="
-                table
-                w-full
-              "
-            >
-
-              <thead
-                className="
-                  bg-primary
-                  text-white
-                  sticky
-                  top-0
-                  text-[12px]
-                  z-10
-                "
-              >
-
-                <tr>
-
-                  <th className="px-4 py-3">
-                    No
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                    "
-                  >
-                    No. Faktur
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                    "
-                  >
-                    No. Billing
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                    "
-                  >
-                    Umur Piutang
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Pelanggan
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Cabang
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                      text-right
-                    "
-                  >
-                    DPP/Komersil
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                      text-right
-                    "
-                  >
-                    PPN (11%)
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                      text-right
-                    "
-                  >
-                    PPh (1,5%)
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                      text-right
-                    "
-                  >
-                    Pencairan/Pembayaran
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                      text-right
-                    "
-                  >
-                    Sisa/Outstanding Piutang
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                    "
-                  >
-                    Keterangan
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                      whitespace-nowrap
-                    "
-                  >
-                    Jatuh Tempo
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Kolektor
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Pengantaran
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Pembayaran
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Metode
-                  </th>
-
-                  <th
-                    className="
-                      px-4
-                      py-3
-                    "
-                  >
-                    Aksi
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
+      {/* TABEL */}
+      <div className={dimensionScreenW < 768 && check ? "bringToBack" : ""}>
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+          <div className="relative overflow-auto rounded-2xl max-h-[65vh]">
+            {loading && <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm"><div className="flex flex-col items-center gap-3"><span className="loading loading-spinner loading-lg text-primary" /><span className="text-sm text-gray-600">Memuat data laporan...</span></div></div>}
+            <table className="table w-full border-collapse">
+              <thead className="bg-primary text-white sticky top-0 text-[12px] z-10"><tr>
+                <th className="px-4 py-3 whitespace-nowrap text-center">Aksi</th>
+                <th className="px-4 py-3 whitespace-nowrap">No</th>
+                <th className="px-4 py-3 whitespace-nowrap">No. Billing</th>
+                <th className="px-4 py-3 whitespace-nowrap">Document Date</th>
+                <th className="px-4 py-3 whitespace-nowrap">Document Type</th>
+                <th className="px-4 py-3 whitespace-nowrap">Kode Customer</th>
+                <th className="px-4 py-3 whitespace-nowrap">Nama Customer</th>
+                <th className="px-4 py-3 whitespace-nowrap">Salesman</th>
+                <th className="px-4 py-3 whitespace-nowrap">Nama Sales</th>
+                <th className="px-4 py-3 whitespace-nowrap">Profit Center</th>
+                <th className="px-4 py-3 whitespace-nowrap">Cabang</th>
+                <th className="px-4 py-3 whitespace-nowrap">Posting Date</th>
+                <th className="px-4 py-3 whitespace-nowrap">Jatuh Tempo</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">DPP</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">PPN</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">PPh</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">Total Invoice</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">Collection</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">Saldo Piutang</th>
+                <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
+                <th className="px-4 py-3 whitespace-nowrap text-center">Aging</th>
+                <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 whitespace-nowrap">Tukar Faktur</th>
+                <th className="px-4 py-3 whitespace-nowrap">Status Tukar Faktur</th>
+                <th className="px-4 py-3 whitespace-nowrap">Penagihan</th>
+                <th className="px-4 py-3 whitespace-nowrap">Status Lunas</th>
+              </tr></thead>
               <tbody>
-
-                {
-                  paginatedData.length ===
-                    0 ? (
-
-                    <tr>
-
-                      <td
-                        colSpan={
-                          18
-                        }
-                        className="
-                          text-center
-                          py-16
-                          text-gray-500
-                        "
-                      >
-
-                        <FaClipboardList
-                          className="
-                            text-4xl
-                            text-gray-300
-                            mx-auto
-                            mb-3
-                          "
-                        />
-
-                        Tidak ada data laporan
-
+                {!tableData.length ? <tr><td colSpan={26} className="text-center py-16 text-gray-500"><FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" /><p className="font-medium">Tidak ada data laporan</p><p className="text-xs text-gray-400 mt-1">Silakan ubah filter atau kata pencarian</p></td></tr> : tableData.map((item, index) => {
+                  const amounts = getInvoiceAmounts(item);
+                  const docDate = item?.document_date || item?.documentDate || item?.tanggal_faktur || item?.posting_date;
+                  const postingDate = item?.posting_date || item?.tanggal_posting;
+                  const aging = item?.aging ?? getUmurPiutang(item);
+                  const statusText = item?.status ?? item?.status_piutang ?? "-";
+                  const rowKey = `${item?.no_billing || item?.no_tagihan || item?.billing_no || item?.no_faktur || "billing"}-${item?.kode_customer || item?.customer_code || "customer"}-${index}`;
+                  return <React.Fragment key={rowKey}>
+                  <tr className="border-b hover:bg-blue-50 transition duration-200">
+                    <td className="px-4 py-2 text-center">
+                      <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                        <button type="button" title="Lihat detail" aria-label="Lihat detail" onClick={() => setSelectedData(item)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 transition hover:bg-blue-100">
+                          <FaEye />
+                        </button>
+                        <button type="button" title={expandedRows[rowKey] ? "Tutup detail penjualan" : "Lihat detail penjualan"} aria-label={expandedRows[rowKey] ? "Tutup detail penjualan" : "Lihat detail penjualan"} onClick={() => handleExpandPenjualan(item, rowKey)} className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition ${expandedRows[rowKey] ? "border-blue-200 bg-blue-100 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"}`}>
+                          {expandedRows[rowKey] ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 font-semibold text-gray-700">{(currentPage - 1) * perPage + index + 1}</td>
+                    <td className="px-4 py-2 whitespace-nowrap"><p className="font-semibold text-primary">{displayValue(item?.no_billing || item?.no_tagihan || item?.billing_no || item?.no_faktur)}</p></td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDate(docDate)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.document_type || item?.documentType || item?.doc_type)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.kode_customer || item?.customer_code || item?.customer)}</td>
+                    <td className="px-4 py-2 min-w-[220px]"><div className="flex items-center gap-2"><FaBuilding className="text-blue-500 shrink-0" /><span className="font-medium text-gray-700">{displayValue(item?.nama_customer || item?.customer_name || item?.name || item?.customer)}</span></div></td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.sales || item?.salesman || item?.kode_salesman || item?.sales_code)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.nama_sales || item?.nama_salesman || item?.sales_name || getSalesman(item))}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.profit_center || item?.profit_center_name)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap"><div className="flex items-center gap-2"><FaStore className="text-orange-500" />{displayValue(item?.nama_cabang || item?.cabang || item?.sales_office_name)}</div></td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDate(postingDate)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDate(item?.jatuh_tempo || item?.due_date)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-semibold">{formatRupiah(amounts.dpp)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-semibold text-blue-600">{formatRupiah(amounts.ppn)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-semibold text-purple-600">{formatRupiah(amounts.pph)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-semibold">{formatRupiah(amounts.totalInvoice)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-semibold text-green-600">{formatRupiah(amounts.collection)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-bold text-red-600">{formatRupiah(amounts.saldoPiutang)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap"><span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">{displayValue(item?.keterangan_outstanding || item?.keterangan || amounts.keterangan)}</span></td>
+                    <td className="px-4 py-2 whitespace-nowrap text-center">{displayValue(aging)}{typeof aging === "number" || /^\d+$/.test(String(aging)) ? " hari" : ""}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(statusText)}</td>
+                    <td className="px-4 py-2 min-w-[200px]"><div className="flex flex-col gap-1"><span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700"><FaUser className="text-blue-500" />{displayValue(getPetugasTukarFaktur(item))}</span><span className="text-xs text-gray-500"><FaCalendarAlt className="inline mr-1" />{formatDate(getTanggalTukarFaktur(item))}</span></div></td>
+                    <td className="px-4 py-2">{renderStatusTukarFaktur(item)}</td>
+                    <td className="px-4 py-2 min-w-[190px]"><div className="flex flex-col gap-1"><span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700"><FaUser className="text-orange-500" />{displayValue(getPenagih(item))}</span><span className="text-xs text-gray-500"><FaCalendarAlt className="inline mr-1" />{formatDate(getTanggalPenagihan(item))}</span></div></td>
+                    <td className="px-4 py-2">{renderStatusLunas(item)}</td>
+                  </tr>
+                  {expandedRows[rowKey] && (
+                    <tr className="border-b border-blue-100 bg-slate-50">
+                      <td colSpan={26} className="p-0">
+                        <div className="border-l-4 border-blue-500 px-4 py-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-gray-800">Detail Data Penjualan</p>
+                              <p className="text-xs text-gray-500">No. Billing: {displayValue(item?.no_billing || item?.no_tagihan || item?.billing_no || item?.no_faktur)}</p>
+                            </div>
+                            {loadingPenjualanDetails[rowKey] && <span className="inline-flex items-center gap-2 text-sm text-blue-600"><FaSpinner className="animate-spin" /> Memuat detail...</span>}
+                          </div>
+                          {loadingPenjualanDetails[rowKey] ? (
+                            <div className="py-8 text-center text-sm text-gray-500">Sedang mengambil data penjualan dari API...</div>
+                          ) : (penjualanDetails[rowKey] || []).length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-white py-8 text-center text-sm text-gray-500">Data penjualan untuk billing ini tidak ditemukan.</div>
+                          ) : (
+                            <div className="overflow-auto rounded-xl border border-gray-200 bg-white max-h-[420px]">
+                              <table className="table table-sm w-full">
+                                <thead className="sticky top-0 z-[1] bg-blue-50 text-gray-700"><tr>{penjualanDetailColumns.map((column) => <th key={column.key} className="whitespace-nowrap px-3 py-2 text-xs">{column.label}</th>)}</tr></thead>
+                                <tbody>{penjualanDetails[rowKey].map((detail, detailIndex) => (
+                                  <tr key={`${detail?.["Billing No"] || rowKey}-${detail?.Material || detail?.material || detailIndex}-${detailIndex}`} className="border-b last:border-b-0 hover:bg-blue-50/60">
+                                    {penjualanDetailColumns.map((column) => {
+                                      const totalPenjualan = Number(detail?.["Total Penjualan"] || 0);
+                                      const totalCOGS = Number(detail?.["Total COGS"] || 0);
+                                      let value = detail?.[column.key];
+                                      if (column.key === "Tanggal Jatuh Tempo") value = getTanggalJatuhTempoPenjualan(detail);
+                                      if (column.key === "TOP") value = detail?.["TOP"] ?? detail?.top ?? detail?.top_days ?? detail?.term_of_payment;
+                                      if (column.key === "PPh") value = firstNumber(detail?.PPh, detail?.pph, totalPenjualan * 0.015);
+                                      if (column.key === "Persentase COGS") value = totalPenjualan !== 0 ? (totalCOGS / totalPenjualan) * 100 : 0;
+                                      if (column.key === "Margin") value = totalPenjualan - totalCOGS;
+                                      if (column.key === "Persentase Margin") value = totalPenjualan !== 0 ? ((totalPenjualan - totalCOGS) / totalPenjualan) * 100 : 0;
+                                      return <td key={column.key} className="whitespace-nowrap px-3 py-2 text-xs text-gray-700">{column.type === "currency" ? formatRupiah(value) : column.type === "number" ? formatNumber(value) : column.type === "percent" ? `${formatNumber(value)}%` : column.type === "date" ? formatDate(value) : column.type === "top" ? formatTOP(value) : displayValue(value)}</td>;
+                                    })}
+                                  </tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
                       </td>
-
                     </tr>
-
-                  ) : (
-
-                    paginatedData.map(
-                      (
-                        item,
-                        index
-                      ) => (
-
-                        <tr
-                          key={
-                            item.id
-                          }
-                          className="
-                            border-b
-                            hover:bg-blue-50
-                            transition
-                            duration-200
-                          "
-                        >
-
-                          {/* NO */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              font-semibold
-                              text-gray-700
-                            "
-                          >
-
-                            {
-                              (
-                                currentPage -
-                                1
-                              ) *
-                              perPage +
-                              index +
-                              1
-                            }
-
-                          </td>
-
-
-                          {/* FAKTUR */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-9
-                                  h-9
-                                  rounded-lg
-                                  bg-blue-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
-                              >
-
-                                <FaFileInvoiceDollar
-                                  className="
-                                    text-primary
-                                  "
-                                />
-
-                              </div>
-
-
-                              <div>
-
-                                <p
-                                  className="
-                                    font-semibold
-                                    text-primary
-                                  "
-                                >
-                                  {
-                                    item.no_faktur
-                                  }
-                                </p>
-
-                                <p
-                                  className="
-                                    text-xs
-                                    text-gray-400
-                                  "
-                                >
-                                  {
-                                    item.no_tagihan
-                                  }
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* NO BILLING */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                                text-sm
-                                text-gray-700
-                              "
-                            >
-                              <FaHashtag
-                                className="
-                                  text-blue-500
-                                "
-                              />
-
-                              <span className="font-semibold">
-                                {item.no_tagihan || "-"}
-                              </span>
-                            </div>
-                          </td>
-
-
-                          {/* UMUR PIUTANG */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-                            <div
-                              className="
-                                inline-flex
-                                items-center
-                                gap-2
-                                px-3
-                                py-1.5
-                                rounded-full
-                                bg-orange-50
-                                text-orange-700
-                                text-xs
-                                font-semibold
-                              "
-                            >
-                              <FaClock />
-                              {getUmurPiutang(item.tanggal_faktur)} hari
-                            </div>
-                          </td>
-
-
-                          {/* CUSTOMER */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              min-w-[220px]
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-3
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-9
-                                  h-9
-                                  rounded-full
-                                  bg-blue-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                  text-primary
-                                "
-                              >
-
-                                <FaBuilding />
-
-                              </div>
-
-
-                              <p
-                                className="
-                                  font-semibold
-                                  text-gray-700
-                                "
-                              >
-                                {
-                                  item.customer
-                                }
-                              </p>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* CABANG */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                                text-sm
-                                text-gray-700
-                              "
-                            >
-
-                              <FaStore
-                                className="
-                                  text-orange-500
-                                "
-                              />
-
-                              {
-                                item.cabang
-                              }
-
-                            </div>
-
-                          </td>
-
-
-                          {/* DPP / KOMERSIL */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                              text-right
-                            "
-                          >
-                            <span className="font-semibold text-gray-800">
-                              {formatRupiah(
-                                getDetailNilaiPiutang(item).dpp
-                              )}
-                            </span>
-                          </td>
-
-
-                          {/* PPN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                              text-right
-                            "
-                          >
-                            <span className="font-semibold text-blue-600">
-                              {formatRupiah(
-                                getDetailNilaiPiutang(item).ppn
-                              )}
-                            </span>
-                          </td>
-
-
-                          {/* PPH */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                              text-right
-                            "
-                          >
-                            <span className="font-semibold text-purple-600">
-                              {formatRupiah(
-                                getDetailNilaiPiutang(item).pph
-                              )}
-                            </span>
-                          </td>
-
-
-                          {/* PENCAIRAN / PEMBAYARAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                              text-right
-                            "
-                          >
-                            <span className="font-semibold text-green-600">
-                              {formatRupiah(
-                                getDetailNilaiPiutang(item).pembayaran
-                              )}
-                            </span>
-                          </td>
-
-
-                          {/* SISA / OUTSTANDING */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                              text-right
-                            "
-                          >
-                            <span className="font-bold text-red-600">
-                              {formatRupiah(
-                                getDetailNilaiPiutang(item).outstanding
-                              )}
-                            </span>
-                          </td>
-
-
-                          {/* KETERANGAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-                            <span
-                              className="
-                                inline-flex
-                                items-center
-                                px-3
-                                py-1.5
-                                rounded-full
-                                bg-blue-50
-                                text-blue-700
-                                text-xs
-                                font-semibold
-                              "
-                            >
-                              {
-                                getDetailNilaiPiutang(item).keterangan
-                              }
-                            </span>
-                          </td>
-
-
-                          {/* JATUH TEMPO */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <FaCalendarAlt
-                                className="
-                                  text-primary
-                                "
-                              />
-
-                              <span
-                                className="
-                                  text-sm
-                                  text-gray-600
-                                "
-                              >
-                                {
-                                  formatDate(
-                                    item.jatuh_tempo
-                                  )
-                                }
-                              </span>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* KOLEKTOR */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-8
-                                  h-8
-                                  rounded-full
-                                  bg-orange-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
-                              >
-
-                                <FaUser
-                                  className="
-                                    text-orange-500
-                                  "
-                                />
-
-                              </div>
-
-
-                              <span
-                                className="
-                                  text-sm
-                                  font-medium
-                                  text-gray-700
-                                "
-                              >
-                                {
-                                  item.kolektor
-                                }
-                              </span>
-
-                            </div>
-
-                          </td>
-
-
-                          {/* PENGANTARAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              item.status_pengantaran ===
-                                "SUDAH_DIANTAR"
-                                ? (
-
-                                  <span
-                                    className="
-                                      inline-flex
-                                      items-center
-                                      gap-2
-                                      px-3
-                                      py-1.5
-                                      rounded-full
-                                      bg-green-100
-                                      text-green-700
-                                      text-xs
-                                      font-semibold
-                                      whitespace-nowrap
-                                    "
-                                  >
-
-                                    <FaTruck />
-
-                                    Sudah Diantar
-
-                                  </span>
-
-                                )
-                                : (
-
-                                  <span
-                                    className="
-                                      inline-flex
-                                      items-center
-                                      gap-2
-                                      px-3
-                                      py-1.5
-                                      rounded-full
-                                      bg-amber-100
-                                      text-amber-700
-                                      text-xs
-                                      font-semibold
-                                      whitespace-nowrap
-                                    "
-                                  >
-
-                                    <FaClock />
-
-                                    Belum Diantar
-
-                                  </span>
-
-                                )
-                            }
-
-                          </td>
-
-
-                          {/* PEMBAYARAN */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              renderStatusPembayaran(
-                                item.status_pembayaran
-                              )
-                            }
-
-                          </td>
-
-
-                          {/* METODE */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              renderPaymentMethod(
-                                item.metode_pembayaran
-                              )
-                            }
-
-                          </td>
-
-
-                          {/* AKSI */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openDetail(
-                                  item
-                                )
-                              }
-                              className="
-                                w-9
-                                h-9
-                                rounded-full
-                                bg-blue-50
-                                text-primary
-                                flex
-                                items-center
-                                justify-center
-                                hover:bg-primary
-                                hover:text-white
-                                transition
-                              "
-                              title="Detail"
-                            >
-
-                              <FaEye />
-
-                            </button>
-
-                          </td>
-
-                        </tr>
-
-                      )
-                    )
-
-                  )
-                }
-
+                  )}
+                  </React.Fragment>;
+                })}
               </tbody>
-
             </table>
-
           </div>
-
-
-          {/* ================================================= */}
-          {/* FOOTER */}
-          {/* ================================================= */}
-
-          <div
-            className="
-              border-t
-              border-gray-100
-              bg-slate-50
-              py-4
-              px-5
-            "
-          >
-
-            <div
-              className="
-                flex
-                flex-col
-                lg:flex-row
-                gap-4
-                lg:items-center
-                lg:justify-between
-              "
-            >
-
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-5
-                  flex-wrap
-                "
-              >
-
-                <div
-                  className="
-                    text-sm
-                    text-gray-600
-                  "
-                >
-
-                  Showing{" "}
-
-                  <span
-                    className="
-                      font-semibold
-                    "
-                  >
-                    {
-                      startIndex
-                    }
-                  </span>
-
-                  {" "}to{" "}
-
-                  <span
-                    className="
-                      font-semibold
-                    "
-                  >
-                    {
-                      endIndex
-                    }
-                  </span>
-
-                  {" "}of{" "}
-
-                  <span
-                    className="
-                      font-semibold
-                    "
-                  >
-                    {
-                      totalData
-                    }
-                  </span>
-
-                  {" "}entries
-
-                </div>
-
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                  "
-                >
-
-                  <span
-                    className="
-                      text-sm
-                      text-gray-600
-                    "
-                  >
-                    Rows:
-                  </span>
-
-
-                  <select
-                    className="
-                      select
-                      select-bordered
-                      select-sm
-                      bg-white
-                      rounded-full
-                    "
-                    value={
-                      perPage
-                    }
-                    onChange={
-                      e =>
-                        setPerPage(
-                          parseInt(
-                            e.target.value
-                          )
-                        )
-                    }
-                  >
-
-                    <option value="5">
-                      5
-                    </option>
-
-                    <option value="10">
-                      10
-                    </option>
-
-                    <option value="25">
-                      25
-                    </option>
-
-                    <option value="50">
-                      50
-                    </option>
-
-                  </select>
-
-                </div>
-
-              </div>
-
-
-              {
-                totalPage >
-                0 && (
-
-                  <ReactPaginate
-                    breakLabel="..."
-                    previousLabel="←"
-                    nextLabel="→"
-                    pageCount={
-                      totalPage
-                    }
-                    onPageChange={
-                      e =>
-                        setCurrentPage(
-                          e.selected +
-                          1
-                        )
-                    }
-                    forcePage={
-                      currentPage -
-                      1
-                    }
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                    "
-                    activeClassName="
-                      !bg-primary
-                      !text-white
-                      !border-primary
-                    "
-                    pageClassName="
-                      min-w-9
-                      h-9
-                      border
-                      border-gray-300
-                      rounded-full
-                      flex
-                      items-center
-                      justify-center
-                      bg-white
-                      hover:bg-blue-50
-                    "
-                    pageLinkClassName="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                      px-3
-                    "
-                    previousClassName="
-                      min-w-9
-                      h-9
-                      border
-                      border-gray-300
-                      rounded-full
-                      bg-white
-                    "
-                    nextClassName="
-                      min-w-9
-                      h-9
-                      border
-                      border-gray-300
-                      rounded-full
-                      bg-white
-                    "
-                    previousLinkClassName="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                    "
-                    nextLinkClassName="
-                      w-full
-                      h-full
-                      flex
-                      items-center
-                      justify-center
-                    "
-                    breakClassName="
-                      px-2
-                      text-gray-500
-                    "
-                    disabledClassName="
-                      opacity-50
-                      cursor-not-allowed
-                    "
-                  />
-
-                )
-              }
-
-            </div>
-
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-4 py-4 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row items-center gap-3 text-sm text-gray-500"><span>Menampilkan <b className="text-gray-700">{startIndex}-{endIndex}</b> dari <b className="text-gray-700">{totalData}</b> data</span><div className="flex items-center gap-2"><label htmlFor="laporan-per-page">Baris:</label><select id="laporan-per-page" value={perPage} onChange={(e) => { setCurrentPage(1); setPerPage(Number(e.target.value)); }} className="select select-bordered select-xs rounded-full bg-white"><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></div></div>
+            {totalPage > 0 && <ReactPaginate breakLabel="..." previousLabel="←" nextLabel="→" pageCount={totalPage} onPageChange={handlePageChange} forcePage={Math.min(currentPage - 1, Math.max(totalPage - 1, 0))} className="flex items-center gap-2" activeClassName="!bg-primary !text-white !border-primary" pageClassName="min-w-9 h-9 border border-gray-300 rounded-full flex items-center justify-center bg-white hover:bg-blue-50" pageLinkClassName="w-full h-full flex items-center justify-center px-3" previousClassName="min-w-9 h-9 border border-gray-300 rounded-full bg-white" nextClassName="min-w-9 h-9 border border-gray-300 rounded-full bg-white" previousLinkClassName="w-full h-full flex items-center justify-center" nextLinkClassName="w-full h-full flex items-center justify-center" breakClassName="px-2 text-gray-500" disabledClassName="opacity-50 cursor-not-allowed" />}
           </div>
-
         </div>
-
       </div>
 
-
-      {/* ================================================= */}
-      {/* DETAIL MODAL */}
-      {/* ================================================= */}
-
-      {
-        selectedData && (
-
-          <div
-            className="
-              fixed
-              inset-0
-              z-[999]
-              bg-black/40
-              backdrop-blur-sm
-              flex
-              items-center
-              justify-center
-              p-4
-            "
-            onClick={() =>
-              setSelectedData(
-                null
-              )
-            }
-          >
-
-            <div
-              className="
-                bg-white
-                rounded-2xl
-                shadow-2xl
-                w-full
-                max-w-3xl
-                max-h-[90vh]
-                overflow-y-auto
-              "
-              onClick={
-                e =>
-                  e.stopPropagation()
-              }
-            >
-
-              {/* HEADER */}
-
-              <div
-                className="
-                  bg-primary
-                  px-6
-                  py-4
-                  text-white
-                "
-              >
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                  "
-                >
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                    "
-                  >
-
-                    <div
-                      className="
-                        w-10
-                        h-10
-                        rounded-xl
-                        bg-white/15
-                        flex
-                        items-center
-                        justify-center
-                      "
-                    >
-
-                      <FaChartBar />
-
-                    </div>
-
-
-                    <div>
-
-                      <h3
-                        className="
-                          font-bold
-                          text-lg
-                        "
-                      >
-                        Detail Laporan
-                      </h3>
-
-                      <p
-                        className="
-                          text-xs
-                          text-blue-100
-                        "
-                      >
-                        {
-                          selectedData.no_faktur
-                        }
-                      </p>
-
-                    </div>
-
-                  </div>
-
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedData(
-                        null
-                      )
-                    }
-                    className="
-                      w-9
-                      h-9
-                      rounded-full
-                      hover:bg-white/10
-                      flex
-                      items-center
-                      justify-center
-                    "
-                  >
-
-                    <FaTimes />
-
-                  </button>
-
-                </div>
-
-              </div>
-
-
-              {/* BODY */}
-
-              <div
-                className="
-                  p-6
-                  flex
-                  flex-col
-                  gap-5
-                "
-              >
-
-                {/* INFORMASI FAKTUR */}
-
-                <div
-                  className="
-                    rounded-2xl
-                    bg-gray-50
-                    border
-                    border-gray-100
-                    p-5
-                  "
-                >
-
-                  <h3
-                    className="
-                      font-bold
-                      text-gray-700
-                      mb-4
-                    "
-                  >
-                    Informasi Faktur
-                  </h3>
-
-
-                  <div
-                    className="
-                      grid
-                      grid-cols-1
-                      sm:grid-cols-2
-                      gap-4
-                    "
-                  >
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        No. Faktur
-                      </p>
-
-                      <p className="
-                        font-bold
-                        text-primary
-                      ">
-                        {
-                          selectedData.no_faktur
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        No. Tagihan
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          selectedData.no_tagihan
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Pelanggan
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          selectedData.customer
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Cabang
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          selectedData.cabang
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div
-                      className="
-                        sm:col-span-2
-                        lg:col-span-3
-                        rounded-xl
-                        bg-blue-50
-                        border
-                        border-blue-100
-                        p-4
-                      "
-                    >
-                      <p className="
-                        text-xs
-                        text-blue-500
-                        mb-3
-                        font-semibold
-                      ">
-                        Detail Nilai Piutang
-                      </p>
-
-                      <div className="
-                        grid
-                        grid-cols-1
-                        sm:grid-cols-2
-                        lg:grid-cols-3
-                        gap-3
-                      ">
-                        <div>
-                          <p className="text-xs text-gray-400">
-                            DPP/Komersil
-                          </p>
-                          <p className="font-bold text-gray-800">
-                            {
-                              formatRupiah(
-                                getDetailNilaiPiutang(selectedData).dpp
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-gray-400">
-                            PPN (DPP × 11%)
-                          </p>
-                          <p className="font-bold text-blue-600">
-                            {
-                              formatRupiah(
-                                getDetailNilaiPiutang(selectedData).ppn
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-gray-400">
-                            PPh (DPP × 1,5%)
-                          </p>
-                          <p className="font-bold text-purple-600">
-                            {
-                              formatRupiah(
-                                getDetailNilaiPiutang(selectedData).pph
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-gray-400">
-                            Pencairan/Pembayaran
-                          </p>
-                          <p className="font-bold text-green-600">
-                            {
-                              formatRupiah(
-                                getDetailNilaiPiutang(selectedData).pembayaran
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-gray-400">
-                            Sisa/Outstanding Piutang
-                          </p>
-                          <p className="font-bold text-red-600">
-                            {
-                              formatRupiah(
-                                getDetailNilaiPiutang(selectedData).outstanding
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-gray-400">
-                            Keterangan
-                          </p>
-                          <span className="
-                            inline-flex
-                            mt-1
-                            px-3
-                            py-1
-                            rounded-full
-                            bg-blue-100
-                            text-blue-700
-                            text-xs
-                            font-semibold
-                          ">
-                            {
-                              getDetailNilaiPiutang(selectedData).keterangan
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Jatuh Tempo
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          formatDate(
-                            selectedData.jatuh_tempo
-                          )
-                        }
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                {/* PENUGASAN */}
-
-                <div
-                  className="
-                    rounded-2xl
-                    bg-gray-50
-                    border
-                    border-gray-100
-                    p-5
-                  "
-                >
-
-                  <h3
-                    className="
-                      font-bold
-                      text-gray-700
-                      mb-4
-                    "
-                  >
-                    Informasi Penugasan
-                  </h3>
-
-
-                  <div
-                    className="
-                      grid
-                      grid-cols-1
-                      sm:grid-cols-3
-                      gap-4
-                    "
-                  >
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Kolektor
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          selectedData.kolektor
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Tanggal Penugasan
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          formatDate(
-                            selectedData.tanggal_penugasan
-                          )
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Status Pengantaran
-                      </p>
-
-                      <div className="mt-1">
-
-                        {
-                          selectedData.status_pengantaran ===
-                            "SUDAH_DIANTAR"
-                            ? (
-
-                              <span className="
-                                inline-flex
-                                items-center
-                                gap-2
-                                px-3
-                                py-1.5
-                                rounded-full
-                                bg-green-100
-                                text-green-700
-                                text-xs
-                                font-semibold
-                              ">
-
-                                <FaTruck />
-
-                                Sudah Diantar
-
-                              </span>
-
-                            )
-                            : (
-
-                              <span className="
-                                inline-flex
-                                items-center
-                                gap-2
-                                px-3
-                                py-1.5
-                                rounded-full
-                                bg-amber-100
-                                text-amber-700
-                                text-xs
-                                font-semibold
-                              ">
-
-                                <FaClock />
-
-                                Belum Diantar
-
-                              </span>
-
-                            )
-                        }
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                {/* PEMBAYARAN */}
-
-                <div
-                  className="
-                    rounded-2xl
-                    bg-gray-50
-                    border
-                    border-gray-100
-                    p-5
-                  "
-                >
-
-                  <h3
-                    className="
-                      font-bold
-                      text-gray-700
-                      mb-4
-                    "
-                  >
-                    Informasi Pembayaran
-                  </h3>
-
-
-                  <div
-                    className="
-                      grid
-                      grid-cols-1
-                      sm:grid-cols-3
-                      gap-4
-                    "
-                  >
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Tanggal Pembayaran
-                      </p>
-
-                      <p className="
-                        font-semibold
-                        text-gray-700
-                      ">
-                        {
-                          formatDate(
-                            selectedData.tanggal_pembayaran
-                          )
-                        }
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Metode Pembayaran
-                      </p>
-
-                      <div className="mt-1">
-
-                        {
-                          renderPaymentMethod(
-                            selectedData.metode_pembayaran
-                          )
-                        }
-
-                      </div>
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="
-                        text-xs
-                        text-gray-400
-                      ">
-                        Status Pembayaran
-                      </p>
-
-                      <div className="mt-1">
-
-                        {
-                          renderStatusPembayaran(
-                            selectedData.status_pembayaran
-                          )
-                        }
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* FOOTER */}
-
-              <div
-                className="
-                  border-t
-                  bg-gray-50
-                  px-5
-                  py-4
-                  flex
-                  justify-end
-                "
-              >
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedData(
-                      null
-                    )
-                  }
-                  className="
-                    px-5
-                    py-2.5
-                    rounded-full
-                    bg-primary
-                    text-white
-                    text-sm
-                    font-semibold
-                    hover:opacity-90
-                  "
-                >
-
-                  Tutup
-
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        )
-      }
-
+      {selectedData && <div className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedData(null)}><div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-primary px-6 py-4 text-white flex items-center justify-between"><div><h3 className="font-bold text-lg">Detail Laporan</h3><p className="text-xs text-white/80">{displayValue(selectedData?.no_faktur || selectedData?.faktur)}</p></div><button type="button" onClick={() => setSelectedData(null)} className="p-2 rounded-full hover:bg-white/10" aria-label="Tutup"><FaTimes /></button></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
+          {[["No. Faktur", selectedData?.no_faktur || selectedData?.faktur], ["No. Billing", selectedData?.no_billing || selectedData?.no_tagihan || selectedData?.billing_no || selectedData?.no_faktur], ["Document Date", formatDate(selectedData?.document_date || selectedData?.documentDate || selectedData?.tanggal_faktur || selectedData?.posting_date)], ["Kode Customer", selectedData?.kode_customer || selectedData?.customer_code || selectedData?.customer], ["Nama Customer", selectedData?.nama_customer || selectedData?.customer_name || selectedData?.name || selectedData?.customer], ["Cabang", selectedData?.nama_cabang || selectedData?.cabang], ["Posting Date", formatDate(selectedData?.posting_date)], ["Jatuh Tempo", formatDate(selectedData?.jatuh_tempo)], ["Document Type", selectedData?.document_type], ["Sales", selectedData?.sales], ["Nama Sales", selectedData?.nama_sales], ["PPN", formatRupiah(getPpn(selectedData))], ["PPh", formatRupiah(getPph(selectedData))], ["Dibayar / Collection", formatRupiah(getCollection(selectedData))], ["Aging", selectedData?.aging != null ? `${selectedData.aging} hari` : getUmurPiutang(selectedData)], ["Status Piutang", statusLabel(selectedData?.status_piutang)], ["DPP", formatRupiah(getDpp(selectedData))], ["Saldo Piutang", formatRupiah(getOutstanding(selectedData))], ["Petugas Tukar Faktur", getPetugasTukarFaktur(selectedData)], ["Tanggal Penugasan Tukar Faktur", formatDate(getTanggalTukarFaktur(selectedData))], ["Status Tukar Faktur", statusLabel(getTukarFakturStatus(selectedData))], ["Penagih", getPenagih(selectedData)], ["Tanggal Penugasan Penagihan", formatDate(getTanggalPenagihan(selectedData))], ["Status Lunas", getStatusLunas(selectedData) === "LUNAS" ? "Sudah Lunas" : "Belum Lunas"]].map(([label, value]) => <div key={label} className="rounded-xl border border-gray-100 bg-gray-50 p-3"><p className="text-xs text-gray-500 mb-1">{label}</p><p className="text-sm font-semibold text-gray-800">{displayValue(value)}</p></div>)}
+        </div>
+        <div className="px-6 pb-6 flex justify-end"><button type="button" onClick={() => setSelectedData(null)} className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"><FaTimes />Tutup</button></div>
+      </div></div>}
     </div>
-
   );
-
 };
-
 
 export default TableLaporan;

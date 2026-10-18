@@ -140,7 +140,7 @@ const getTanggalJatuhTempo = (item) => {
   if (!item) return null;
   return addDaysToDate(
     item["Posting Date"],
-    item["TOP"]
+    item["top"]
   );
 };
 const formatTOP = (value) => {
@@ -221,12 +221,6 @@ const mainColumns = [
     label: "Document Date",
     icon: <FaCalendarAlt />,
     type: "date",
-  },
-  {
-    key: "TOP",
-    label: "TOP",
-    icon: <FaCalendarAlt />,
-    type: "top",
   },
   {
     key: "Tanggal Jatuh Tempo",
@@ -367,8 +361,19 @@ const mainColumns = [
   },
   {
     key: "Desc. Cust. Grp4",
-    label: "Customer Group",
+    label: "Desc. Cust. Grp4",
     icon: <FaBuilding />,
+  },
+  {
+    key: "lini",
+    label: "Lini",
+    icon: <FaBuilding />,
+  },
+  {
+    key: "top",
+    label: "TOP",
+    icon: <FaCalendarAlt />,
+    type: "top",
   },
   {
     key: "Salesman",
@@ -495,7 +500,7 @@ const detailGroups = [
       ["Prod. Hierarchy3", "Prod. Hierarchy3"],
       ["Principle", "Principle", "plainNumber"],
             ["Name Principle", "Name Principle"],
-      ["Desc. Cust. Grp4", "Desc. Cust. Grp4"],
+      ["Desc. Cust. Grp4", "Lini"],
     ],
   },
   {
@@ -1166,7 +1171,7 @@ const TableMasterFaktur = ({
         <div className="rounded-2xl bg-green-50 border border-green-100 p-4">
           <div className="flex justify-between">
             <div>
-              <p className="text-sm text-green-700">Total Billing</p>
+              <p className="text-sm text-green-700">Total Faktur</p>
               <p className="text-2xl font-bold text-green-900">
                 {formatNumber(summaryData.total_billing)}
               </p>

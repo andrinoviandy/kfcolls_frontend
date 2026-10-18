@@ -2558,6 +2558,49 @@ const n2nGetService = {
       return error.response;
     }
   },
+  getDataLaporan: async ({
+    page = 1,
+    limit = 10,
+    keyword = "",
+    sales_office = "ALL",
+    channel = "ALL",
+    principle = "ALL",
+    customer = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get("/getDataLaporan", {
+        params: {
+          page,
+          limit,
+          keyword,
+          sales_office,
+          channel,
+          principle,
+          customer,
+          start_date,
+          end_date,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DATA LAPORAN:",
+        error.response?.data || error.message
+      );
+
+      return error.response?.data || {
+        status: false,
+        message: error.message || "Gagal mengambil data laporan",
+        list_data: [],
+        total_data: 0,
+        total_halaman: 0,
+        summary: {},
+      };
+    }
+  },
 };
 
 export default n2nGetService;

@@ -19,6 +19,9 @@ import {
   FaCheckCircle,
   FaExclamationCircle,
   FaSyncAlt,
+  FaChevronDown,
+  FaChevronUp,
+  FaSpinner,
 } from "react-icons/fa";
 
 import ReactPaginate from "react-paginate";
@@ -26,6 +29,102 @@ import Select, { components as selectComponents } from "react-select";
 
 import { swal } from "global/helper/swal";
 import storeSchema from "global/store";
+
+const penjualanDetailColumns = [
+  { key: "Sales Office", label: "Profit Center" },
+  { key: "Desc. S.Office", label: "Profit Center Desc" },
+  { key: "Document Date", label: "Document Date", type: "date" },
+  { key: "Tanggal Jatuh Tempo", label: "Tanggal Jatuh Tempo", type: "date" },
+  { key: "Billing No", label: "Billing No" },
+  { key: "Bill to party", label: "Bill to Party" },
+  { key: "Name Bill to", label: "Customer" },
+  { key: "Address", label: "Address" },
+  { key: "Material", label: "Material" },
+  { key: "Text Material", label: "Text Material" },
+  { key: "Material Group 1", label: "Material Group" },
+  { key: "Desc Material Group 1", label: "Desc. Material Group" },
+  { key: "Quantity", label: "Quantity", type: "number" },
+  { key: "Sales Unit", label: "Sales Unit" },
+  { key: "Unit Price Penjualan", label: "Harga Jual", type: "currency" },
+  { key: "Total Discount", label: "Total Discount", type: "currency" },
+  { key: "Total Penjualan", label: "DPP", type: "currency" },
+  { key: "Tax Amount", label: "PPN", type: "currency" },
+  { key: "PPh", label: "PPh", type: "currency" },
+  { key: "Total COGS", label: "Total COGS", type: "currency" },
+  { key: "Persentase COGS", label: "Persentase COGS", type: "percent" },
+  { key: "Margin", label: "Margin", type: "currency" },
+  { key: "Persentase Margin", label: "Persentase Margin", type: "percent" },
+  { key: "Principle", label: "Principle" },
+  { key: "Name Principle", label: "Nama Principle" },
+  { key: "Desc. Cust. Grp4", label: "Lini" },
+  { key: "TOP", label: "TOP", type: "top" },
+  { key: "Salesman", label: "Salesman" },
+  { key: "Name Salesman", label: "Nama Salesman" },
+  { key: "PO Number", label: "PO Number" },
+  { key: "Quotation Number", label: "Quotation Number" },
+];
+
+const normalizePenjualanDetail = (item) => ({
+  ...item,
+  "Sales Office": item?.sales_office,
+  "Desc. S.Office": item?.desc_s_office,
+  "Document Date": item?.document_date || item?.documentDate || item?.doc_date || item?.tanggal_dokumen || item?.DOCUMENT_DATE || item?.posting_date,
+  "Posting Date": item?.posting_date || item?.postingDate || item?.tanggal_posting,
+  "Billing No": item?.billing_no || item?.no_billing,
+  "TOP": item?.["TOP"] ?? item?.top ?? item?.top_days ?? item?.term_of_payment,
+  "Tanggal Jatuh Tempo": item?.tanggal_jatuh_tempo || item?.jatuh_tempo,
+  "Bill to party": item?.bill_to_party,
+  "Name Bill to": item?.name_bill_to,
+  "Address": item?.address,
+  "Material": item?.material,
+  "Material Group 1": item?.material_group_1,
+  "Desc Material Group 1": item?.desc_material_group_1,
+  "Text Material": item?.text_material,
+  "Quantity": item?.quantity,
+  "Sales Unit": item?.sales_unit,
+  "Unit Price Penjualan": item?.unit_price_penjualan,
+  "Dis% (ZD01)": item?.dis_pct_zd01,
+  "DisAmt (ZD01)": item?.dis_amt_zd01,
+  "Dis% (ZD02)": item?.dis_pct_zd02,
+  "DisAmt (ZD02)": item?.dis_amt_zd02,
+  "Dis% (ZD03)": item?.dis_pct_zd03,
+  "DisAmt (ZD03)": item?.dis_amt_zd03,
+  "Dis% (ZD04)": item?.dis_pct_zd04,
+  "DisAmt (ZD04)": item?.dis_amt_zd04,
+  "Dis% (ZD05)": item?.dis_pct_zd05,
+  "DisAmt (ZD05)": item?.dis_amt_zd05,
+  "Dis% (ZD06)": item?.dis_pct_zd06,
+  "DisAmt (ZD06)": item?.dis_amt_zd06,
+  "Disc. Upfront % (ZD07)": item?.disc_upfront_pct_zd07,
+  "Disc. Upfront Amt (ZD07)": item?.disc_upfront_amt_zd07,
+  "Disc. Beban KFTD Upf % (ZD08)": item?.disc_beban_kftd_upf_pct_zd08,
+  "Disc. Beban KFTD Upf Amt (ZD08)": item?.disc_beban_kftd_upf_amt_zd08,
+  "Disc. Beban Principle Upf % (ZD09)": item?.disc_beban_principle_upf_pct_zd09,
+  "Disc. Beban Principle Upf Amt (ZD09)": item?.disc_beban_principle_upf_amt_zd09,
+  "Disc. Pengembalian Upf % (ZD10)": item?.disc_pengembalian_upf_pct_zd10,
+  "Disc. Pengembalian Upf Amt (ZD10)": item?.disc_pengembalian_upf_amt_zd10,
+  "Dis% (ZD12)": item?.dis_pct_zd12,
+  "DisAmt (ZD12)": item?.dis_amt_zd12,
+  "Dis% (ZD14)": item?.dis_pct_zd14,
+  "DisAmt (ZD14)": item?.dis_amt_zd14,
+  "Dis% (ZD15)": item?.dis_pct_zd15,
+  "DisAmt (ZD15)": item?.dis_amt_zd15,
+  "Total Discount": item?.total_discount,
+  "Total Penjualan": item?.total_penjualan ?? item?.total_penjualan_neto ?? item?.dpp,
+  "Tax Amount": item?.tax_amount ?? item?.ppn,
+  "PPh": item?.pph,
+  "Total COGS": item?.total_cogs,
+  "Persentase COGS": item?.persentase_cogs,
+  "Margin": item?.margin,
+  "Persentase Margin": item?.persentase_margin,
+  "Principle": item?.principle,
+  "Name Principle": item?.name_principle,
+  "Desc. Cust. Grp4": item?.desc_cust_grp4,
+  "Salesman": item?.salesman,
+  "Name Salesman": item?.name_salesman,
+  "PO Number": item?.po_number,
+  "Quotation Number": item?.quotation_number,
+});
 
 const FilterOption = (props) => (
   <selectComponents.Option {...props}>
@@ -144,6 +243,35 @@ const formatDate = (value) => {
   });
 };
 
+const addDaysToDate = (dateValue, days) => {
+  if (!dateValue || days === null || days === undefined || days === "") return null;
+
+  // Parse YYYY-MM-DD as local date to avoid timezone shifts.
+  const rawDate = String(dateValue).trim();
+  const match = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(dateValue);
+
+  const parsedDays = Number(String(days).match(/-?\d+(?:[.,]\d+)?/)?.[0]?.replace(",", "."));
+  if (Number.isNaN(date.getTime()) || !Number.isFinite(parsedDays)) return null;
+
+  date.setDate(date.getDate() + parsedDays);
+  return date;
+};
+
+const getTanggalJatuhTempoPenjualan = (item) => {
+  const postingDate = item?.["Posting Date"] || item?.posting_date || item?.postingDate || item?.tanggal_posting;
+  const top = item?.TOP ?? item?.top ?? item?.top_days ?? item?.term_of_payment;
+  return addDaysToDate(postingDate, top);
+};
+
+const formatTOP = (value) => {
+  if (value === null || value === undefined || value === "") return "-";
+  const parsed = String(value).match(/-?\d+(?:[.,]\d+)?/);
+  return parsed ? `${formatNumber(Number(parsed[0].replace(",", ".")))} Hari` : value;
+};
+
 const displayValue = (value) => {
   if (
     value === null ||
@@ -191,9 +319,7 @@ const getInvoiceAmounts = (item) => {
     saldoValue !== null &&
     saldoValue !== undefined &&
     saldoValue !== "";
-  const saldoPiutang = hasSaldoValue
-    ? firstNumber(saldoValue)
-    : totalInvoice - collection;
+  const saldoPiutang = totalInvoice - collection;
 
   return {
     dpp,
@@ -537,6 +663,10 @@ const TableDataPiutang = ({
   const [tableData, setTableData] =
     useState([]);
 
+  const [expandedRows, setExpandedRows] = useState({});
+  const [penjualanDetails, setPenjualanDetails] = useState({});
+  const [loadingPenjualanDetails, setLoadingPenjualanDetails] = useState({});
+
   const [summaryData, setSummaryData] =
     useState({
       total_piutang: 0,
@@ -835,7 +965,7 @@ const TableDataPiutang = ({
 
         sales_office: filterCabang.length ? filterCabang : "ALL",
         customer: filterCustomer.length ? filterCustomer : "ALL",
-        channel: filterChannel.length ? filterChannel : "ALL",
+        customer_group: filterChannel.length ? filterChannel : "ALL",
         principle: filterPrinciple.length ? filterPrinciple : "ALL",
         start_date: filterStartDate,
         end_date: filterEndDate,
@@ -1109,6 +1239,60 @@ const TableDataPiutang = ({
       );
     } else {
       getDataPiutang();
+    }
+  };
+
+  // ===================================================
+  // EXPAND DETAIL PENJUALAN BERDASARKAN NO. BILLING
+  // ===================================================
+
+  const handleExpandPenjualan = async (item, rowKey) => {
+    if (expandedRows[rowKey]) {
+      setExpandedRows((prev) => ({ ...prev, [rowKey]: false }));
+      return;
+    }
+
+    setExpandedRows((prev) => ({ ...prev, [rowKey]: true }));
+    if (Object.prototype.hasOwnProperty.call(penjualanDetails, rowKey)) return;
+
+    const noBilling = item?.no_billing || item?.billing_no;
+    if (!noBilling) {
+      setPenjualanDetails((prev) => ({ ...prev, [rowKey]: [] }));
+      return;
+    }
+
+    try {
+      setLoadingPenjualanDetails((prev) => ({ ...prev, [rowKey]: true }));
+      const res = await storeSchema.actions.getDataPenjualan({
+        page: 1,
+        limit: 9999,
+        keyword: String(noBilling),
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil detail data penjualan");
+      }
+
+      const responseData = res?.data || {};
+      const listData = Array.isArray(responseData)
+        ? responseData
+        : responseData?.list_data || responseData?.data || responseData?.rows || [];
+
+      const filteredData = listData.filter((detail) => {
+        const detailBilling = detail?.billing_no || detail?.no_billing || detail?.["Billing No"];
+        return detailBilling === null || detailBilling === undefined || String(detailBilling) === String(noBilling);
+      });
+
+      setPenjualanDetails((prev) => ({
+        ...prev,
+        [rowKey]: filteredData.map(normalizePenjualanDetail),
+      }));
+    } catch (error) {
+      console.error("ERROR GET DETAIL DATA PENJUALAN:", error);
+      setPenjualanDetails((prev) => ({ ...prev, [rowKey]: [] }));
+      await swal.error(error?.message || "Gagal mengambil detail data penjualan");
+    } finally {
+      setLoadingPenjualanDetails((prev) => ({ ...prev, [rowKey]: false }));
     }
   };
 
@@ -1619,130 +1803,32 @@ const TableDataPiutang = ({
               <thead className="bg-primary text-white sticky top-0 text-[13px] z-10">
 
                 <tr>
-                  {/* <th className="px-4 py-3 whitespace-nowrap text-center">
-                    Aksi
-                  </th> */}
-
-                  {/* <th className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2 font-semibold">
-                      <FaHashtag />
-                      No
-                    </div>
-                  </th> */}
-
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Aksi</th>
+                  <th className="px-4 py-3 whitespace-nowrap">No. Billing</th>
                   <th className="px-4 py-3 whitespace-nowrap">
-                    No. Billing
+                    <div className="flex items-center gap-2"><FaCalendarAlt />Document Date</div>
                   </th>
-
-                  {/* <th className="px-4 py-3 whitespace-nowrap">
-                    No. Faktur
-                  </th> */}
-
+                  <th className="px-4 py-3 whitespace-nowrap">Document Type</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Kode Customer</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Nama Customer</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Salesman</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Nama Sales</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Profit Center</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Cabang</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Lini</th>
+                  <th className="px-4 py-3 whitespace-nowrap">TOP</th>
                   <th className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt />
-                      Document Date
-                    </div>
+                    <div className="flex items-center gap-2"><FaCalendarAlt />Jatuh Tempo</div>
                   </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Document Type
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Kode Customer
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Nama Customer
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Salesman
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Nama Sales
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Profit Center
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Cabang
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Channel
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Kode Principle
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Nama Principle
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Lini Penjualan
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    TOP
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt />
-                      Posting Date
-                    </div>
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt />
-                      Jatuh Tempo
-                    </div>
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-right">
-                    DPP
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-right">
-                    PPN
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-right">
-                    PPh
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-right">
-                    Total Invoice
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-right">
-                    Collection
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-right">
-                    Saldo Piutang
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap">
-                    Keterangan Outstanding
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-center">
-                    Aging
-                  </th>
-
-                  <th className="px-4 py-3 whitespace-nowrap text-center">
-                    Status
-                  </th>
-
+                  <th className="px-4 py-3 whitespace-nowrap text-right">DPP</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">PPN</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">PPh</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Total Invoice</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Collection</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Saldo Piutang</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Aging</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
                 </tr>
 
               </thead>
@@ -1758,7 +1844,7 @@ const TableDataPiutang = ({
                   <tr>
 
                     <td
-                      colSpan={24}
+                      colSpan={22}
                       className="text-center py-16 text-gray-500"
                     >
 
@@ -1785,65 +1871,26 @@ const TableDataPiutang = ({
                   tableData.map(
                     (item, index) => {
 
+                      const rowKey = `${item?.billing_no || item?.no_billing || "billing"}-${item?.customer || "customer"}-${index}`;
                       const invoiceAmounts = getInvoiceAmounts(item);
                       const keterangan = getPiutangKeterangan(invoiceAmounts);
 
                       return (
+                        <React.Fragment key={rowKey}>
+                        <tr className="border-b hover:bg-blue-50 transition duration-200">
+                          <td className="px-3 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleExpandPenjualan(item, rowKey)}
+                              title={expandedRows[rowKey] ? "Tutup detail penjualan" : "Lihat detail penjualan"}
+                              aria-label={expandedRows[rowKey] ? "Tutup detail penjualan" : "Lihat detail penjualan"}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${expandedRows[rowKey] ? "border-blue-200 bg-blue-100 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"}`}
+                            >
+                              {expandedRows[rowKey] ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                            </button>
+                          </td>
 
-                        <tr
-                          key={
-                            `${item?.billing_no || "billing"}-${item?.principle || "principle"}-${index}`
-                          }
-                          className="border-b hover:bg-blue-50 transition duration-200"
-                        >
 
-                          {/* ================================= */}
-                          {/* AKSI */}
-                          {/* ================================= */}
-
-                          {/* <td className="px-4 py-3 whitespace-nowrap text-center">
-
-                            <div className="dropdown dropdown-right">
-
-                              <div
-                                tabIndex={0}
-                                role="button"
-                                className="w-9 h-9 rounded-full bg-blue-50 text-primary flex items-center justify-center cursor-pointer hover:bg-primary hover:text-white transition"
-                              >
-
-                                <FaEllipsisV />
-
-                              </div>
-
-                              <ul
-                                tabIndex={0}
-                                className="dropdown-content menu p-2 shadow-xl bg-white rounded-box border border-gray-100 w-40 z-[20]"
-                              >
-
-                                <li>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleDetail(
-                                        item
-                                      )
-                                    }
-                                  >
-
-                                    <FaEye />
-
-                                    Detail
-
-                                  </button>
-
-                                </li>
-
-                              </ul>
-
-                            </div>
-
-                          </td> */}
 
                           {/* ================================= */}
                           {/* NO */}
@@ -1993,77 +2040,19 @@ const TableDataPiutang = ({
                           </td>
 
                           {/* ================================= */}
-                          {/* CHANNEL */}
+                          {/* LINI */}
                           {/* ================================= */}
 
-                          <td className="px-4 py-3 whitespace-nowrap">
-
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
-
-                              {displayValue(
-                                item?.desc_cust_grp4
-                              )}
-
-                            </span>
-
-                          </td>
-
-                          {/* ================================= */}
-                          {/* KODE PRINCIPLE */}
-                          {/* ================================= */}
-
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="font-semibold text-gray-700 text-sm">
-                              {displayValue(
-                                item?.principle
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ================================= */}
-                          {/* NAMA PRINCIPLE */}
-                          {/* ================================= */}
-
-                          <td className="px-4 py-3 min-w-[200px]">
-                            <span className="font-semibold text-gray-700 text-sm truncate max-w-[220px] block">
-                              {displayValue(
-                                item?.name_principle
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ================================= */}
-                          {/* LINI PENJUALAN */}
-                          {/* ================================= */}
-
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            -
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {displayValue(item?.lini)}
                           </td>
 
                           {/* ================================= */}
                           {/* TOP */}
                           {/* ================================= */}
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            -
-                          </td>
-
-                          {/* ================================= */}
-                          {/* POSTING DATE */}
-                          {/* ================================= */}
-
-                          <td className="px-4 py-3 whitespace-nowrap">
-
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-
-                              <FaCalendarAlt className="text-primary" />
-
-                              {formatDate(
-                                item?.posting_date
-                              )}
-
-                            </div>
-
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {formatTOP(item?.top)}
                           </td>
 
                           {/* ================================= */}
@@ -2178,7 +2167,67 @@ const TableDataPiutang = ({
                           </td>
 
                         </tr>
-
+                        {expandedRows[rowKey] && (
+                          <tr className="border-b border-blue-100 bg-slate-50">
+                            <td colSpan={22} className="p-0">
+                              <div className="border-l-4 border-blue-500 px-4 py-4">
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-gray-800">Detail Data Penjualan</p>
+                                    <p className="text-xs text-gray-500">No. Billing: {displayValue(item?.no_billing || item?.billing_no)}</p>
+                                  </div>
+                                  {loadingPenjualanDetails[rowKey] && (
+                                    <span className="inline-flex items-center gap-2 text-sm text-blue-600">
+                                      <FaSpinner className="animate-spin" /> Memuat detail...
+                                    </span>
+                                  )}
+                                </div>
+                                {loadingPenjualanDetails[rowKey] ? (
+                                  <div className="py-8 text-center text-sm text-gray-500">Sedang mengambil data penjualan dari API...</div>
+                                ) : (penjualanDetails[rowKey] || []).length === 0 ? (
+                                  <div className="rounded-xl border border-dashed border-gray-300 bg-white py-8 text-center text-sm text-gray-500">
+                                    Data penjualan untuk billing ini tidak ditemukan.
+                                  </div>
+                                ) : (
+                                  <div className="overflow-auto rounded-xl border border-gray-200 bg-white max-h-[420px]">
+                                    <table className="table table-sm w-full">
+                                      <thead className="sticky top-0 z-[1] bg-blue-50 text-gray-700">
+                                        <tr>
+                                          {penjualanDetailColumns.map((column) => (
+                                            <th key={column.key} className="whitespace-nowrap px-3 py-2 text-xs">{column.label}</th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {penjualanDetails[rowKey].map((detail, detailIndex) => (
+                                          <tr key={`${detail?.["Billing No"] || rowKey}-${detail?.Material || detail?.material || detailIndex}-${detailIndex}`} className="border-b last:border-b-0 hover:bg-blue-50/60">
+                                            {penjualanDetailColumns.map((column) => {
+                                              const totalPenjualan = Number(detail?.["Total Penjualan"] || 0);
+                                              const totalCOGS = Number(detail?.["Total COGS"] || 0);
+                                              let value = detail?.[column.key];
+                                              if (column.key === "Tanggal Jatuh Tempo") value = getTanggalJatuhTempoPenjualan(detail);
+                                              if (column.key === "TOP") value = detail?.["TOP"] ?? detail?.top ?? detail?.top_days ?? detail?.term_of_payment;
+                                              if (column.key === "PPh") value = totalPenjualan * 0.015;
+                                              if (column.key === "Persentase COGS") value = totalPenjualan !== 0 ? (totalCOGS / totalPenjualan) * 100 : 0;
+                                              if (column.key === "Margin") value = totalPenjualan - totalCOGS;
+                                              if (column.key === "Persentase Margin") value = totalPenjualan !== 0 ? ((totalPenjualan - totalCOGS) / totalPenjualan) * 100 : 0;
+                                              return (
+                                                <td key={column.key} className="whitespace-nowrap px-3 py-2 text-xs text-gray-700">
+                                                  {column.type === "currency" ? formatRupiah(value) : column.type === "number" ? formatNumber(value) : column.type === "percent" ? `${formatNumber(value)}%` : column.type === "date" ? formatDate(value) : column.type === "top" ? formatTOP(value) : displayValue(value)}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       );
 
                     }

@@ -85,7 +85,10 @@ const formatCurrency = (value) => {
 // - nama_customer
 // - alamat
 // - jatuh_tempo
-// - nominal
+// - dpp
+// - ppn
+// - pph
+// - total_invoice
 // - dokumen_tukar
 // - nama_dokumen_tukar
 // - tanggal_tukar
@@ -109,7 +112,10 @@ const getNoFaktur = (item) => firstValue(item, "no_faktur", "nomor_faktur", "noF
 const getCustomer = (item) => firstValue(item, "nama_customer", "customer_name", "customer") || "-";
 const getAlamat = (item) => firstValue(item, "alamat", "customer_address") || "-";
 const getJatuhTempo = (item) => firstValue(item, "jatuh_tempo", "due_date") || null;
-const getNominal = (item) => Number(firstValue(item, "nominal", "outstanding", "saldo_piutang", "dpp") || 0);
+const getDpp = (item) => Number(firstValue(item, "dpp", "DPP") || 0);
+const getPpn = (item) => Number(firstValue(item, "ppn", "PPN") || 0);
+const getPph = (item) => Number(firstValue(item, "pph", "PPH") || 0);
+const getTotalInvoice = (item) => getDpp(item) + getPpn(item);
 const getStatusVerifikasi = (item) => {
   const raw = String(firstValue(item, "status_verifikasi_tukar", "status_verifikasi", "status_verifikasi_faktur") || "").toUpperCase();
   if (raw.includes("DITOLAK") || raw.includes("TOLAK")) return "DITOLAK";
@@ -129,7 +135,10 @@ const normalizeRow = (item, index, page, perPage) => ({
   nama_customer: getCustomer(item),
   alamat: getAlamat(item),
   jatuh_tempo: getJatuhTempo(item),
-  nominal: getNominal(item),
+  dpp: getDpp(item),
+  ppn: getPpn(item),
+  pph: getPph(item),
+  total_invoice: getTotalInvoice(item),
   status_verifikasi_tukar: getStatusVerifikasi(item),
   tanggal_tukar: getTanggalTukar(item),
   create_document_number: getDocumentNumber(item),
@@ -763,7 +772,22 @@ const TableVerifikasiTukarFaktur = ({
     },
 
     {
-      label: "Nominal",
+      label: "DPP",
+      icon: <FaFileInvoiceDollar />,
+    },
+
+    {
+      label: "PPN",
+      icon: <FaFileInvoiceDollar />,
+    },
+
+    {
+      label: "PPh",
+      icon: <FaFileInvoiceDollar />,
+    },
+
+    {
+      label: "Total Invoice",
       icon: <FaFileInvoiceDollar />,
     },
 
@@ -1469,30 +1493,24 @@ const TableVerifikasiTukarFaktur = ({
                         </td>
 
 
-                        {/* NOMINAL */}
+                        {/* DPP */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">{formatCurrency(faktur.dpp)}</span>
+                        </td>
 
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            whitespace-nowrap
-                          "
-                        >
+                        {/* PPN */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">{formatCurrency(faktur.ppn)}</span>
+                        </td>
 
-                          <span
-                            className="
-                              text-sm
-                              font-bold
-                              text-gray-700
-                            "
-                          >
-                            {
-                              formatCurrency(
-                                faktur.nominal
-                              )
-                            }
-                          </span>
+                        {/* PPh */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">{formatCurrency(faktur.pph)}</span>
+                        </td>
 
+                        {/* TOTAL INVOICE */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-bold text-gray-700">{formatCurrency(faktur.total_invoice)}</span>
                         </td>
 
 
@@ -2183,34 +2201,28 @@ const TableVerifikasiTukarFaktur = ({
                       </div>
 
 
-                      {/* NOMINAL */}
-
+                      {/* DPP */}
                       <div>
+                        <p className="text-xs text-gray-400 mb-1">DPP</p>
+                        <p className="text-sm font-semibold text-gray-700">{formatCurrency(selectedData.dpp)}</p>
+                      </div>
 
-                        <p
-                          className="
-                            text-xs
-                            text-gray-400
-                            mb-1
-                          "
-                        >
-                          Nominal
-                        </p>
+                      {/* PPN */}
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">PPN</p>
+                        <p className="text-sm font-semibold text-gray-700">{formatCurrency(selectedData.ppn)}</p>
+                      </div>
 
-                        <p
-                          className="
-                            text-sm
-                            font-bold
-                            text-primary
-                          "
-                        >
-                          {
-                            formatCurrency(
-                              selectedData.nominal
-                            )
-                          }
-                        </p>
+                      {/* PPh */}
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">PPh</p>
+                        <p className="text-sm font-semibold text-gray-700">{formatCurrency(selectedData.pph)}</p>
+                      </div>
 
+                      {/* TOTAL INVOICE */}
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Total Invoice</p>
+                        <p className="text-sm font-bold text-primary">{formatCurrency(selectedData.total_invoice)}</p>
                       </div>
 
                     </div>
