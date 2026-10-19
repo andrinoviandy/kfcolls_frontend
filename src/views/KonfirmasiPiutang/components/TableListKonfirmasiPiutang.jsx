@@ -1939,6 +1939,10 @@ const TableListKonfirmasiPiutang = ({
               Semua Status Konfirmasi
             </option>
 
+            <option value="BELUM_DIKIRIM">
+              Belum Dikirim
+            </option>
+
             <option value="MENUNGGU_KONFIRMASI">
               Menunggu Konfirmasi
             </option>
