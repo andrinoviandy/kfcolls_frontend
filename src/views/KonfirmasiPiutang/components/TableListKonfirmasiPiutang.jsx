@@ -23,6 +23,7 @@ import {
   FaPaperPlane,
   FaSpinner,
   FaTimes,
+  FaUsers,
 } from "react-icons/fa";
 
 import {
@@ -868,6 +869,19 @@ const TableListKonfirmasiPiutang = ({
     null
   );
 
+  // Billing yang dipilih untuk konfirmasi sekaligus (dibatasi satu customer).
+  const [selectedBillingIds, setSelectedBillingIds] = useState([]);
+  const [sendItems, setSendItems] = useState([]);
+
+  // Modal khusus memilih customer lalu memilih billing yang belum dikonfirmasi.
+  const [showCustomerBillingModal, setShowCustomerBillingModal] = useState(false);
+  const [selectedBulkCustomer, setSelectedBulkCustomer] = useState("");
+  const [customerBillingRows, setCustomerBillingRows] = useState([]);
+  const [selectedCustomerBillingIds, setSelectedCustomerBillingIds] = useState([]);
+  const [loadingCustomerBillings, setLoadingCustomerBillings] = useState(false);
+  const [customerBillingSearch, setCustomerBillingSearch] = useState("");
+  const [bulkCustomerOptions, setBulkCustomerOptions] = useState([]);
+
 
   const [
     sendViaWhatsApp,
@@ -1163,6 +1177,188 @@ const TableListKonfirmasiPiutang = ({
 
 
   // ===================================================
+  // SELEKSI BILLING MULTI-BILLING PER CUSTOMER
+  // ===================================================
+
+  const getRowId = (item) => String(item?.piutang_id ?? item?.id ?? item?.k_piutang_id ?? item?.no_billing ?? item?.no_faktur ?? "");
+  const getCustomerKey = (item) => String(item?.customer ?? item?.customer_id ?? item?.kode_customer ?? item?.nama_customer ?? "").trim();
+  const selectedBillings = allData.filter((item) => selectedBillingIds.includes(getRowId(item)));
+  const selectedCustomerName = selectedBillings[0]?.nama_customer || "";
+
+  const toggleBillingSelection = (item) => {
+    if (item?.status_pengiriman_konfirmasi !== "BELUM_DIKIRIM") return;
+    const rowId = getRowId(item);
+    const exists = selectedBillingIds.includes(rowId);
+
+    if (exists) {
+      setSelectedBillingIds((prev) => prev.filter((id) => id !== rowId));
+      return;
+    }
+
+    const currentSelected = allData.filter((row) => selectedBillingIds.includes(getRowId(row)));
+    if (currentSelected.length && getCustomerKey(currentSelected[0]) !== getCustomerKey(item)) {
+      swal.error("Pilih billing dari customer yang sama. Untuk customer berbeda, proses konfirmasi secara terpisah.");
+      return;
+    }
+
+    setSelectedBillingIds((prev) => [...prev, rowId]);
+  };
+
+  const selectAllBillingForCustomer = () => {
+    if (!selectedBillings.length) return;
+    const customerKey = getCustomerKey(selectedBillings[0]);
+    const customerRows = allData.filter((item) =>
+      item.status_pengiriman_konfirmasi === "BELUM_DIKIRIM" && getCustomerKey(item) === customerKey
+    );
+    setSelectedBillingIds(customerRows.map(getRowId));
+  };
+
+  const clearBillingSelection = () => setSelectedBillingIds([]);
+
+  const openBulkSendConfirmation = () => {
+    const rows = allData.filter((item) => selectedBillingIds.includes(getRowId(item)));
+    if (!rows.length) {
+      swal.error("Checklist minimal satu billing yang belum dikirim.");
+      return;
+    }
+    const customerKeys = [...new Set(rows.map(getCustomerKey))];
+    if (customerKeys.length !== 1) {
+      swal.error("Billing yang dipilih harus berasal dari satu customer.");
+      return;
+    }
+    const first = rows[0];
+    setSendItems(rows);
+    setSendData(first);
+    setEmailRecipient(String(first?.email_customer || ""));
+    setSendViaWhatsApp(false);
+    setSendViaEmail(false);
+    setSendResult(null);
+    setShowSendConfirmation(true);
+  };
+
+  const customerOptions = bulkCustomerOptions;
+
+  const openCustomerBillingModal = async () => {
+    setSelectedBulkCustomer("");
+    setCustomerBillingRows([]);
+    setSelectedCustomerBillingIds([]);
+    setCustomerBillingSearch("");
+    setShowCustomerBillingModal(true);
+    setLoadingCustomerBillings(true);
+    try {
+      // Ambil daftar customer dari API, bukan hanya baris pada halaman tabel saat ini.
+      const res = await storeSchema.actions.getDataKonfirmasiPiutang({
+        page: 1,
+        limit: 1000,
+        keyword: "",
+        status: "",
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil daftar customer.");
+      const data = res?.data || {};
+      const rows = Array.isArray(data?.list_data) ? data.list_data
+        : Array.isArray(data?.data) ? data.data
+        : Array.isArray(res?.data) ? res.data : [];
+      const map = new Map();
+      rows.forEach((item) => {
+        const key = String(item?.customer ?? item?.customer_id ?? item?.kode_customer ?? item?.nama_customer ?? item?.customer_name ?? "").trim();
+        if (!key || key === "-") return;
+        const name = item?.nama_customer ?? item?.customer_name ?? item?.name ?? key;
+        if (!map.has(key)) map.set(key, { value: key, label: `${name} (${key})` });
+      });
+      setBulkCustomerOptions(Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "id")));
+    } catch (error) {
+      console.error("ERROR LOAD CUSTOMER OPTIONS:", error);
+      await swal.error(error?.message || "Gagal mengambil daftar customer.");
+    } finally {
+      setLoadingCustomerBillings(false);
+    }
+  };
+
+  const loadBillingsForCustomer = async (customerKey) => {
+    setSelectedBulkCustomer(customerKey);
+    setSelectedCustomerBillingIds([]);
+    setCustomerBillingRows([]);
+    if (!customerKey) return;
+
+    setLoadingCustomerBillings(true);
+    try {
+      // Ambil ulang dari API dengan keyword customer; limit besar agar billing customer
+      // tidak terbatas pada halaman tabel utama.
+      const res = await storeSchema.actions.getDataKonfirmasiPiutang({
+        page: 1,
+        limit: 1000,
+        keyword: customerKey,
+        status: "",
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil billing customer.");
+      const data = res?.data || {};
+      const rows = Array.isArray(data?.list_data) ? data.list_data
+        : Array.isArray(data?.data) ? data.data
+        : Array.isArray(res?.data) ? res.data : [];
+
+      const normalized = rows.map((item, index) => {
+        const tanggalKirim = item?.tgl_kirim_konfirmasi ?? item?.tanggal_kirim_konfirmasi ?? null;
+        const statusPengiriman = item?.status_pengiriman_konfirmasi ?? (item?.k_piutang_id || tanggalKirim ? "SUDAH_DIKIRIM" : "BELUM_DIKIRIM");
+        return {
+          ...item,
+          id: item?.piutang_id ?? item?.id ?? item?.k_piutang_id ?? item?.no_billing ?? item?.no_faktur ?? `customer-${index}`,
+          customer_id: item?.customer_id ?? item?.customer ?? item?.kode_customer ?? "-",
+          nama_customer: item?.nama_customer ?? item?.customer_name ?? item?.name ?? "-",
+          dpp: Number(item?.dpp ?? item?.DPP ?? item?.nominal_piutang ?? 0),
+          ppn: Number(item?.ppn ?? item?.PPN ?? 0),
+          pph: Number(item?.pph ?? item?.PPH ?? 0),
+          total_invoice: Number(item?.total_invoice ?? item?.total_tagihan ?? item?.nominal_invoice ?? (Number(item?.dpp ?? item?.DPP ?? item?.nominal_piutang ?? 0) + Number(item?.ppn ?? item?.PPN ?? 0))),
+          status_pengiriman_konfirmasi: statusPengiriman,
+        };
+      });
+
+      // Hanya billing customer yang dipilih dan belum pernah dikirim konfirmasinya.
+      const filtered = normalized.filter((item) =>
+        getCustomerKey(item) === String(customerKey) && item.status_pengiriman_konfirmasi === "BELUM_DIKIRIM"
+      );
+      setCustomerBillingRows(filtered);
+      if (!filtered.length) {
+        await swal.error("Tidak ditemukan billing yang belum dikirim konfirmasinya untuk customer ini.");
+      }
+    } catch (error) {
+      console.error("ERROR LOAD BILLING CUSTOMER:", error);
+      await swal.error(error?.message || "Gagal mengambil billing customer.");
+    } finally {
+      setLoadingCustomerBillings(false);
+    }
+  };
+
+  const toggleCustomerBilling = (item) => {
+    const id = getRowId(item);
+    setSelectedCustomerBillingIds((prev) => prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]);
+  };
+
+  const selectAllCustomerBillings = () => {
+    const rows = customerBillingRows.filter((item) => {
+      const search = customerBillingSearch.trim().toLowerCase();
+      return !search || `${item.no_billing || ""} ${item.no_faktur || ""}`.toLowerCase().includes(search);
+    });
+    setSelectedCustomerBillingIds(rows.map(getRowId));
+  };
+
+  const submitCustomerBillingSelection = () => {
+    const rows = customerBillingRows.filter((item) => selectedCustomerBillingIds.includes(getRowId(item)));
+    if (!rows.length) {
+      swal.error("Checklist minimal satu billing terlebih dahulu.");
+      return;
+    }
+    const first = rows[0];
+    setSendItems(rows);
+    setSendData(first);
+    setEmailRecipient(String(first?.email_customer || ""));
+    setSendViaWhatsApp(false);
+    setSendViaEmail(false);
+    setSendResult(null);
+    setShowCustomerBillingModal(false);
+    setShowSendConfirmation(true);
+  };
+
+  // ===================================================
   // OPEN SEND CONFIRMATION
   // ===================================================
 
@@ -1174,6 +1370,7 @@ const TableListKonfirmasiPiutang = ({
       setSendData(
         item
       );
+      setSendItems([item]);
       setEmailRecipient(String(item?.email_customer || ""));
 
       // Pengiriman WhatsApp dinonaktifkan sementara.
@@ -1215,6 +1412,7 @@ const TableListKonfirmasiPiutang = ({
       setSendData(
         null
       );
+      setSendItems([]);
       setEmailRecipient("");
 
       setSendResult(
@@ -1391,65 +1589,87 @@ const TableListKonfirmasiPiutang = ({
 
 
   // ===================================================
-  // PROCESS SEND CONFIRMATION
+  // PROCESS SEND CONFIRMATION - SINGLE API CALL
   // ===================================================
 
   const processSendConfirmation = async () => {
-    if (!sendData || isSendingConfirmation) return;
+    if (!sendData || !sendItems.length || isSendingConfirmation) return;
 
     if (!sendViaEmail) {
       setSendResult({ type: "error", message: "Centang pilihan Email terlebih dahulu sebelum mengirim konfirmasi." });
       return;
     }
 
-    // if (sendViaWhatsApp && !sendData.no_wa_customer) {
-    //   setSendResult({ type: "error", message: "Nomor WhatsApp customer belum tersedia." });
-    //   return;
-    // }
-
     const recipientEmail = String(emailRecipient || "").trim();
-    if (sendViaEmail && !recipientEmail) {
+    if (!recipientEmail) {
       setSendResult({ type: "error", message: "Email penerima wajib diisi." });
       return;
     }
-    if (sendViaEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
       setSendResult({ type: "error", message: "Format email penerima tidak valid." });
       return;
     }
+
+    const customerKeys = [...new Set(sendItems.map((item) => getCustomerKey(item)))];
+    if (customerKeys.length !== 1) {
+      setSendResult({ type: "error", message: "Billing yang dipilih harus berasal dari satu customer." });
+      return;
+    }
+
+    const noBilling = [...new Set(
+      sendItems.map((item) => String(item?.no_billing || "").trim()).filter(Boolean)
+    )];
+    if (!noBilling.length) {
+      setSendResult({ type: "error", message: "Nomor billing tidak ditemukan pada data yang dipilih." });
+      return;
+    }
+
+    const piutangIds = [...new Set(
+      sendItems
+        .map((item) => item?.piutang_id ?? item?.id)
+        .filter((id) => id !== null && id !== undefined && id !== "")
+        .map(String)
+    )];
+    if (piutangIds.length !== noBilling.length) {
+      setSendResult({ type: "error", message: "Jumlah ID piutang tidak sesuai dengan jumlah billing yang dipilih." });
+      return;
+    }
+
+    const payload = {
+      piutang_ids: piutangIds,
+      no_billing: noBilling,
+      customer: sendData?.customer ?? sendData?.customer_id ?? sendData?.kode_customer ?? "",
+      nama_customer: sendData?.nama_customer ?? "",
+      media_wa: false,
+      media_email: true,
+      no_wa_customer: sendData?.no_wa_customer ?? "",
+      email_customer: recipientEmail,
+    };
 
     setIsSendingConfirmation(true);
     setSendResult(null);
 
     try {
-      const payload = {
-        // Sumber utama adalah d_piutang, gunakan piutang_id untuk proses kirim.
-        id: sendData.piutang_id ?? sendData.id,
-        piutang_id: sendData.piutang_id ?? sendData.id,
-        k_piutang_id: sendData.k_piutang_id ?? null,
-        no_faktur: sendData.no_faktur ?? "",
-        no_billing: sendData.no_billing ?? "",
-        customer: sendData.customer ?? sendData.customer_id ?? "",
-        nama_customer: sendData.nama_customer ?? "",
-        media_wa: false,
-        media_email: Boolean(sendViaEmail),
-        no_wa_customer: sendData.no_wa_customer ?? "",
-        email_customer: recipientEmail,
-      };
+      console.log("Payload konfirmasi piutang (satu request):", payload);
 
+      // Satu kali hit API untuk seluruh billing yang dipilih.
       const res = await storeSchema.actions.konfirmasiPiutang(payload);
       if (res?.status !== true) {
-        throw new Error(res?.message || "Konfirmasi piutang gagal diproses.");
+        throw new Error(res?.message || "Gagal mengirim konfirmasi piutang.");
       }
 
+      await getDataKonfirmasiPiutang();
+      setSelectedBillingIds([]);
+      setSelectedCustomerBillingIds([]);
       setSendResult({
         type: "success",
-        message: res?.message || res?.data?.message || "Konfirmasi piutang berhasil diproses.",
+        message: `Konfirmasi berhasil dikirim dalam satu email untuk ${noBilling.length} billing customer ${sendData?.nama_customer || ""}.`,
       });
-
       setShowSendConfirmation(false);
       setSendData(null);
-      await getDataKonfirmasiPiutang();
-      await swal.success(res?.message || "Konfirmasi piutang berhasil diproses.");
+      setSendItems([]);
+      setEmailRecipient("");
+      await swal.success(`Konfirmasi berhasil dikirim untuk ${noBilling.length} billing dalam satu email.`);
     } catch (error) {
       console.error("ERROR KONFIRMASI PIUTANG:", error);
       setSendResult({ type: "error", message: error?.message || "Konfirmasi piutang gagal diproses." });
@@ -1465,6 +1685,11 @@ const TableListKonfirmasiPiutang = ({
   // ===================================================
 
   const headerTable = [
+
+    {
+      label: "Pilih Billing",
+      icon: <FaCheckCircle />,
+    },
 
     {
       label:
@@ -1731,6 +1956,14 @@ const TableListKonfirmasiPiutang = ({
             </option>
 
           </select>
+
+          <button
+            type="button"
+            onClick={openCustomerBillingModal}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 whitespace-nowrap"
+          >
+            <FaUsers /> Konfirmasi per Customer
+          </button>
 
         </div>
 
@@ -2124,6 +2357,18 @@ const TableListKonfirmasiPiutang = ({
       </div>
 
 
+      {/* PILIH BILLING INDIVIDUAL DI TABEL UTAMA */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-indigo-900">
+          <p className="font-bold">Pilih billing dari tabel</p>
+          <p className="mt-1 text-xs text-indigo-700">Untuk pilihan di tabel, billing harus berasal dari customer yang sama. {selectedBillingIds.length > 0 ? `${selectedBillingIds.length} billing dipilih${selectedCustomerName ? ` untuk ${selectedCustomerName}` : ""}.` : "Pilih billing yang belum dikirim konfirmasinya."}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={clearBillingSelection} disabled={!selectedBillingIds.length || isSendingConfirmation} className="rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-600 disabled:opacity-40">Hapus pilihan</button>
+          <button type="button" onClick={openBulkSendConfirmation} disabled={!selectedBillingIds.length || isSendingConfirmation} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-40"><FaPaperPlane /> Kirim {selectedBillingIds.length || ""} Billing Terpilih</button>
+        </div>
+      </div>
+
       {/* ================================================= */}
       {loading && (
         <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
@@ -2294,6 +2539,18 @@ const TableListKonfirmasiPiutang = ({
                               border-b
                             "
                           >
+
+                            {/* PILIH BILLING INDIVIDUAL */}
+                            <td className="px-4 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-primary checkbox-sm"
+                                checked={selectedBillingIds.includes(getRowId(v))}
+                                disabled={v.status_pengiriman_konfirmasi !== "BELUM_DIKIRIM" || (selectedBillings.length > 0 && !selectedBillingIds.includes(getRowId(v)) && getCustomerKey(v) !== getCustomerKey(selectedBillings[0]))}
+                                onChange={() => toggleBillingSelection(v)}
+                                aria-label={`Pilih billing ${v.no_billing || v.no_faktur || ""}`}
+                              />
+                            </td>
 
                             {/* AKSI */}
 
@@ -3832,6 +4089,84 @@ const TableListKonfirmasiPiutang = ({
 
 
       {/* ================================================= */}
+      {/* MODAL PILIH CUSTOMER & BILLING */}
+      {showCustomerBillingModal && (
+        <div className="fixed inset-0 z-[490] flex items-center justify-center bg-black/50 p-4" onClick={() => !loadingCustomerBillings && setShowCustomerBillingModal(false)}>
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Konfirmasi Piutang per Customer</h3>
+                <p className="mt-1 text-xs text-gray-500">Pilih customer, lalu checklist billing yang belum dikirim konfirmasinya.</p>
+              </div>
+              <button type="button" className="rounded-full p-2 text-gray-500 hover:bg-gray-100" disabled={loadingCustomerBillings} onClick={() => setShowCustomerBillingModal(false)}><FaTimes /></button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto p-6">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Customer</label>
+                <select className="select select-bordered w-full bg-white" value={selectedBulkCustomer} disabled={loadingCustomerBillings} onChange={(e) => loadBillingsForCustomer(e.target.value)}>
+                  <option value="">-- Pilih customer --</option>
+                  {customerOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Pilihan customer mengikuti data yang tersedia pada tabel. Jika customer tidak muncul, cari customer tersebut pada tabel utama terlebih dahulu.</p>
+              </div>
+
+              {selectedBulkCustomer && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-bold text-blue-900">Billing belum dikirim</p>
+                      <p className="mt-1 text-xs text-blue-700">{selectedCustomerBillingIds.length} dari {customerBillingRows.length} billing dipilih</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={selectAllCustomerBillings} disabled={loadingCustomerBillings || !customerBillingRows.length} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 disabled:opacity-40">Pilih semua</button>
+                      <button type="button" onClick={() => setSelectedCustomerBillingIds([])} disabled={!selectedCustomerBillingIds.length} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 disabled:opacity-40">Hapus pilihan</button>
+                    </div>
+                  </div>
+                  <input type="text" value={customerBillingSearch} onChange={(e) => setCustomerBillingSearch(e.target.value)} placeholder="Cari nomor billing / faktur..." className="input input-sm input-bordered mt-3 w-full bg-white" />
+                </div>
+              )}
+
+              {loadingCustomerBillings ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-500"><FaSpinner className="animate-spin" /> Mengambil billing customer dari API...</div>
+              ) : selectedBulkCustomer ? (
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="table table-sm w-full">
+                    <thead className="bg-slate-50 text-gray-600"><tr><th className="w-12">Pilih</th><th>No. Billing</th><th>No. Faktur</th><th className="text-right">DPP</th><th className="text-right">PPN</th><th className="text-right">Total Invoice</th></tr></thead>
+                    <tbody>
+                      {customerBillingRows.filter((item) => { const q = customerBillingSearch.trim().toLowerCase(); return !q || `${item.no_billing || ""} ${item.no_faktur || ""}`.toLowerCase().includes(q); }).map((item) => (
+                        <tr key={getRowId(item)} className="hover:bg-blue-50">
+                          <td><input type="checkbox" className="checkbox checkbox-primary checkbox-sm" checked={selectedCustomerBillingIds.includes(getRowId(item))} onChange={() => toggleCustomerBilling(item)} /></td>
+                          <td className="font-semibold">{item.no_billing || "-"}</td>
+                          <td>{item.no_faktur || "-"}</td>
+                          <td className="text-right whitespace-nowrap">{formatRupiah(item.dpp)}</td>
+                          <td className="text-right whitespace-nowrap">{formatRupiah(item.ppn)}</td>
+                          <td className="text-right whitespace-nowrap font-bold text-primary">{formatRupiah(item.total_invoice)}</td>
+                        </tr>
+                      ))}
+                      {!customerBillingRows.filter((item) => { const q = customerBillingSearch.trim().toLowerCase(); return !q || `${item.no_billing || ""} ${item.no_faktur || ""}`.toLowerCase().includes(q); }).length && (
+                        <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-500">Tidak ada billing yang cocok atau semua billing sudah dikirim konfirmasinya.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">Pilih customer untuk menampilkan daftar billing yang belum dikirim.</div>
+              )}
+            </div>
+
+            <div className="flex justify-between gap-3 border-t bg-gray-50 px-6 py-4">
+              <p className="self-center text-xs text-gray-500">Pengiriman dilakukan melalui API untuk setiap billing yang dipilih.</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowCustomerBillingModal(false)} disabled={loadingCustomerBillings} className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600">Batal</button>
+                <button type="button" onClick={submitCustomerBillingSelection} disabled={!selectedCustomerBillingIds.length || loadingCustomerBillings} className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-40"><FaPaperPlane /> Lanjutkan ({selectedCustomerBillingIds.length})</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
       {/* SEND CONFIRMATION MODAL */}
       {/* ================================================= */}
 
@@ -4065,6 +4400,10 @@ const TableListKonfirmasiPiutang = ({
                         }
                       </p>
 
+                      {sendItems.length > 1 && (
+                        <p className="mt-2 text-xs font-semibold text-blue-700">{sendItems.length} billing dipilih untuk customer ini</p>
+                      )}
+
                     </div>
 
                   </div>
@@ -4084,50 +4423,28 @@ const TableListKonfirmasiPiutang = ({
         "
                 >
 
-                  <div
-                    className="
-            col-span-2
-            border
-            border-orange-100
-            bg-orange-50
-            rounded-xl
-            p-3
-          "
-                  >
-
-                    <p
-                      className="
-              text-[11px]
-              text-gray-500
-            "
-                    >
-                      No. Billing
-                    </p>
-
-
-                    <p
-                      className="
-              text-sm
-              font-bold
-              text-gray-700
-              mt-1
-            "
-                    >
-                      {
-                        sendData.no_billing ||
-                        "-"
-                      }
-                    </p>
-
+                  <div className="col-span-2 border border-orange-100 bg-orange-50 rounded-xl p-3">
+                    <p className="text-[11px] text-gray-500 mb-2">Billing yang akan dikonfirmasi ({sendItems.length})</p>
+                    <div className="max-h-40 overflow-y-auto space-y-2">
+                      {sendItems.map((item) => (
+                        <div key={getRowId(item)} className="flex items-center justify-between gap-3 rounded-lg bg-white border border-orange-100 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-700 break-all">{item.no_billing || "-"}</p>
+                            {item.no_faktur && <p className="text-xs text-gray-500">Faktur: {item.no_faktur}</p>}
+                          </div>
+                          <p className="text-xs text-gray-500 whitespace-nowrap">{formatRupiah(item.total_invoice)}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
 
                   <div className="col-span-2 grid grid-cols-2 gap-3">
                     {[
-                      { label: "DPP", value: sendData.dpp },
-                      { label: "PPN", value: sendData.ppn },
-                      { label: "PPh", value: sendData.pph },
-                      { label: "Total Invoice", value: sendData.total_invoice, total: true },
+                      { label: "Total DPP", value: sendItems.reduce((sum, item) => sum + Number(item.dpp || 0), 0) },
+                      { label: "Total PPN", value: sendItems.reduce((sum, item) => sum + Number(item.ppn || 0), 0) },
+                      { label: "Total PPh", value: sendItems.reduce((sum, item) => sum + Number(item.pph || 0), 0) },
+                      { label: "Total Invoice", value: sendItems.reduce((sum, item) => sum + Number(item.total_invoice || 0), 0), total: true },
                     ].map((amount) => (
                       <div key={amount.label} className={`border rounded-xl p-3 ${amount.total ? "border-primary/30 bg-blue-50" : "border-gray-200 bg-white"}`}>
                         <p className="text-[11px] text-gray-500">{amount.label}</p>
@@ -4619,7 +4936,7 @@ const TableListKonfirmasiPiutang = ({
 
                               <FaPaperPlane />
 
-                              Kirim Konfirmasi
+                              Kirim {sendItems.length > 1 ? `${sendItems.length} Billing` : "Konfirmasi"}
 
                             </>
 
