@@ -2601,6 +2601,31 @@ const n2nGetService = {
       };
     }
   },
+  getDataKonfirmasiCustomer: async ({
+    status = "",
+  }) => {
+    try {
+      const response = await api.get("/getDataKonfirmasiCustomer", {
+        params: {
+          status,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DATA KONFIRMASI CUSTOMER:",
+        error.response?.data || error.message
+      );
+
+      return error.response?.data || {
+        status: false,
+        message:
+          error.message || "Gagal mengambil data konfirmasi customer",
+        data: null,
+      };
+    }
+  },
 };
 
 export default n2nGetService;

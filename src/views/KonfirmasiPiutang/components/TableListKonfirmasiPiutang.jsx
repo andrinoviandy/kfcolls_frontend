@@ -1642,6 +1642,7 @@ const TableListKonfirmasiPiutang = ({
     const payload = {
       piutang_ids: piutangIds,
       no_billing: noBilling,
+      customer_id: sendData?.customer_id,
       customer: sendData?.customer ?? sendData?.customer_id ?? sendData?.kode_customer ?? "",
       nama_customer: sendData?.nama_customer ?? "",
       media_wa: false,

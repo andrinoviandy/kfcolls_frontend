@@ -184,305 +184,78 @@ export default function KonfirmasiCustomer() {
 
   const getDetailStatus = async () => {
     try {
-      // Loading maksimal 1 detik
       swal.loading();
 
-      await new Promise((resolve) => {
-        setTimeout(resolve, 1000);
-      });
-
-      // ==================================================
-      // DUMMY DATA
-      // ==================================================
-
-      const dummyData = {
-        no_pengajuan: "PGJ-20260828-001",
-
-        customer: "PT Maju Jaya Abadi",
-
-        nama_customer: "PT Maju Jaya Abadi",
-
-        customer_name: "PT Maju Jaya Abadi",
-
-        alamat_customer:
-          "Jl. Industri Raya No. 88, Jakarta Timur",
-
-        alamat:
-          "Jl. Industri Raya No. 88, Jakarta Timur",
-
-        tanggal_pengantaran: "2026-08-28",
-
-        tgl_pengantaran: "2026-08-28",
-
-        tanggal: "2026-08-28",
-
-        detail: [
-          {
-            id: "INV-001",
-
-            no_faktur: "010.001-26.12345678",
-
-            no_faktur_pajak: "010.001-26.12345678",
-
-            nomor_faktur: "010.001-26.12345678",
-
-            no_billing: "BILL-202608-0001",
-
-            billing_id: "BILL-202608-0001",
-
-            nomor_billing: "BILL-202608-0001",
-
-            customer: "PT Maju Jaya Abadi",
-
-            nama_customer: "PT Maju Jaya Abadi",
-
-            nominal_piutang: 12500000,
-
-            nominal_dpp: 12500000,
-
-            nominal: 12500000,
-
-            jumlah: 12500000,
-
-            sales: "Andri Noviandy",
-
-            nama_sales: "Andri Noviandy",
-
-            sales_name: "Andri Noviandy",
-
-            status_pengantaran: "Diterima",
-
-            status_delivery: "Diterima",
-
-            status_kirim: "Diterima",
-
-            tanggal_pengantaran: "2026-08-28",
-
-            tgl_pengantaran: "2026-08-28",
-
-            tanggal: "2026-08-28",
-
-            posting_date: "2026-08-28",
-
-            status_konfirmasi: "Menunggu",
-
-            status: "Diterima",
-          },
-
-          {
-            id: "INV-002",
-
-            no_faktur: "010.001-26.12345679",
-
-            no_faktur_pajak: "010.001-26.12345679",
-
-            nomor_faktur: "010.001-26.12345679",
-
-            no_billing: "BILL-202608-0002",
-
-            billing_id: "BILL-202608-0002",
-
-            nomor_billing: "BILL-202608-0002",
-
-            customer: "PT Maju Jaya Abadi",
-
-            nama_customer: "PT Maju Jaya Abadi",
-
-            nominal_piutang: 8750000,
-
-            nominal_dpp: 8750000,
-
-            nominal: 8750000,
-
-            jumlah: 8750000,
-
-            sales: "Budi Santoso",
-
-            nama_sales: "Budi Santoso",
-
-            sales_name: "Budi Santoso",
-
-            status_pengantaran: "Dikirim",
-
-            status_delivery: "Dikirim",
-
-            status_kirim: "Dikirim",
-
-            tanggal_pengantaran: "2026-08-28",
-
-            tgl_pengantaran: "2026-08-28",
-
-            tanggal: "2026-08-28",
-
-            posting_date: "2026-08-28",
-
-            status_konfirmasi: "Menunggu",
-
-            status: "Dikirim",
-          },
-
-          {
-            id: "INV-003",
-
-            no_faktur: "010.001-26.12345680",
-
-            no_faktur_pajak: "010.001-26.12345680",
-
-            nomor_faktur: "010.001-26.12345680",
-
-            no_billing: "BILL-202608-0003",
-
-            billing_id: "BILL-202608-0003",
-
-            nomor_billing: "BILL-202608-0003",
-
-            customer: "PT Maju Jaya Abadi",
-
-            nama_customer: "PT Maju Jaya Abadi",
-
-            nominal_piutang: 15250000,
-
-            nominal_dpp: 15250000,
-
-            nominal: 15250000,
-
-            jumlah: 15250000,
-
-            sales: "Citra Lestari",
-
-            nama_sales: "Citra Lestari",
-
-            sales_name: "Citra Lestari",
-
-            status_pengantaran: "Diterima",
-
-            status_delivery: "Diterima",
-
-            status_kirim: "Diterima",
-
-            tanggal_pengantaran: "2026-08-27",
-
-            tgl_pengantaran: "2026-08-27",
-
-            tanggal: "2026-08-27",
-
-            posting_date: "2026-08-27",
-
-            status_konfirmasi: "Menunggu",
-
-            status: "Diterima",
-          },
-
-          {
-            id: "INV-004",
-
-            no_faktur: "010.001-26.12345681",
-
-            no_faktur_pajak: "010.001-26.12345681",
-
-            nomor_faktur: "010.001-26.12345681",
-
-            no_billing: "BILL-202608-0004",
-
-            billing_id: "BILL-202608-0004",
-
-            nomor_billing: "BILL-202608-0004",
-
-            customer: "PT Maju Jaya Abadi",
-
-            nama_customer: "PT Maju Jaya Abadi",
-
-            nominal_piutang: 6300000,
-
-            nominal_dpp: 6300000,
-
-            nominal: 6300000,
-
-            jumlah: 6300000,
-
-            sales: "Andri Noviandy",
-
-            nama_sales: "Andri Noviandy",
-
-            sales_name: "Andri Noviandy",
-
-            status_pengantaran: "Menunggu",
-
-            status_delivery: "Menunggu",
-
-            status_kirim: "Menunggu",
-
-            tanggal_pengantaran: "2026-08-28",
-
-            tgl_pengantaran: "2026-08-28",
-
-            tanggal: "2026-08-28",
-
-            posting_date: "2026-08-28",
-
-            status_konfirmasi: "Menunggu",
-
-            status: "Menunggu",
-          },
-
-          {
-            id: "INV-005",
-
-            no_faktur: "010.001-26.12345682",
-
-            no_faktur_pajak: "010.001-26.12345682",
-
-            nomor_faktur: "010.001-26.12345682",
-
-            no_billing: "BILL-202608-0005",
-
-            billing_id: "BILL-202608-0005",
-
-            nomor_billing: "BILL-202608-0005",
-
-            customer: "PT Maju Jaya Abadi",
-
-            nama_customer: "PT Maju Jaya Abadi",
-
-            nominal_piutang: 19300000,
-
-            nominal_dpp: 19300000,
-
-            nominal: 19300000,
-
-            jumlah: 19300000,
-
-            sales: "Dedi Kurniawan",
-
-            nama_sales: "Dedi Kurniawan",
-
-            sales_name: "Dedi Kurniawan",
-
-            status_pengantaran: "Diterima",
-
-            status_delivery: "Diterima",
-
-            status_kirim: "Diterima",
-
-            tanggal_pengantaran: "2026-08-26",
-
-            tgl_pengantaran: "2026-08-26",
-
-            tanggal: "2026-08-26",
-
-            posting_date: "2026-08-26",
-
-            status_konfirmasi: "Menunggu",
-
-            status: "Diterima",
-          },
-        ],
-      };
-
+      const res = await storeSchema.actions.getDataKonfirmasiCustomer({ status });
       swal.close();
 
-      setData(dummyData);
+      if (res?.status !== true) {
+        setData(null);
+        setIsValid(false);
+        swal.warning(res?.message || "Data konfirmasi customer tidak ditemukan.");
+        return;
+      }
 
+      const responseData =
+        res?.data?.data ??
+        res?.data?.result ??
+        res?.data ??
+        res?.result ??
+        null;
+
+      if (
+        !responseData ||
+        typeof responseData !== "object" ||
+        Array.isArray(responseData)
+      ) {
+        setData(null);
+        setIsValid(false);
+        return;
+      }
+
+      // Pertahankan objek customer sebagai header dan gunakan detail_billing
+      // sebagai sumber utama daftar billing.
+      setData({
+        ...responseData,
+        nama_customer:
+          responseData?.nama_customer ??
+          responseData?.customer_name ??
+          responseData?.customer ??
+          "-",
+        customer_name:
+          responseData?.customer_name ??
+          responseData?.nama_customer ??
+          responseData?.customer ??
+          "-",
+        tanggal_kirim_konfirmasi:
+          responseData?.tanggal_kirim_konfirmasi ??
+          responseData?.tgl_kirim_konfirmasi ??
+          null,
+        detail_billing: Array.isArray(responseData?.detail_billing)
+          ? responseData.detail_billing.map((item) => ({
+              ...item,
+              id:
+                item?.piutang_id ??
+                item?.detail_piutang_id ??
+                item?.k_piutang_id ??
+                item?.no_billing,
+              no_billing:
+                item?.no_billing ??
+                item?.billing_id ??
+                item?.nomor_billing ??
+                "",
+              dpp: Number(item?.dpp ?? item?.DPP ?? 0),
+              ppn: Number(item?.ppn ?? item?.PPN ?? 0),
+              total_piutang: Number(
+                item?.total_piutang ??
+                item?.total_invoice ??
+                (Number(item?.dpp ?? item?.DPP ?? 0) +
+                  Number(item?.ppn ?? item?.PPN ?? 0))
+              ),
+            }))
+          : [],
+      });
+      setSelectedIds([]);
       setIsValid(true);
     } catch (error) {
       swal.close();
@@ -521,6 +294,13 @@ export default function KonfirmasiCustomer() {
       return data;
     }
 
+    // Struktur response service getDataKonfirmasiCustomer:
+    // { ...dataCustomer, detail_billing: [...] }
+    if (Array.isArray(data?.detail_billing)) {
+      return data.detail_billing;
+    }
+
+    // Fallback untuk response versi sebelumnya.
     if (Array.isArray(data?.detail)) {
       return data.detail;
     }
@@ -624,11 +404,11 @@ export default function KonfirmasiCustomer() {
       return (
         total +
         Number(
-          item?.nominal_piutang ??
-            item?.nominal_dpp ??
-            item?.nominal ??
-            item?.jumlah ??
-            0
+          item?.total_piutang ??
+            item?.nominal_piutang ??
+            item?.total ??
+            (Number(item?.dpp ?? item?.nominal_dpp ?? item?.nilai_dpp ?? 0) +
+              Number(item?.ppn ?? item?.nominal_ppn ?? item?.nilai_ppn ?? 0))
         )
       );
     }, 0);
@@ -769,62 +549,50 @@ export default function KonfirmasiCustomer() {
 
       swal.loading();
 
-      // ==================================================
-      // PAYLOAD UNTUK BACKEND
-      // ==================================================
-      //
-      // const payload = {
-      //   status,
-      //   keputusan:
-      //     confirmationType === "approve"
-      //       ? "DISETUJUI"
-      //       : "DITOLAK",
-      //   catatan: confirmationNote,
-      //   tanggal_rencana_pembayaran:
-      //     confirmationType === "approve"
-      //       ? paymentPlanDate
-      //       : null,
-      //   customer_id: data?.customer_id,
-      //   items: selectedInvoices.map((item) => ({
-      //     billing_id: item?.billing_id,
-      //     no_billing: item?.no_billing,
-      //     no_faktur: item?.no_faktur,
-      //     nominal_piutang:
-      //       item?.nominal_piutang ??
-      //       item?.nominal_dpp ??
-      //       item?.nominal ??
-      //       item?.jumlah ??
-      //       0,
-      //   })),
-      // };
-      //
-      // const res =
-      //   await storeSchema.actions.confirmPiutang(
-      //     payload
-      //   );
-      //
-      // if (!res?.status) {
-      //   swal.close();
-      //
-      //   swal.warning(
-      //     res?.message ||
-      //       "Konfirmasi gagal."
-      //   );
-      //
-      //   setIsConfirming(false);
-      //
-      //   return;
-      // }
+      // Kirim k_piutang_id dari setiap billing yang dipilih.
+      const kPiutangIds = selectedInvoices
+        .map((item) => item?.k_piutang_id)
+        .filter((id) => id !== undefined && id !== null && String(id).trim() !== "");
 
-      // ==================================================
-      // DUMMY DELAY
-      // ==================================================
+      if (kPiutangIds.length === 0) {
+        swal.close();
+        setIsConfirming(false);
+        swal.warning("k_piutang_id tidak ditemukan pada data yang dipilih.");
+        return;
+      }
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 800)
-      );
+      const namaCustomer =
+        data?.nama_customer ||
+        data?.customer_name ||
+        data?.customer ||
+        selectedInvoices.find((item) => item?.nama_customer || item?.customer_name || item?.customer)?.nama_customer ||
+        selectedInvoices.find((item) => item?.nama_customer || item?.customer_name || item?.customer)?.customer_name ||
+        selectedInvoices.find((item) => item?.nama_customer || item?.customer_name || item?.customer)?.customer ||
+        "";
 
+      if (!String(namaCustomer).trim()) {
+        swal.close();
+        setIsConfirming(false);
+        swal.warning("Nama customer tidak ditemukan.");
+        return;
+      }
+
+      const payload = {
+        k_piutang_id: [...new Set(kPiutangIds)],
+        nama_customer: String(namaCustomer).trim(),
+        keputusan: confirmationType === "approve" ? "DISETUJUI" : "DITOLAK",
+        catatan: confirmationNote.trim(),
+        tanggal_rencana_pembayaran: confirmationType === "approve" ? paymentPlanDate : null,
+      };
+
+      const res = await storeSchema.actions.konfirmasiCustomer(payload);
       swal.close();
+
+      if (res?.status !== true) {
+        setIsConfirming(false);
+        swal.warning(res?.message || "Konfirmasi piutang gagal diproses.");
+        return;
+      }
 
       // ==================================================
       // UPDATE STATUS FRONTEND
@@ -1168,7 +936,7 @@ export default function KonfirmasiCustomer() {
               <div>
 
                 <p className="text-xs text-gray-400">
-                  Tanggal Pengantaran
+                  Tanggal Kirim Konfirmasi
                 </p>
 
                 <div className="flex items-center gap-2 mt-1">
@@ -1179,6 +947,9 @@ export default function KonfirmasiCustomer() {
 
                     {
                       formatDate(
+                        data?.tanggal_kirim_konfirmasi ||
+                        data?.tgl_kirim_konfirmasi ||
+                        data?.tanggal_kirim ||
                         data?.tanggal_pengantaran ||
                         data?.tgl_pengantaran ||
                         data?.tanggal
@@ -1576,392 +1347,140 @@ export default function KonfirmasiCustomer() {
           ================================================== */}
 
           <div className="overflow-x-auto">
-
-            <table className="w-full min-w-[1100px] text-sm">
-
+            <table className="w-full min-w-[1050px] text-sm">
               <thead>
-
                 <tr className="bg-primary text-white">
-
                   <th className="px-4 py-4 text-center w-14">
-
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected}
-                      onChange={handleCheckAll}
-                      className="
-                        w-5
-                        h-5
-                        rounded
-                        border
-                        border-white
-                        accent-blue-600
-                        cursor-pointer
-                      "
-                    />
-
-                  </th>
-
-                  <th className="px-4 py-4 text-center">
-                    No
-                  </th>
-
-                  <th className="px-4 py-4 text-left">
-                    No. Faktur
-                  </th>
-
-                  <th className="px-4 py-4 text-left">
-                    No. Billing
-                  </th>
-
-                  <th className="px-4 py-4 text-left">
-                    Customer
-                  </th>
-
-                  <th className="px-4 py-4 text-right">
-                    Nominal Piutang
-                  </th>
-
-                  <th className="px-4 py-4 text-left">
-                    Sales
-                  </th>
-
-                  <th className="px-4 py-4 text-left">
-                    Status Pengantaran
-                  </th>
-
-                  <th className="px-4 py-4 text-left">
-                    Tanggal Pengantaran
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
-              <tbody>
-
-                {filteredInvoices.length === 0 ? (
-
-                  <tr>
-
-                    <td
-                      colSpan={9}
-                      className="px-5 py-16 text-center"
+                    <label
+                      className={`mx-auto flex items-center justify-center w-9 h-9 rounded-full border transition cursor-pointer ${
+                        isAllSelected
+                          ? "bg-blue-50 border-white text-primary"
+                          : "bg-white/10 border-white/70 text-white hover:bg-white/20"
+                      } ${filteredInvoices.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={isAllSelected ? "Batalkan semua pilihan" : "Pilih semua faktur"}
                     >
-
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={isAllSelected}
+                        disabled={filteredInvoices.length === 0}
+                        onChange={handleCheckAll}
+                      />
+                      {isAllSelected ? (
+                        <FaCheckCircle />
+                      ) : (
+                        <span className="w-4 h-4 rounded border border-current" />
+                      )}
+                    </label>
+                  </th>
+                  <th className="px-4 py-4 text-center">No</th>
+                  <th className="px-4 py-4 text-left">No. Billing</th>
+                  <th className="px-4 py-4 text-left">Customer</th>
+                  <th className="px-4 py-4 text-right">DPP</th>
+                  <th className="px-4 py-4 text-right">PPN</th>
+                  <th className="px-4 py-4 text-right">Total Piutang</th>
+                  <th className="px-4 py-4 text-left">Sales</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-16 text-center">
                       <div className="flex flex-col items-center">
-
                         <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-
                           <FaFileInvoice className="text-gray-400 text-xl" />
-
                         </div>
-
-                        <p className="font-semibold text-gray-600">
-                          Data faktur tidak ditemukan
-                        </p>
-
-                        <p className="text-xs text-gray-400 mt-1">
-                          Tidak ada data yang sesuai dengan pencarian.
-                        </p>
-
+                        <p className="font-semibold text-gray-600">Data faktur tidak ditemukan</p>
+                        <p className="text-xs text-gray-400 mt-1">Tidak ada data yang sesuai dengan pencarian.</p>
                       </div>
-
                     </td>
-
                   </tr>
-
                 ) : (
+                  filteredInvoices.map((item, index) => {
+                    const originalIndex = invoiceList.indexOf(item);
+                    const id = getItemId(item, originalIndex);
+                    const checked = selectedIds.includes(id);
+                    const dpp = item?.dpp ?? item?.nominal_dpp ?? item?.nilai_dpp ?? 0;
+                    const ppn = item?.ppn ?? item?.nominal_ppn ?? item?.nilai_ppn ?? 0;
+                    const totalPiutang = item?.total_piutang ?? item?.nominal_piutang ?? item?.total ??
+                      (Number(dpp || 0) + Number(ppn || 0));
+                    const noBilling = item?.no_billing || item?.billing_id || item?.nomor_billing || "-";
+                    const sales = item?.sales || item?.nama_sales || item?.sales_name || item?.nama_pengantar || "-";
 
-                  filteredInvoices.map(
-                    (item, index) => {
-
-                      const originalIndex =
-                        invoiceList.indexOf(item);
-
-                      const id =
-                        getItemId(
-                          item,
-                          originalIndex
-                        );
-
-                      const checked =
-                        selectedIds.includes(id);
-
-                      const deliveryStatus =
-                        getDeliveryStatus(
-                          item?.status_pengantaran ||
-                            item?.status_delivery ||
-                            item?.status_kirim ||
-                            item?.status
-                        );
-
-                      const nominal =
-                        item?.nominal_piutang ??
-                        item?.nominal_dpp ??
-                        item?.nominal ??
-                        item?.jumlah ??
-                        0;
-
-                      const noFaktur =
-                        item?.no_faktur ||
-                        item?.no_faktur_pajak ||
-                        item?.nomor_faktur ||
-                        "-";
-
-                      const noBilling =
-                        item?.no_billing ||
-                        item?.billing_id ||
-                        item?.nomor_billing ||
-                        "-";
-
-                      const sales =
-                        item?.sales ||
-                        item?.nama_sales ||
-                        item?.sales_name ||
-                        item?.nama_pengantar ||
-                        "-";
-
-                      const tanggal =
-                        item?.tanggal_pengantaran ||
-                        item?.tgl_pengantaran ||
-                        item?.tanggal ||
-                        item?.posting_date;
-
-                      return (
-                        <tr
-                          key={id}
-                          className={`
-                            border-b
-                            border-gray-100
-                            transition
-                            ${
+                    return (
+                      <tr
+                        key={id}
+                        className={`border-b border-gray-100 transition ${checked ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                      >
+                        <td className="px-4 py-4 text-center">
+                          <label
+                            className={`mx-auto flex items-center justify-center w-9 h-9 rounded-full border transition ${
                               checked
-                                ? "bg-blue-50"
-                                : "hover:bg-gray-50"
-                            }
-                          `}
-                        >
-
-                          {/* CHECK */}
-
-                          <td className="px-4 py-4 text-center">
-
+                                ? "bg-blue-50 border-primary text-primary cursor-pointer"
+                                : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary cursor-pointer"
+                            }`}
+                            title={checked ? "Batalkan pilihan" : "Pilih faktur"}
+                          >
                             <input
                               type="checkbox"
+                              className="hidden"
                               checked={checked}
-                              onChange={() =>
-                                handleCheckItem(
-                                  item,
-                                  originalIndex
-                                )
-                              }
-                              className="
-                                w-5
-                                h-5
-                                rounded
-                                border
-                                border-gray-300
-                                accent-blue-600
-                                cursor-pointer
-                              "
+                              onChange={() => handleCheckItem(item, originalIndex)}
                             />
-
-                          </td>
-
-
-                          {/* NO */}
-
-                          <td className="px-4 py-4 text-center">
-
-                            <span className="font-semibold text-gray-500">
-                              {index + 1}
-                            </span>
-
-                          </td>
-
-
-                          {/* NO FAKTUR */}
-
-                          <td className="px-4 py-4 text-nowrap">
-
-                            <div className="flex items-center gap-3">
-
-                              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-
-                                <FaFileInvoice className="text-blue-600 text-sm" />
-
-                              </div>
-
-                              <div>
-
-                                <p className="font-bold text-blue-700">
-                                  {noFaktur}
-                                </p>
-
-                                {item?.id && (
-                                  <p className="text-[11px] text-gray-400">
-                                    ID: {item.id}
-                                  </p>
-                                )}
-
-                              </div>
-
+                            {checked ? (
+                              <FaCheck />
+                            ) : (
+                              <span className="w-4 h-4 rounded border border-current" />
+                            )}
+                          </label>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <span className="font-semibold text-gray-500">{index + 1}</span>
+                        </td>
+                        <td className="px-4 py-4 text-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
+                              <HiOutlineTicket className="text-orange-600 text-lg" />
                             </div>
-
-                          </td>
-
-
-                          {/* BILLING */}
-
-                          <td className="px-4 py-4 text-nowrap">
-
-                            <div className="flex items-center gap-3">
-
-                              <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-
-                                <HiOutlineTicket className="text-orange-600 text-lg" />
-
-                              </div>
-
-                              <div>
-
-                                <p className="font-semibold text-gray-700">
-                                  {noBilling}
-                                </p>
-
-                                <p className="text-[11px] text-gray-400">
-                                  Nomor Billing
-                                </p>
-
-                              </div>
-
+                            <div>
+                              <p className="font-semibold text-gray-700">{noBilling}</p>
+                              <p className="text-[11px] text-gray-400">Nomor Billing</p>
                             </div>
-
-                          </td>
-
-
-                          {/* CUSTOMER */}
-
-                          <td className="px-4 py-4 text-nowrap">
-
-                            <div className="flex items-center gap-3">
-
-                              <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-
-                                <FaBuilding className="text-blue-600 text-sm" />
-
-                              </div>
-
-                              <div>
-
-                                <p className="font-semibold text-gray-700">
-
-                                  {
-                                    item?.customer ||
-                                    item?.nama_customer ||
-                                    data?.customer ||
-                                    data?.nama_customer ||
-                                    "-"
-                                  }
-
-                                </p>
-
-                              </div>
-
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                              <FaBuilding className="text-blue-600 text-sm" />
                             </div>
-
-                          </td>
-
-
-                          {/* NOMINAL */}
-
-                          <td className="px-4 py-4 text-right">
-
-                            <p className="font-bold text-gray-800">
-                              {formatRupiah(nominal)}
+                            <p className="font-semibold text-gray-700">
+                              {item?.customer || item?.nama_customer || data?.customer || data?.nama_customer || "-"}
                             </p>
-
-                          </td>
-
-
-                          {/* SALES */}
-
-                          <td className="px-4 py-4">
-
-                            <div className="flex items-center gap-3">
-
-                              <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-
-                                <FaUser className="text-blue-600 text-sm" />
-
-                              </div>
-
-                              <span className="font-semibold text-gray-700">
-                                {sales}
-                              </span>
-
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
+                          <p className="font-semibold text-gray-700">{formatRupiah(dpp)}</p>
+                        </td>
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
+                          <p className="font-semibold text-gray-700">{formatRupiah(ppn)}</p>
+                        </td>
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
+                          <p className="font-bold text-gray-800">{formatRupiah(totalPiutang)}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                              <FaUser className="text-blue-600 text-sm" />
                             </div>
-
-                          </td>
-
-
-                          {/* STATUS */}
-
-                          <td className="px-4 py-4">
-
-                            <span
-                              className={`
-                                inline-flex
-                                items-center
-                                gap-2
-                                px-3
-                                py-1.5
-                                rounded-full
-                                border
-                                text-xs
-                                font-semibold
-                                ${deliveryStatus.className}
-                              `}
-                            >
-
-                              {deliveryStatus.icon}
-
-                              {deliveryStatus.label}
-
-                            </span>
-
-                          </td>
-
-
-                          {/* TANGGAL */}
-
-                          <td className="px-4 py-4 text-nowrap">
-
-                            <div className="flex items-center gap-2">
-
-                              <FaCalendarAlt className="text-blue-500" />
-
-                              <span className="text-gray-600">
-                                {formatDate(tanggal)}
-                              </span>
-
-                            </div>
-
-                          </td>
-
-                        </tr>
-                      );
-                    }
-                  )
-
+                            <span className="font-semibold text-gray-700">{sales}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
-
               </tbody>
-
             </table>
-
           </div>
 
 
@@ -2396,11 +1915,11 @@ export default function KonfirmasiCustomer() {
                       (item, index) => {
 
                         const nominal =
+                          item?.total_piutang ??
                           item?.nominal_piutang ??
-                          item?.nominal_dpp ??
-                          item?.nominal ??
-                          item?.jumlah ??
-                          0;
+                          item?.total ??
+                          (Number(item?.dpp ?? item?.nominal_dpp ?? item?.nilai_dpp ?? 0) +
+                            Number(item?.ppn ?? item?.nominal_ppn ?? item?.nilai_ppn ?? 0));
 
                         const noFaktur =
                           item?.no_faktur ||

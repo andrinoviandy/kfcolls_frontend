@@ -801,6 +801,14 @@ const n2nPostService = {
       return error.response;
     }
   },
+  konfirmasiCustomer: async (data) => {
+    try {
+      const response = await api.post("/konfirmasiCustomer", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
   konfirmasiPiutang: async (data) => {
     try {
       const response = await api.post("/konfirmasiPiutang", data);
