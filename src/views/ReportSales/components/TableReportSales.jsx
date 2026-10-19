@@ -109,6 +109,32 @@ const formatCurrency = (value) => {
   ).format(number);
 };
 
+// =====================================================
+// FORMAT RUPIAH SINGKAT UNTUK CARD SUMMARY
+// Contoh: Rp 29 M, Rp 2 Juta
+// =====================================================
+const formatCompactRupiah = (value) => {
+  const amount = Number(value) || 0;
+  const absoluteAmount = Math.abs(amount);
+  const formatter = new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 1,
+  });
+
+  if (absoluteAmount >= 1_000_000_000_000) {
+    return `Rp ${formatter.format(amount / 1_000_000_000_000)} T`;
+  }
+
+  if (absoluteAmount >= 1_000_000_000) {
+    return `Rp ${formatter.format(amount / 1_000_000_000)} M`;
+  }
+
+  if (absoluteAmount >= 1_000_000) {
+    return `Rp ${formatter.format(amount / 1_000_000)} Juta`;
+  }
+
+  return formatCurrency(amount);
+};
+
 
 // =====================================================
 // PRODUCT MASTER DUMMY
@@ -2067,17 +2093,9 @@ const TableReportSales = ({
                   mt-1
                   truncate
                 "
-                title={
-                  formatCurrency(
-                    filteredSummary.penjualan
-                  )
-                }
+                title={formatCurrency(filteredSummary.penjualan)}
               >
-                {
-                  formatCurrency(
-                    filteredSummary.penjualan
-                  )
-                }
+                {formatCompactRupiah(filteredSummary.penjualan)}
               </p>
 
             </div>
@@ -2154,11 +2172,7 @@ const TableReportSales = ({
                   truncate
                 "
               >
-                {
-                  formatCurrency(
-                    filteredSummary.retur
-                  )
-                }
+                {formatCompactRupiah(filteredSummary.retur)}
               </p>
 
             </div>
@@ -2235,11 +2249,7 @@ const TableReportSales = ({
                   truncate
                 "
               >
-                {
-                  formatCurrency(
-                    filteredSummary.pencairan
-                  )
-                }
+                {formatCompactRupiah(filteredSummary.pencairan)}
               </p>
 
             </div>
@@ -2316,11 +2326,7 @@ const TableReportSales = ({
                   truncate
                 "
               >
-                {
-                  formatCurrency(
-                    filteredSummary.netSales
-                  )
-                }
+                {formatCompactRupiah(filteredSummary.netSales)}
               </p>
 
             </div>
