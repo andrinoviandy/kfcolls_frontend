@@ -876,6 +876,8 @@ const TableListKonfirmasiPiutang = ({
   // Modal khusus memilih customer lalu memilih billing yang belum dikonfirmasi.
   const [showCustomerBillingModal, setShowCustomerBillingModal] = useState(false);
   const [selectedBulkCustomer, setSelectedBulkCustomer] = useState("");
+  const [customerSelectSearch, setCustomerSelectSearch] = useState("");
+  const [customerSelectOpen, setCustomerSelectOpen] = useState(false);
   const [customerBillingRows, setCustomerBillingRows] = useState([]);
   const [selectedCustomerBillingIds, setSelectedCustomerBillingIds] = useState([]);
   const [loadingCustomerBillings, setLoadingCustomerBillings] = useState(false);
@@ -1240,6 +1242,8 @@ const TableListKonfirmasiPiutang = ({
 
   const openCustomerBillingModal = async () => {
     setSelectedBulkCustomer("");
+    setCustomerSelectSearch("");
+    setCustomerSelectOpen(false);
     setCustomerBillingRows([]);
     setSelectedCustomerBillingIds([]);
     setCustomerBillingSearch("");
@@ -4108,10 +4112,72 @@ const TableListKonfirmasiPiutang = ({
             <div className="space-y-4 overflow-y-auto p-6">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">Customer</label>
-                <select className="select select-bordered w-full bg-white" value={selectedBulkCustomer} disabled={loadingCustomerBillings} onChange={(e) => loadBillingsForCustomer(e.target.value)}>
-                  <option value="">-- Pilih customer --</option>
-                  {customerOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customerSelectSearch}
+                    disabled={loadingCustomerBillings}
+                    onFocus={() => setCustomerSelectOpen(true)}
+                    onChange={(e) => {
+                      setCustomerSelectSearch(e.target.value);
+                      setCustomerSelectOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setCustomerSelectOpen(false);
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const q = customerSelectSearch.trim().toLowerCase();
+                        const match = customerOptions.find((option) => String(option.label || "").toLowerCase().includes(q));
+                        if (match) {
+                          setCustomerSelectSearch(match.label);
+                          setCustomerSelectOpen(false);
+                          loadBillingsForCustomer(match.value);
+                        }
+                      }
+                    }}
+                    placeholder={selectedBulkCustomer ? "Cari atau ganti customer..." : "Ketik nama/kode customer untuk mencari..."}
+                    className="input input-bordered w-full bg-white pr-10"
+                    role="combobox"
+                    aria-expanded={customerSelectOpen}
+                    aria-autocomplete="list"
+                  />
+                  <button
+                    type="button"
+                    disabled={loadingCustomerBillings}
+                    onClick={() => setCustomerSelectOpen((prev) => !prev)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500"
+                    aria-label="Tampilkan daftar customer"
+                  >
+                    <svg className={`h-4 w-4 transition-transform ${customerSelectOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" /></svg>
+                  </button>
+                  {customerSelectOpen && !loadingCustomerBillings && (
+                    <div className="absolute z-[600] mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+                      {customerOptions
+                        .filter((option) => {
+                          const q = customerSelectSearch.trim().toLowerCase();
+                          return !q || String(option.label || "").toLowerCase().includes(q) || String(option.value || "").toLowerCase().includes(q);
+                        })
+                        .map((option) => (
+                          <button
+                            type="button"
+                            key={option.value}
+                            onClick={() => {
+                              setCustomerSelectSearch(option.label);
+                              setCustomerSelectOpen(false);
+                              loadBillingsForCustomer(option.value);
+                            }}
+                            className={`block w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 ${String(selectedBulkCustomer) === String(option.value) ? "bg-blue-50 font-semibold text-blue-800" : "text-gray-700"}`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      {!customerOptions.some((option) => {
+                        const q = customerSelectSearch.trim().toLowerCase();
+                        return !q || String(option.label || "").toLowerCase().includes(q) || String(option.value || "").toLowerCase().includes(q);
+                      }) && <p className="px-4 py-3 text-sm text-gray-500">Customer tidak ditemukan.</p>}
+                    </div>
+                  )}
+                </div>
                 <p className="mt-1 text-xs text-gray-500">Pilihan customer mengikuti data yang tersedia pada tabel. Jika customer tidak muncul, cari customer tersebut pada tabel utama terlebih dahulu.</p>
               </div>
 
