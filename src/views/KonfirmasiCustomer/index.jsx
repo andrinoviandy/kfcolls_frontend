@@ -74,6 +74,45 @@ const formatDate = (date) => {
 
 
 // ======================================================
+// STATUS KONFIRMASI CUSTOMER
+// ======================================================
+
+const getConfirmationStatus = (status) => {
+  const value = String(status ?? "").trim().toUpperCase();
+
+  if (value === "S") {
+    return {
+      label: "Disetujui",
+      className: "bg-green-100 text-green-700 border-green-200",
+      icon: <FaCheckCircle />,
+    };
+  }
+
+  if (value === "T") {
+    return {
+      label: "Ditolak",
+      className: "bg-red-100 text-red-700 border-red-200",
+      icon: <FaTimesCircle />,
+    };
+  }
+
+  if (value === "O") {
+    return {
+      label: "Otomatis 14 Hari",
+      className: "bg-purple-100 text-purple-700 border-purple-200",
+      icon: <FaClock />,
+    };
+  }
+
+  return {
+    label: "Menunggu Konfirmasi",
+    className: "bg-amber-100 text-amber-700 border-amber-200",
+    icon: <FaClock />,
+  };
+};
+
+
+// ======================================================
 // STATUS PENGANTARAN
 // ======================================================
 
@@ -182,9 +221,9 @@ export default function KonfirmasiCustomer() {
   // GET DETAIL
   // ====================================================
 
-  const getDetailStatus = async () => {
+  const getDetailStatus = async (showLoading = true) => {
     try {
-      swal.loading();
+      if (showLoading) swal.loading();
 
       const res = await storeSchema.actions.getDataKonfirmasiCustomer({ status });
       swal.close();
@@ -594,118 +633,20 @@ export default function KonfirmasiCustomer() {
         return;
       }
 
-      // ==================================================
-      // UPDATE STATUS FRONTEND
-      // ==================================================
-
-      const newStatus =
-        confirmationType === "approve"
-          ? "Disetujui"
-          : "Ditolak";
-
-      setData((prev) => {
-        if (!prev) {
-          return prev;
-        }
-
-        const updateItems = (items) => {
-          if (!Array.isArray(items)) {
-            return items;
-          }
-
-          return items.map(
-            (item, index) => {
-              const id = getItemId(
-                item,
-                index
-              );
-
-              if (
-                !selectedIds.includes(id)
-              ) {
-                return item;
-              }
-
-              return {
-                ...item,
-                status_konfirmasi:
-                  newStatus,
-                status: newStatus,
-                catatan_konfirmasi:
-                  confirmationNote,
-                tanggal_rencana_pembayaran:
-                  confirmationType === "approve"
-                    ? paymentPlanDate
-                    : null,
-              };
-            }
-          );
-        };
-
-        if (Array.isArray(prev)) {
-          return updateItems(prev);
-        }
-
-        if (
-          Array.isArray(prev?.detail)
-        ) {
-          return {
-            ...prev,
-            detail: updateItems(
-              prev.detail
-            ),
-          };
-        }
-
-        if (
-          Array.isArray(prev?.data)
-        ) {
-          return {
-            ...prev,
-            data: updateItems(
-              prev.data
-            ),
-          };
-        }
-
-        if (
-          Array.isArray(prev?.faktur)
-        ) {
-          return {
-            ...prev,
-            faktur: updateItems(
-              prev.faktur
-            ),
-          };
-        }
-
-        if (
-          Array.isArray(prev?.billing)
-        ) {
-          return {
-            ...prev,
-            billing: updateItems(
-              prev.billing
-            ),
-          };
-        }
-
-        return prev;
-      });
-
+      // Tutup modal dan reset input setelah API berhasil.
+      setShowConfirmationModal(false);
+      setConfirmationNote("");
+      setPaymentPlanDate("");
+      setConfirmationType("approve");
       setSelectedIds([]);
 
-      setShowConfirmationModal(false);
-
-      setConfirmationNote("");
-
-      setPaymentPlanDate("");
-
-      setConfirmationType("approve");
+      // Ambil ulang data dari getDataKonfirmasiCustomer agar status
+      // yang tampil selalu mengikuti data terbaru dari backend.
+      await getDetailStatus(false);
 
       setIsConfirming(false);
 
-      window.alert(
+      swal.success(
         confirmationType === "approve"
           ? "Konfirmasi piutang berhasil disetujui."
           : "Konfirmasi piutang berhasil ditolak."
@@ -1373,6 +1314,9 @@ export default function KonfirmasiCustomer() {
                       )}
                     </label>
                   </th>
+                  <th className="px-4 py-4 text-left">Status</th>
+                  <th className="px-4 py-4 text-left whitespace-nowrap">Tgl Rencana Pembayaran</th>
+                  <th className="px-4 py-4 text-left">Catatan</th>
                   <th className="px-4 py-4 text-center">No</th>
                   <th className="px-4 py-4 text-left">No. Billing</th>
                   <th className="px-4 py-4 text-left">Customer</th>
@@ -1385,7 +1329,7 @@ export default function KonfirmasiCustomer() {
               <tbody>
                 {filteredInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-16 text-center">
+                    <td colSpan={11} className="px-5 py-16 text-center">
                       <div className="flex flex-col items-center">
                         <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                           <FaFileInvoice className="text-gray-400 text-xl" />
@@ -1406,6 +1350,7 @@ export default function KonfirmasiCustomer() {
                       (Number(dpp || 0) + Number(ppn || 0));
                     const noBilling = item?.no_billing || item?.billing_id || item?.nomor_billing || "-";
                     const sales = item?.sales || item?.nama_sales || item?.sales_name || item?.nama_pengantar || "-";
+                    const confirmationStatus = getConfirmationStatus(item?.kd_status);
 
                     return (
                       <tr
@@ -1433,6 +1378,28 @@ export default function KonfirmasiCustomer() {
                               <span className="w-4 h-4 rounded border border-current" />
                             )}
                           </label>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${confirmationStatus.className}`}
+                            title={item?.tanggal_konfirmasi ? `Tanggal konfirmasi: ${formatDate(item.tanggal_konfirmasi)}` : confirmationStatus.label}
+                          >
+                            {confirmationStatus.icon}
+                            {confirmationStatus.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <FaCalendarAlt className="text-blue-500 shrink-0" />
+                            <span className="font-medium">
+                              {formatDate(item?.tgl_rencana_pembayaran)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 min-w-[220px]">
+                          <span className="text-gray-700 whitespace-pre-wrap break-words">
+                            {item?.keterangan_status || "-"}
+                          </span>
                         </td>
                         <td className="px-4 py-4 text-center">
                           <span className="font-semibold text-gray-500">{index + 1}</span>
