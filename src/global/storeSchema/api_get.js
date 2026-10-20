@@ -2626,6 +2626,35 @@ const n2nGetService = {
       };
     }
   },
+  getDataPenerimaanLain: async ({
+    page = 1,
+    limit = 10,
+    keyword = "",
+  }) => {
+    try {
+      const response = await api.get("/getDataPenerimaanLain", {
+        params: {
+          page,
+          limit,
+          keyword,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DATA PENERIMAAN LAIN:",
+        error.response?.data || error.message
+      );
+
+      return error.response?.data || {
+        status: false,
+        message:
+          error.message || "Gagal mengambil data penerimaan lain",
+        data: null,
+      };
+    }
+  },
 };
 
 export default n2nGetService;

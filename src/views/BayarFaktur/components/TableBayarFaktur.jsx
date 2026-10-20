@@ -27,6 +27,7 @@ import {
   FaSyncAlt,
   FaChevronDown,
   FaChevronUp,
+  FaChevronRight,
 } from "react-icons/fa";
 
 import {
@@ -82,6 +83,27 @@ const formatRupiah = (value) => {
     }
   ).format(Number(value) || 0);
 
+};
+
+// Format nominal ringkas khusus untuk card summary.
+// Contoh: 27.000.000 -> 27 Juta, 26.600.000.000 -> 26,6 M.
+const formatNominalCard = (value) => {
+  const nominal = Number(value) || 0;
+  const formatAngka = (angka) => new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0,
+  }).format(angka);
+
+  if (Math.abs(nominal) >= 1_000_000_000) {
+    return `${formatAngka(nominal / 1_000_000_000)} M`;
+  }
+  if (Math.abs(nominal) >= 1_000_000) {
+    return `${formatAngka(nominal / 1_000_000)} Juta`;
+  }
+  if (Math.abs(nominal) >= 1_000) {
+    return `${formatAngka(nominal / 1_000)} Ribu`;
+  }
+  return formatRupiah(nominal);
 };
 
 
@@ -406,7 +428,22 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const [allData, setAllData] = useState([]);
-  const [summaryData, setSummaryData] = useState({ total_faktur: 0, belum_dibayar: 0, total_collections_menunggu_verifikasi: 0, total_collections_tidak_terverifikasi: 0, total_collections_terverifikasi: 0, total_saldo_piutang: 0 });
+  const [summaryData, setSummaryData] = useState({
+    total_faktur: 0,
+    total_nominal_faktur: 0,
+    belum_dibayar: 0,
+    nominal_belum_dibayar: 0,
+    total_data_menunggu_verifikasi: 0,
+    total_collections_menunggu_verifikasi: 0,
+    total_data_tidak_terverifikasi: 0,
+    total_collections_tidak_terverifikasi: 0,
+    total_data_terverifikasi: 0,
+    total_collections_terverifikasi: 0,
+    total_data_saldo_piutang: 0,
+    total_saldo_piutang: 0,
+    total_data_penerimaan_lain: 0,
+    total_penerimaan_lain: 0,
+  });
   const [totalData, setTotalData] = useState(0);
   const [totalPage, setTotalPage] = useState(0);
   const [keyword, setKeyword] = useState("");
@@ -418,7 +455,10 @@ const TableBayarFaktur = ({
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [customerOptions, setCustomerOptions] = useState([]);
+  const [partialCustomerOptions, setPartialCustomerOptions] = useState([]);
+  const [loadingPartialCustomers, setLoadingPartialCustomers] = useState(false);
   const [cabangOptions, setCabangOptions] = useState([]);
+  const [loadingCustomerOptions, setLoadingCustomerOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -451,6 +491,23 @@ const TableBayarFaktur = ({
   const [showPaymentModal, setShowPaymentModal] =
     useState(false);
 
+  // State untuk modal Penerimaan Lain
+  const [showPenerimaanLainModal, setShowPenerimaanLainModal] = useState(false);
+  const [penerimaanNominal, setPenerimaanNominal] = useState("");
+  const [penerimaanTanggal, setPenerimaanTanggal] = useState(new Date().toISOString().slice(0, 10));
+  const [penerimaanMetode, setPenerimaanMetode] = useState("DIRECT_TRANSFER");
+  const [penerimaanBukti, setPenerimaanBukti] = useState(null);
+  const [penerimaanKeterangan, setPenerimaanKeterangan] = useState("");
+  const [isSubmittingPenerimaan, setIsSubmittingPenerimaan] = useState(false);
+  const [showRiwayatPenerimaanLain, setShowRiwayatPenerimaanLain] = useState(false);
+  const [loadingRiwayatPenerimaanLain, setLoadingRiwayatPenerimaanLain] = useState(false);
+  const [riwayatPenerimaanLain, setRiwayatPenerimaanLain] = useState([]);
+  const [totalPenerimaanLain, setTotalPenerimaanLain] = useState(0);
+  const [currentPagePenerimaanLain, setCurrentPagePenerimaanLain] = useState(1);
+  const [perPagePenerimaanLain, setPerPagePenerimaanLain] = useState(10);
+  const [totalDataPenerimaanLain, setTotalDataPenerimaanLain] = useState(0);
+  const [totalHalamanPenerimaanLain, setTotalHalamanPenerimaanLain] = useState(0);
+
   // State khusus alokasi Partial Payment di Modal Bayar Faktur
   const [paymentAllocationMode, setPaymentAllocationMode] =
     useState("MANUAL");
@@ -480,6 +537,9 @@ const TableBayarFaktur = ({
     setPartialPaymentAmount
   ] = useState("");
 
+  // Bukti pembayaran wajib untuk transaksi Partial Payment.
+  const [partialPaymentFile, setPartialPaymentFile] = useState(null);
+
   const [
     partialPaymentMethod,
     setPartialPaymentMethod
@@ -505,13 +565,12 @@ const TableBayarFaktur = ({
     setPartialInvoiceData
   ] = useState([]);
 
+  const [isSubmittingPartialPayment, setIsSubmittingPartialPayment] = useState(false);
+
 
   // ===================================================
-  // CUSTOMER OPTIONS FOR PARTIAL PAYMENT
+  // Opsi customer Partial Payment terpisah dari filter Cabang di halaman utama.
   // ===================================================
-
-  const partialCustomerOptions = customerOptions;
-
 
   // ===================================================
   // API DATA + FILTER
@@ -528,8 +587,11 @@ const TableBayarFaktur = ({
     }
   };
 
-  const loadCustomerOptions = async () => {
+  // Customer untuk modal Partial Payment: ambil seluruh customer yang memiliki faktur,
+  // tidak bergantung pada filter Cabang di halaman utama.
+  const loadPartialCustomerOptions = async () => {
     try {
+      setLoadingPartialCustomers(true);
       const res = await storeSchema.actions.getDataBayarFaktur({
         page: 1,
         limit: 9999,
@@ -537,39 +599,170 @@ const TableBayarFaktur = ({
         sales_office: "ALL",
         customer: "ALL",
         status: "ALL",
+        status_verifikasi: "ALL",
         start_date: "",
         end_date: "",
       });
-      if (res?.status === true) {
-        const list = (res?.data?.list_data || []).map((item, index) => normalizeBayarFakturRow(item, index, 1, 9999));
-        const map = new Map();
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data customer");
+      const rows = Array.isArray(res?.data?.list_data) ? res.data.list_data : [];
+      const map = new Map();
+      rows.map((item, index) => normalizeBayarFakturRow(item, index, 1, 9999)).forEach((item) => {
+        const value = item?.customer_id ?? item?.customer;
+        if (value === null || value === undefined || String(value).trim() === "") return;
+        const key = String(value);
+        if (!map.has(key)) {
+          map.set(key, {
+            label: `${item?.nama_customer || key} - ${key}`,
+            value,
+            customer_id: value,
+            nama_customer: item?.nama_customer || key,
+            jumlah_faktur: 0,
+            total_saldo_piutang: 0,
+          });
+        }
+        const customer = map.get(key);
+        customer.jumlah_faktur += 1;
+        customer.total_saldo_piutang += Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+      });
+      setPartialCustomerOptions(Array.from(map.values()));
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER PARTIAL PAYMENT:", error);
+      setPartialCustomerOptions([]);
+      await swal.error(error?.message || "Gagal mengambil data customer Partial Payment");
+    } finally {
+      setLoadingPartialCustomers(false);
+    }
+  };
 
-        list.forEach((item) => {
-          const value = item?.customer || "";
-          const label = item?.nama_customer || value;
-          if (!value) return;
+  // Customer baru diambil setelah cabang dipilih. Data customer difilter
+  // berdasarkan cabang menggunakan API getDataPelanggan, sama seperti modul Piutang.
+  useEffect(() => {
+    let isMounted = true;
 
-          if (!map.has(String(value))) {
-            map.set(String(value), {
-              label: label || "-",
-              value,
-              customer_id: value,
-              nama_customer: label || "-",
-              jumlah_faktur: 0,
-              total_saldo_piutang: 0,
-            });
-          }
+    const getCustomerByCabang = async () => {
+      if (!filterCabang.length) {
+        setCustomerOptions([]);
+        setFilterCustomer([]);
+        setLoadingCustomerOptions(false);
+        return;
+      }
 
-          const customer = map.get(String(value));
-          customer.jumlah_faktur += 1;
-          customer.total_saldo_piutang += Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+      try {
+        setLoadingCustomerOptions(true);
+        const res = await storeSchema.actions.getDataPelanggan({
+          page: 1,
+          limit: 9999,
+          cabang_id: filterCabang,
         });
 
-        setCustomerOptions(Array.from(map.values()));
+        if (res?.status !== true) {
+          throw new Error(res?.message || "Gagal mengambil data customer");
+        }
+
+        const responseData = res?.data;
+        const listData = Array.isArray(responseData)
+          ? responseData
+          : responseData?.list_data || responseData?.data || responseData?.rows || [];
+
+        const currentStats = new Map();
+        allData.forEach((item) => {
+          const key = String(item?.customer_id ?? item?.customer ?? "");
+          if (!key) return;
+          const stats = currentStats.get(key) || { jumlah_faktur: 0, total_saldo_piutang: 0 };
+          stats.jumlah_faktur += 1;
+          stats.total_saldo_piutang += Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+          currentStats.set(key, stats);
+        });
+
+        const mappedOptions = listData
+          .map((item) => {
+            const customerId = item?.kode_customer ?? item?.customer ?? item?.customer_id;
+            if (customerId === null || customerId === undefined || String(customerId).trim() === "") return null;
+            const name = item?.name ?? item?.nama_customer ?? item?.nama ?? "";
+            const stats = currentStats.get(String(customerId)) || {};
+            return {
+              label: `${customerId}${name ? ` - ${name}` : ""}`,
+              value: customerId,
+              customer_id: customerId,
+              nama_customer: name || String(customerId),
+              jumlah_faktur: Number(stats.jumlah_faktur || 0),
+              total_saldo_piutang: Number(stats.total_saldo_piutang || 0),
+            };
+          })
+          .filter(Boolean);
+
+        if (isMounted) {
+          setCustomerOptions(mappedOptions);
+          setFilterCustomer((prev) => prev.filter((value) =>
+            mappedOptions.some((option) => String(option.value) === String(value))
+          ));
+        }
+      } catch (error) {
+        console.error("ERROR GET CUSTOMER BERDASARKAN CABANG:", error);
+        if (isMounted) {
+          setCustomerOptions([]);
+          setFilterCustomer([]);
+          await swal.error(error?.message || "Gagal mengambil data customer");
+        }
+      } finally {
+        if (isMounted) setLoadingCustomerOptions(false);
       }
+    };
+
+    getCustomerByCabang();
+    return () => { isMounted = false; };
+  }, [filterCabang]);
+
+  // Riwayat Penerimaan Lain dengan pagination dari backend.
+  const openRiwayatPenerimaanLain = async (
+    page = 1,
+    limit = perPagePenerimaanLain,
+    shouldOpen = true
+  ) => {
+    if (shouldOpen) setShowRiwayatPenerimaanLain(true);
+    setLoadingRiwayatPenerimaanLain(true);
+    try {
+      const res = await storeSchema.actions.getDataPenerimaanLain({
+        page,
+        limit,
+        keyword: "",
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil riwayat Penerimaan Lain");
+      const responseData = res?.data || {};
+      const list = Array.isArray(responseData?.list_data) ? responseData.list_data : [];
+      const totalData = Number(responseData?.total_data ?? list.length);
+      const totalHalaman = Number(responseData?.total_halaman ?? Math.ceil(totalData / limit));
+      setRiwayatPenerimaanLain(list);
+      setTotalDataPenerimaanLain(totalData);
+      setTotalHalamanPenerimaanLain(totalHalaman);
+      setCurrentPagePenerimaanLain(Number(responseData?.page ?? page));
+      setTotalPenerimaanLain(list.reduce((sum, item) => sum + Number(item?.nominal_bayar ?? item?.nominal_pembayaran ?? item?.nominal ?? 0), 0));
     } catch (error) {
-      console.error("ERROR GET CUSTOMER OPTIONS:", error);
+      console.error("ERROR GET RIWAYAT PENERIMAAN LAIN:", error);
+      setRiwayatPenerimaanLain([]);
+      setTotalPenerimaanLain(0);
+      setTotalDataPenerimaanLain(0);
+      setTotalHalamanPenerimaanLain(0);
+      await swal.error(error?.message || "Gagal mengambil riwayat Penerimaan Lain");
+    } finally {
+      setLoadingRiwayatPenerimaanLain(false);
     }
+  };
+
+  const handleOpenRiwayatPenerimaanLain = () => {
+    setCurrentPagePenerimaanLain(1);
+    openRiwayatPenerimaanLain(1, perPagePenerimaanLain, true);
+  };
+
+  const handlePageChangePenerimaanLain = (event) => {
+    openRiwayatPenerimaanLain(event.selected + 1, perPagePenerimaanLain, false);
+  };
+
+  const handlePerPagePenerimaanLain = (event) => {
+    const nextLimit = Number(event.target.value) || 10;
+    setPerPagePenerimaanLain(nextLimit);
+    setCurrentPagePenerimaanLain(1);
+    openRiwayatPenerimaanLain(1, nextLimit, false);
   };
 
   const getDataBayarFaktur = async () => {
@@ -600,18 +793,63 @@ const TableBayarFaktur = ({
       const summary = responseData?.summary || {};
       setSummaryData({
         total_faktur: Number(summary?.total_faktur ?? totalDataResponse),
+        total_nominal_faktur: Number(summary?.total_nominal_faktur ?? 0),
+
         belum_dibayar: Number(summary?.belum_dibayar ?? 0),
-        total_collections_menunggu_verifikasi: Number(summary?.total_collections_menunggu_verifikasi ?? 0),
-        total_collections_tidak_terverifikasi: Number(summary?.total_collections_tidak_terverifikasi ?? 0),
-        total_collections_terverifikasi: Number(summary?.total_collections_terverifikasi ?? 0),
+        nominal_belum_dibayar: Number(summary?.nominal_belum_dibayar ?? 0),
+
+        total_data_menunggu_verifikasi: Number(
+          summary?.total_data_menunggu_verifikasi ?? 0
+        ),
+        total_collections_menunggu_verifikasi: Number(
+          summary?.total_collections_menunggu_verifikasi ?? 0
+        ),
+
+        total_data_tidak_terverifikasi: Number(
+          summary?.total_data_tidak_terverifikasi ?? 0
+        ),
+        total_collections_tidak_terverifikasi: Number(
+          summary?.total_collections_tidak_terverifikasi ?? 0
+        ),
+
+        total_data_terverifikasi: Number(
+          summary?.total_data_terverifikasi ?? 0
+        ),
+        total_collections_terverifikasi: Number(
+          summary?.total_collections_terverifikasi ?? 0
+        ),
+
+        total_data_saldo_piutang: Number(
+          summary?.total_data_saldo_piutang ?? 0
+        ),
         total_saldo_piutang: Number(summary?.total_saldo_piutang ?? 0),
+
+        total_data_penerimaan_lain: Number(
+          responseData?.penerimaan_lain?.total_data ??
+          responseData?.penerimaan_lain?.total_data_penerimaan_lain ??
+          summary?.total_data_penerimaan_lain ?? 0
+        ),
+        total_penerimaan_lain: Number(
+          responseData?.penerimaan_lain?.total_nominal ??
+          responseData?.penerimaan_lain?.total ??
+          summary?.total_penerimaan_lain ??
+          summary?.penerimaan_lain?.total_nominal ?? 0
+        ),
       });
     } catch (error) {
       console.error("ERROR GET DATA BAYAR FAKTUR:", error);
       setAllData([]);
       setTotalData(0);
       setTotalPage(0);
-      setSummaryData({ total_faktur: 0, belum_dibayar: 0, total_collections_menunggu_verifikasi: 0, total_collections_tidak_terverifikasi: 0, total_collections_terverifikasi: 0, total_saldo_piutang: 0 });
+      setSummaryData({
+        total_faktur: 0, total_nominal_faktur: 0,
+        belum_dibayar: 0, nominal_belum_dibayar: 0,
+        total_data_menunggu_verifikasi: 0, total_collections_menunggu_verifikasi: 0,
+        total_data_tidak_terverifikasi: 0, total_collections_tidak_terverifikasi: 0,
+        total_data_terverifikasi: 0, total_collections_terverifikasi: 0,
+        total_data_saldo_piutang: 0, total_saldo_piutang: 0,
+        total_data_penerimaan_lain: 0, total_penerimaan_lain: 0,
+      });
       await swal.error(error?.message || "Gagal mengambil data Bayar Faktur");
     } finally {
       setLoading(false);
@@ -620,7 +858,7 @@ const TableBayarFaktur = ({
 
   useEffect(() => {
     getReferensi();
-    loadCustomerOptions();
+    loadPartialCustomerOptions();
   }, []);
 
   useEffect(() => {
@@ -865,13 +1103,13 @@ const TableBayarFaktur = ({
 
   const handlePayment = async () => {
   if (!paymentFile) {
-    alert("File bukti pembayaran wajib diupload.");
+    swal.error("File bukti pembayaran wajib diupload.");
     return;
   }
 
   if (paymentMethod === "PARTIAL_PAYMENT") {
     if (!canUsePartialPayment) {
-      alert(
+      swal.error(
         "Partial Payment hanya dapat digunakan untuk faktur dari 1 customer yang sama."
       );
       return;
@@ -881,35 +1119,35 @@ const TableBayarFaktur = ({
       parseNominal(paymentPartialAmount);
 
     if (paymentAmount <= 0) {
-      alert(
+      swal.error(
         "Masukkan nominal pembayaran terlebih dahulu."
       );
       return;
     }
 
     if (!showPaymentAllocation) {
-      alert(
+      swal.error(
         "Klik Tampilkan Alokasi Pembayaran terlebih dahulu."
       );
       return;
     }
 
     if (allocatedPaymentTotal <= 0) {
-      alert(
+      swal.error(
         "Minimal 1 faktur harus memiliki alokasi pembayaran."
       );
       return;
     }
 
     if (allocatedPaymentTotal > paymentAmount) {
-      alert(
+      swal.error(
         "Total alokasi tidak boleh melebihi nominal pembayaran."
       );
       return;
     }
 
     if (allocatedPaymentTotal > totalSelectedPayment) {
-      alert(
+      swal.error(
         "Total alokasi tidak boleh melebihi total sisa tagihan."
       );
       return;
@@ -926,7 +1164,7 @@ const TableBayarFaktur = ({
       );
 
     if (selectedInvoices.length === 0) {
-      alert(
+      swal.error(
         "Minimal 1 faktur harus memiliki alokasi pembayaran."
       );
       return;
@@ -1024,7 +1262,7 @@ const TableBayarFaktur = ({
         );
       }
 
-      alert(
+      swal.success(
         res?.message ||
         "Pembayaran berhasil disimpan."
       );
@@ -1042,7 +1280,7 @@ const TableBayarFaktur = ({
         error
       );
 
-      alert(
+      swal.error(
         error?.message ||
         "Gagal menyimpan pembayaran."
       );
@@ -1060,7 +1298,7 @@ const TableBayarFaktur = ({
     !dataToPay.length ||
     !dataToPay.some(Boolean)
   ) {
-    alert(
+    swal.error(
       "Tidak ada faktur yang dipilih."
     );
     return;
@@ -1154,7 +1392,7 @@ const TableBayarFaktur = ({
       );
     }
 
-    alert(
+    swal.success(
       res?.message ||
       "Pembayaran berhasil disimpan."
     );
@@ -1172,12 +1410,90 @@ const TableBayarFaktur = ({
       error
     );
 
-    alert(
+    swal.error(
       error?.message ||
       "Gagal menyimpan pembayaran."
     );
   }
 };
+
+  // ===================================================
+  // PENERIMAAN LAIN
+  // Menggunakan endpoint insertBayarFaktur yang sama.
+  // Tidak mengirim customer/no billing/faktur karena penerimaan ini tidak
+  // dialokasikan ke faktur tertentu dari modal ini.
+  // ===================================================
+
+  const openPenerimaanLain = () => {
+    setPenerimaanNominal("");
+    setPenerimaanTanggal(new Date().toISOString().slice(0, 10));
+    setPenerimaanMetode("DIRECT_TRANSFER");
+    setPenerimaanBukti(null);
+    setPenerimaanKeterangan("");
+    setShowPenerimaanLainModal(true);
+  };
+
+  const closePenerimaanLain = () => {
+    if (isSubmittingPenerimaan) return;
+    setShowPenerimaanLainModal(false);
+    setPenerimaanNominal("");
+    setPenerimaanBukti(null);
+    setPenerimaanKeterangan("");
+  };
+
+  const handleSubmitPenerimaanLain = async () => {
+    const nominal = parseNominal(penerimaanNominal);
+    if (nominal <= 0) {
+      swal.error("Masukkan nominal penerimaan yang valid.");
+      return;
+    }
+    if (!penerimaanTanggal) {
+      swal.error("Tanggal pembayaran wajib diisi.");
+      return;
+    }
+    if (!penerimaanMetode) {
+      swal.error("Pilih metode pembayaran.");
+      return;
+    }
+    if (!penerimaanBukti) {
+      swal.error("Bukti penerimaan wajib diupload.");
+      return;
+    }
+
+    try {
+      setIsSubmittingPenerimaan(true);
+      const formData = new FormData();
+      const payload = {
+        jenis_pembayaran: "PENERIMAAN_LAIN",
+        metode_pembayaran: penerimaanMetode,
+        nominal_bayar: nominal,
+        tanggal_pembayaran: penerimaanTanggal,
+        keterangan: penerimaanKeterangan || "Penerimaan lain",
+        user_id: loginAccess?.user_id || null,
+        nip: loginAccess?.nip || null,
+      };
+      formData.append("payload", JSON.stringify(payload));
+      formData.append("lampiran", penerimaanBukti, penerimaanBukti.name);
+
+      const res = await storeSchema.actions.insertBayarFaktur(formData);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal menyimpan penerimaan lain.");
+      }
+
+      swal.success(res?.message || "Penerimaan lain berhasil disimpan.");
+      setShowPenerimaanLainModal(false);
+      setPenerimaanNominal("");
+      setPenerimaanBukti(null);
+      setPenerimaanKeterangan("");
+      await getDataBayarFaktur();
+    } catch (error) {
+      console.error("ERROR INSERT PENERIMAAN LAIN:", error);
+      swal.error(error?.message || "Gagal menyimpan penerimaan lain.");
+    } finally {
+      setIsSubmittingPenerimaan(false);
+    }
+  };
+
 
   // ===================================================
   // OPEN PARTIAL PAYMENT
@@ -1188,6 +1504,7 @@ const TableBayarFaktur = ({
   ) => {
     const customerId = data?.customer_id ? data.customer_id : "";
     setPartialPaymentAmount("");
+    setPartialPaymentFile(null);
     setPartialPaymentMethod("MANUAL");
     setPartialSelectedIds([]);
     setPartialAllocation([]);
@@ -1232,11 +1549,14 @@ const TableBayarFaktur = ({
 
   const closePartialPayment = () => {
 
+    if (isSubmittingPartialPayment) return;
+
     setShowPartialPaymentModal(
       false
     );
 
     setPartialPaymentAmount("");
+    setPartialPaymentFile(null);
 
     setPartialPaymentMethod(
       "MANUAL"
@@ -1472,28 +1792,38 @@ const TableBayarFaktur = ({
     }
 
 
+    // Ambil hanya faktur yang dipilih dan masih memiliki saldo.
+    // Untuk alokasi manual, urutkan dari saldo terkecil ke terbesar,
+    // sehingga pembayaran diprioritaskan ke faktur dengan nominal terkecil.
     const selectedInvoices =
       partialInvoiceData
-        .filter(
-          item =>
-            partialSelectedIds.includes(
-              item.id
-            )
-            &&
-            (
-              item.status ===
-              "BELUM_DIBAYAR"
+        .filter((item) =>
+          partialSelectedIds.some((id) => String(id) === String(item.id)) &&
+          (item.status === "BELUM_DIBAYAR" || item.status === "PARTIAL") &&
+          Number(
+            item.saldo_piutang ??
+            (Number(item?.dpp || 0) - Number(item?.collections || item?.total_dibayar || 0))
+          ) > 0
+        )
+        .sort((a, b) => {
+          const saldoA = Number(
+            a.saldo_piutang ??
+            (Number(a?.dpp || 0) - Number(a?.collections || a?.total_dibayar || 0))
+          );
+          const saldoB = Number(
+            b.saldo_piutang ??
+            (Number(b?.dpp || 0) - Number(b?.collections || b?.total_dibayar || 0))
+          );
+          return saldoA - saldoB;
+        });
 
-              ||
+    if (selectedInvoices.length === 0) {
+      setPartialAllocation([]);
+      swal.error("Faktur yang dipilih tidak memiliki sisa tagihan yang bisa dibayar.");
+      return;
+    }
 
-              item.status ===
-              "PARTIAL"
-            )
-        );
-
-
-    let remaining =
-      paymentAmount;
+    let remaining = paymentAmount;
 
 
     const allocation = [];
@@ -1579,7 +1909,7 @@ const TableBayarFaktur = ({
       !selectedCustomerId
     ) {
 
-      alert(
+      swal.error(
         "Pilih customer terlebih dahulu."
       );
 
@@ -1597,7 +1927,7 @@ const TableBayarFaktur = ({
       paymentAmount <= 0
     ) {
 
-      alert(
+      swal.error(
         "Masukkan nominal pembayaran terlebih dahulu."
       );
 
@@ -1616,7 +1946,7 @@ const TableBayarFaktur = ({
         0
       ) {
 
-        alert(
+        swal.error(
           "Pilih minimal 1 faktur."
         );
 
@@ -1640,154 +1970,93 @@ const TableBayarFaktur = ({
   // HANDLE PARTIAL PAYMENT
   // ===================================================
 
-  const handlePartialPayment = () => {
-
-    if (
-      !selectedCustomerId
-    ) {
-
-      alert(
-        "Pilih customer terlebih dahulu."
-      );
-
+  const handlePartialPayment = async () => {
+    if (!selectedCustomerId) {
+      await swal.error("Pilih customer terlebih dahulu.");
       return;
-
     }
 
-    if (
-      partialAllocation.length ===
+    const paymentAmount = parseNominal(partialPaymentAmount);
+    if (paymentAmount <= 0) {
+      await swal.error("Masukkan nominal pembayaran yang valid.");
+      return;
+    }
+
+    if (!Array.isArray(partialAllocation) || partialAllocation.length === 0) {
+      await swal.error("Generate alokasi pembayaran terlebih dahulu.");
+      return;
+    }
+
+    if (!partialPaymentFile) {
+      await swal.error("Bukti pembayaran wajib diupload.");
+      return;
+    }
+
+    const selectedInvoices = partialAllocation.filter(
+      (item) => Number(item?.nominal_pembayaran || 0) > 0
+    );
+
+    const allocatedPaymentTotal = selectedInvoices.reduce(
+      (sum, item) => sum + Number(item?.nominal_pembayaran || 0),
       0
-    ) {
+    );
 
+    if (allocatedPaymentTotal <= 0) {
+      await swal.error("Minimal 1 faktur harus memiliki alokasi pembayaran.");
       return;
-
     }
 
+    if (allocatedPaymentTotal > paymentAmount) {
+      await swal.error("Total alokasi tidak boleh melebihi nominal pembayaran.");
+      return;
+    }
 
-    setAllData(
-      prev => {
+    try {
+      setIsSubmittingPartialPayment(true);
+      const formData = new FormData();
 
-        return prev.map(
-          item => {
+      // Samakan struktur payload dengan proses Partial Payment di modal Bayar Sekarang.
+      const payload = {
+        jenis_pembayaran: "PARTIAL_PAYMENT",
+        metode_pembayaran: "PARTIAL_PAYMENT",
+        nominal_bayar: paymentAmount,
+        keterangan: `Partial Payment - ${partialPaymentMethod === "MANUAL" ? "Alokasi Manual" : "Alokasi Sistem"}`,
+        user_id: loginAccess?.user_id || null,
+        nip: loginAccess?.nip || null,
+        faktur: selectedInvoices.map((invoice) => ({
+          piutang_id: invoice?.piutang_id || invoice?.id || null,
+          no_faktur: invoice?.no_faktur || null,
+          no_billing: invoice?.no_billing || null,
+          customer: invoice?.customer_id || invoice?.customer || selectedCustomerId,
+          nominal_tagihan: Number(
+            invoice?.nominal_tagihan ?? invoice?.total_invoice ?? invoice?.dpp ?? 0
+          ),
+          saldo_piutang: Number(invoice?.saldo_piutang ?? invoice?.sisa_tagihan ?? 0),
+          nominal_pembayaran: Number(invoice?.nominal_pembayaran || 0),
+        })),
+      };
 
-            const allocation =
-              partialAllocation.find(
-                x =>
-                  x.id ===
-                  item.id
-              );
+      formData.append("payload", JSON.stringify(payload));
+      formData.append("lampiran", partialPaymentFile, partialPaymentFile.name);
 
-
-            if (
-              !allocation
-            ) {
-
-              return item;
-
-            }
-
-
-            const invoiceAmount =
-              Number(
-                item.nominal_tagihan ||
-                0
-              );
-
-
-            const currentPaid =
-              Number(
-                item.total_dibayar ||
-                0
-              );
-
-
-            const currentRemaining =
-              Number(
-                item.sisa_tagihan ??
-                invoiceAmount
-              );
-
-
-            const payment =
-              Number(
-                allocation.nominal_pembayaran ||
-                0
-              );
-
-
-            const totalPaid =
-              currentPaid +
-              payment;
-
-
-            const remaining =
-              Math.max(
-                0,
-                currentRemaining -
-                payment
-              );
-
-
-            return {
-
-              ...item,
-
-              /*
-               * Nilai asli faktur
-               * tidak berubah.
-               */
-              nominal_tagihan:
-                invoiceAmount,
-
-              /*
-               * Akumulasi pembayaran.
-               */
-              total_dibayar:
-                totalPaid,
-
-              /*
-               * Sisa piutang.
-               */
-              sisa_tagihan:
-                remaining,
-
-              status:
-                remaining <= 0
-                  ? "SUDAH_DIBAYAR"
-                  : "PARTIAL",
-
-              tanggal_pembayaran:
-                new Date()
-                  .toISOString(),
-
-              metode_pembayaran:
-                "PARTIAL_PAYMENT",
-
-            };
-
-          }
-        );
-
+      const res = await storeSchema.actions.insertBayarFaktur(formData);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal menyimpan Partial Payment.");
       }
-    );
 
-
-    setSelectedIds(
-      prev =>
-        prev.filter(
-          id =>
-            !partialAllocation.some(
-              x =>
-                x.id === id
-            )
-        )
-    );
-
-
-    closePartialPayment();
-
+      await swal.success(res?.message || "Partial Payment berhasil disimpan.");
+      setSelectedIds((prev) => prev.filter(
+        (id) => !selectedInvoices.some((item) => String(item?.id) === String(id))
+      ));
+      closePartialPayment();
+      await getDataBayarFaktur();
+    } catch (error) {
+      console.error("ERROR INSERT PARTIAL PAYMENT:", error);
+      await swal.error(error?.message || "Gagal menyimpan Partial Payment.");
+    } finally {
+      setIsSubmittingPartialPayment(false);
+    }
   };
-
 
   // ===================================================
   // RENDER STATUS
@@ -1930,7 +2199,7 @@ const TableBayarFaktur = ({
       parseNominal(paymentPartialAmount);
 
     if (paymentAmount <= 0) {
-      alert(
+      swal.error(
         "Masukkan nominal pembayaran terlebih dahulu."
       );
       return;
@@ -2206,17 +2475,20 @@ const TableBayarFaktur = ({
             <button type="button" onClick={openPartialPayment} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition shadow-sm whitespace-nowrap">
               <FaCreditCard /> Partial Payment
             </button>
+            <button type="button" onClick={openPenerimaanLain} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
+              <FaMoneyBillWave /> Penerimaan Lain
+            </button>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label>
-            <Select isMulti options={cabangOptions} value={getSelectedFilterOptions(cabangOptions, filterCabang)} onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+            <Select isMulti options={cabangOptions} value={getSelectedFilterOptions(cabangOptions, filterCabang)} onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); setFilterCustomer([]); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
-            <Select isMulti options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder="Semua Customer" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang terlebih dahulu" : loadingCustomerOptions ? "Memuat customer..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Status Pembayaran</label>
@@ -2241,67 +2513,133 @@ const TableBayarFaktur = ({
       {/* ================================================= */}
       {/* SUMMARY */}
       {/* ================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-blue-50 p-4 border border-blue-100">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-blue-700">Total Faktur</p>
-              <p className="text-2xl font-bold text-blue-900">{summaryData.total_faktur}</p>
-            </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-100 flex items-center justify-center"><FaClipboardList className="text-blue-600" /></div>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Ringkasan Piutang</h3>
+            <p className="text-xs text-slate-500">Ikhtisar faktur dan status collections</p>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-amber-50 p-4 border border-amber-100">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-amber-700">Belum Dibayar</p>
-              <p className="text-2xl font-bold text-amber-900">{summaryData.belum_dibayar ?? 0}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {/* TOTAL FAKTUR */}
+          <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1 bg-blue-500" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Faktur</p>
+                <p className="mt-2 text-2xl font-bold leading-tight text-slate-900">{summaryData.total_faktur ?? 0} <span className="text-sm font-medium text-slate-500">Data</span></p>
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-xs text-slate-500">Total Nominal</p>
+                  <p className="mt-0.5 break-words text-lg font-bold leading-tight text-blue-700">Rp {formatNominalCard(summaryData.total_nominal_faktur ?? 0)}</p>
+                </div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><FaClipboardList size={17} /></div>
             </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center"><FaClock className="text-amber-600" /></div>
+          </div>
+
+          {/* BELUM DIBAYAR */}
+          <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1 bg-amber-500" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Belum Dibayar</p>
+                <p className="mt-2 text-2xl font-bold leading-tight text-slate-900">{summaryData.belum_dibayar ?? 0} <span className="text-sm font-medium text-slate-500">Faktur</span></p>
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-xs text-slate-500">Nominal Belum Dibayar</p>
+                  <p className="mt-0.5 break-words text-lg font-bold leading-tight text-amber-700">Rp {formatNominalCard(summaryData.nominal_belum_dibayar ?? 0)}</p>
+                </div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><FaClock size={17} /></div>
+            </div>
+          </div>
+
+          {/* MENUNGGU VERIFIKASI */}
+          <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-orange-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1 bg-orange-500" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Collections Menunggu Verifikasi</p>
+                <p className="mt-2 text-2xl font-bold leading-tight text-slate-900">{summaryData.total_data_menunggu_verifikasi ?? 0} <span className="text-sm font-medium text-slate-500">Transaksi</span></p>
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-xs text-slate-500">Total Nominal</p>
+                  <p className="mt-0.5 break-words text-lg font-bold leading-tight text-orange-700">Rp {formatNominalCard(summaryData.total_collections_menunggu_verifikasi ?? 0)}</p>
+                </div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600"><FaClock size={17} /></div>
+            </div>
+          </div>
+
+          {/* TIDAK TERVERIFIKASI */}
+          <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-red-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1 bg-red-500" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Collections Tidak Terverifikasi</p>
+                <p className="mt-2 text-2xl font-bold leading-tight text-slate-900">{summaryData.total_data_tidak_terverifikasi ?? 0} <span className="text-sm font-medium text-slate-500">Transaksi</span></p>
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-xs text-slate-500">Total Nominal</p>
+                  <p className="mt-0.5 break-words text-lg font-bold leading-tight text-red-700">Rp {formatNominalCard(summaryData.total_collections_tidak_terverifikasi ?? 0)}</p>
+                </div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600"><FaTimes size={17} /></div>
+            </div>
+          </div>
+
+          {/* TERVERIFIKASI */}
+          <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1 bg-emerald-500" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Collections Terverifikasi</p>
+                <p className="mt-2 text-2xl font-bold leading-tight text-slate-900">{summaryData.total_data_terverifikasi ?? 0} <span className="text-sm font-medium text-slate-500">Transaksi</span></p>
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-xs text-slate-500">Total Nominal</p>
+                  <p className="mt-0.5 break-words text-lg font-bold leading-tight text-emerald-700">Rp {formatNominalCard(summaryData.total_collections_terverifikasi ?? 0)}</p>
+                </div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><FaCheckCircle size={17} /></div>
+            </div>
+          </div>
+
+          {/* SALDO PIUTANG */}
+          <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1 bg-indigo-500" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Saldo Piutang</p>
+                <p className="mt-2 text-2xl font-bold leading-tight text-slate-900">{summaryData.total_data_saldo_piutang ?? 0} <span className="text-sm font-medium text-slate-500">Faktur</span></p>
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="text-xs text-slate-500">Total Nominal Saldo</p>
+                  <p className="mt-0.5 break-words text-lg font-bold leading-tight text-indigo-700">Rp {formatNominalCard(summaryData.total_saldo_piutang ?? 0)}</p>
+                </div>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><FaMoneyBillWave size={17} /></div>
+            </div>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-orange-50 p-4 border border-orange-100">
-          <div className="flex items-center justify-between gap-3">
+        {/* PENERIMAAN LAIN - dibuat lebih ringkas */}
+        <button
+          type="button"
+          onClick={handleOpenRiwayatPenerimaanLain}
+          title="Klik untuk melihat riwayat Penerimaan Lain"
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-purple-200 bg-purple-50/70 px-4 py-3 text-left transition hover:border-purple-300 hover:bg-purple-50 hover:shadow-sm"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700"><FaMoneyBillWave size={16} /></div>
             <div className="min-w-0">
-              <p className="text-sm text-orange-700">Collections (Menunggu Verifikasi)</p>
-              <p className="text-xl font-bold text-orange-900 truncate">{formatRupiah(summaryData.total_collections_menunggu_verifikasi ?? 0)}</p>
+              <p className="text-sm font-semibold text-purple-900">Penerimaan Lain</p>
+              <p className="text-xs text-purple-600">{summaryData.total_data_penerimaan_lain ?? 0} transaksi <span className="mx-1 text-purple-300">•</span> Klik untuk melihat riwayat</p>
             </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-orange-100 flex items-center justify-center"><FaClock className="text-orange-600" /></div>
           </div>
-        </div>
-
-        <div className="rounded-2xl bg-red-50 p-4 border border-red-100">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-red-700">Collections (Tidak Terverifikasi)</p>
-              <p className="text-xl font-bold text-red-900 truncate">{formatRupiah(summaryData.total_collections_tidak_terverifikasi ?? 0)}</p>
-            </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-red-100 flex items-center justify-center"><FaTimes className="text-red-600" /></div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden text-xs font-medium text-purple-600 sm:inline">Total nominal</span>
+            <span className="text-sm font-bold text-purple-900">Rp {formatNominalCard(summaryData.total_penerimaan_lain ?? 0)}</span>
+            <FaChevronRight className="text-xs text-purple-500" />
           </div>
-        </div>
-
-        <div className="rounded-2xl bg-green-50 p-4 border border-green-100">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-green-700">Collections (Terverifikasi)</p>
-              <p className="text-xl font-bold text-green-900 truncate">{formatRupiah(summaryData.total_collections_terverifikasi ?? 0)}</p>
-            </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-green-100 flex items-center justify-center"><FaCheckCircle className="text-green-600" /></div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-indigo-50 p-4 border border-indigo-100">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-indigo-700">Total Saldo Piutang</p>
-              <p className="text-xl font-bold text-indigo-900 truncate">{formatRupiah(summaryData.total_saldo_piutang ?? 0)}</p>
-            </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-indigo-100 flex items-center justify-center"><FaMoneyBillWave className="text-indigo-600" /></div>
-          </div>
-        </div>
-      </div>
+        </button>
+      </section>
 
       {/* ================================================= */}
       {/* BULK ACTION */}
@@ -5355,63 +5693,44 @@ const TableBayarFaktur = ({
 
                   </div>
 
-                  <select
-                    className="
-                      select
-                      select-bordered
-                      w-full
-                      bg-white
-                      rounded-xl
-                      font-semibold
-                      text-gray-700
-                    "
-                    value={
-                      selectedCustomerId
-                    }
-                    onChange={
-                      e => {
-
-                        const customerId = e.target.value;
-                        setSelectedCustomerId(customerId);
-                        setPartialSelectedIds([]);
-                        setPartialAllocation([]);
-                        loadPartialInvoices(customerId);
-
-                      }
-                    }
-                  >
-
-                    <option value="">
-                      -- Pilih Customer --
-                    </option>
-
-                    {
-                      partialCustomerOptions.map(
-                        customer => (
-
-                          <option
-                            key={
-                              customer.customer_id
-                            }
-                            value={
-                              customer.customer_id
-                            }
-                          >
-                            {
-                              customer.nama_customer
-                            }
-                            {" - "}
-                            {
-                              customer.jumlah_faktur
-                            }
-                            {" faktur"}
-                          </option>
-
-                        )
-                      )
-                    }
-
-                  </select>
+                  <Select
+                    inputId="partial-payment-customer"
+                    className="w-full"
+                    classNamePrefix="select2"
+                    options={partialCustomerOptions}
+                    value={partialCustomerOptions.find(
+                      (customer) => String(customer.value) === String(selectedCustomerId)
+                    ) || null}
+                    isClearable
+                    isSearchable
+                    isLoading={loadingPartialCustomers}
+                    isDisabled={loadingPartialCustomers}
+                    placeholder={loadingPartialCustomers ? "Memuat customer..." : "Pilih atau cari customer..."}
+                    noOptionsMessage={() => "Data customer tidak ditemukan"}
+                    loadingMessage={() => "Memuat data customer..."}
+                    menuPortalTarget={document.body}
+                    styles={{
+                      control: (base, state) => ({
+                        ...base,
+                        minHeight: 44,
+                        borderRadius: 12,
+                        borderColor: state.isFocused ? "#6366f1" : "#d1d5db",
+                        boxShadow: state.isFocused ? "0 0 0 1px #6366f1" : "none",
+                        "&:hover": { borderColor: "#6366f1" },
+                      }),
+                      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                      menu: (base) => ({ ...base, zIndex: 9999 }),
+                    }}
+                    getOptionLabel={(customer) => `${customer.nama_customer || customer.label || customer.value} - ${customer.jumlah_faktur || 0} faktur`}
+                    getOptionValue={(customer) => String(customer.value)}
+                    onChange={(selected) => {
+                      const customerId = selected?.value ? String(selected.value) : "";
+                      setSelectedCustomerId(customerId);
+                      setPartialSelectedIds([]);
+                      setPartialAllocation([]);
+                      loadPartialInvoices(customerId);
+                    }}
+                  />
 
                   {
                     selectedCustomerId && (
@@ -5864,6 +6183,53 @@ const TableBayarFaktur = ({
 
                 </div>
 
+
+                {/* ================================================= */}
+                {/* BUKTI PEMBAYARAN */}
+                {/* ================================================= */}
+                <div className="rounded-2xl bg-white border border-gray-200 p-5 mb-5">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Bukti Pembayaran <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (!file) {
+                        setPartialPaymentFile(null);
+                        return;
+                      }
+                      const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+                      const allowedExtensions = /\.(pdf|jpe?g|png)$/i;
+                      if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
+                        swal.error("Format bukti pembayaran harus PDF, JPG, JPEG, atau PNG.");
+                        e.target.value = "";
+                        setPartialPaymentFile(null);
+                        return;
+                      }
+                      if (file.size > 25 * 1024 * 1024) {
+                        swal.error("Ukuran bukti pembayaran maksimal 25 MB.");
+                        e.target.value = "";
+                        setPartialPaymentFile(null);
+                        return;
+                      }
+                      setPartialPaymentFile(file);
+                    }}
+                    className="file-input file-input-bordered w-full bg-white rounded-xl"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-2">Format PDF, JPG, JPEG, atau PNG. Maksimal 25 MB.</p>
+                  {partialPaymentFile && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 p-3 text-sm text-green-700">
+                      <FaCheckCircle />
+                      <span className="break-all">{partialPaymentFile.name}</span>
+                      <button type="button" className="ml-auto text-red-600 hover:text-red-700" onClick={() => setPartialPaymentFile(null)} aria-label="Hapus bukti pembayaran">
+                        <FaTimes />
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {/* ================================================= */}
                 {/* MANUAL */}
@@ -6695,9 +7061,10 @@ const TableBayarFaktur = ({
                 <button
                   type="button"
                   disabled={
+                    isSubmittingPartialPayment ||
                     !selectedCustomerId ||
-                    partialAllocation.length ===
-                    0
+                    !partialAllocation.some((item) => Number(item?.nominal_pembayaran || 0) > 0) ||
+                    !partialPaymentFile
                   }
                   onClick={
                     handlePartialPayment
@@ -6722,7 +7089,7 @@ const TableBayarFaktur = ({
 
                   <FaCreditCard />
 
-                  Proses Partial Payment
+                  {isSubmittingPartialPayment ? "Menyimpan..." : "Proses Partial Payment"}
 
                 </button>
 
@@ -6734,6 +7101,173 @@ const TableBayarFaktur = ({
 
         )
       }
+
+      {showRiwayatPenerimaanLain && (
+        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowRiwayatPenerimaanLain(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center"><FaMoneyBillWave /></div>
+                <div><h3 className="font-bold text-lg">Riwayat Penerimaan Lain</h3><p className="text-xs text-blue-100">Data diambil dari API saat modal dibuka</p></div>
+              </div>
+              <button type="button" onClick={() => setShowRiwayatPenerimaanLain(false)} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"><FaTimes /></button>
+            </div>
+            <div className="p-5 border-b border-gray-100 bg-purple-50 flex flex-wrap items-center justify-between gap-3">
+              <div><p className="text-xs text-purple-700">Total Penerimaan Lain</p><p className="text-xl font-bold text-purple-900">{formatRupiah(totalPenerimaanLain)}</p></div>
+              <div className="text-sm text-gray-600">{riwayatPenerimaanLain.length} data</div>
+            </div>
+            <div className="p-5 overflow-auto">
+              {loadingRiwayatPenerimaanLain ? (
+                <div className="py-12 text-center text-gray-500"><span className="loading loading-spinner loading-md mr-2"></span>Memuat riwayat penerimaan lain...</div>
+              ) : riwayatPenerimaanLain.length === 0 ? (
+                <div className="py-12 text-center text-gray-500">Belum ada data Penerimaan Lain.</div>
+              ) : (
+                <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                  <table className="table table-zebra w-full text-sm">
+                    <thead><tr className="bg-gray-50 text-gray-700"><th>No</th><th>Tanggal Pembayaran</th><th>Metode</th><th>Keterangan</th><th className="text-right">Nominal</th></tr></thead>
+                    <tbody>{riwayatPenerimaanLain.map((item, index) => (
+                      <tr key={item?.id ?? item?.pembayaran_id ?? index}>
+                        <td>{index + 1}</td>
+                        <td>{formatDate(item?.tanggal_pembayaran ?? item?.tanggal_bayar ?? item?.created_at)}</td>
+                        <td>{item?.metode_pembayaran ?? item?.metode ?? "-"}</td>
+                        <td className="min-w-[180px]">{item?.keterangan ?? "-"}</td>
+                        <td className="text-right font-semibold whitespace-nowrap">{formatRupiah(item?.nominal_bayar ?? item?.nominal_pembayaran ?? item?.nominal ?? 0)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                <span>
+                  {totalDataPenerimaanLain === 0 ? "0 data" : `Menampilkan ${(currentPagePenerimaanLain - 1) * perPagePenerimaanLain + 1}-${Math.min(currentPagePenerimaanLain * perPagePenerimaanLain, totalDataPenerimaanLain)} dari ${totalDataPenerimaanLain} data`}
+                </span>
+                <label className="flex items-center gap-2">
+                  <span>Baris</span>
+                  <select value={perPagePenerimaanLain} onChange={handlePerPagePenerimaanLain} className="select select-bordered select-sm bg-white rounded-lg">
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </label>
+              </div>
+              <div className="flex items-center justify-end gap-4">
+                {totalHalamanPenerimaanLain > 0 && (
+                  <ReactPaginate
+                    breakLabel="..."
+                    previousLabel="←"
+                    nextLabel="→"
+                    pageCount={totalHalamanPenerimaanLain}
+                    onPageChange={handlePageChangePenerimaanLain}
+                    forcePage={Math.max(0, currentPagePenerimaanLain - 1)}
+                    renderOnZeroPageCount={null}
+                    className="flex items-center gap-2"
+                    activeClassName="!bg-primary !text-white !border-primary"
+                    pageClassName="min-w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-sm"
+                    previousClassName="min-w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200"
+                    nextClassName="min-w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200"
+                    breakClassName="px-1"
+                    disabledClassName="opacity-40 pointer-events-none"
+                  />
+                )}
+                <button type="button" onClick={() => setShowRiwayatPenerimaanLain(false)} className="btn btn-ghost rounded-xl">Tutup</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPenerimaanLainModal && (
+        <div
+          className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={closePenerimaanLain}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <FaMoneyBillWave />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Penerimaan Lain</h3>
+                  <p className="text-xs text-blue-100">Catat penerimaan tanpa customer dan nomor billing</p>
+                </div>
+              </div>
+              <button type="button" onClick={closePenerimaanLain} disabled={isSubmittingPenerimaan} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center disabled:opacity-50">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Nominal Penerimaan <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={penerimaanNominal}
+                    onChange={(e) => setPenerimaanNominal(formatInputNominal(e.target.value))}
+                    placeholder="0"
+                    className="input input-bordered w-full bg-white rounded-xl pl-12"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Tanggal Pembayaran <span className="text-red-500">*</span></label>
+                <input type="date" value={penerimaanTanggal} onChange={(e) => setPenerimaanTanggal(e.target.value)} className="input input-bordered w-full bg-white rounded-xl" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Metode Pembayaran <span className="text-red-500">*</span></label>
+                <select value={penerimaanMetode} onChange={(e) => setPenerimaanMetode(e.target.value)} className="select select-bordered w-full bg-white rounded-xl">
+                  <option value="DIRECT_TRANSFER">Direct Transfer</option>
+                  <option value="SSP">Surat Setor Pajak (SSP)</option>
+                  <option value="CASH">Cash</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Bukti Penerimaan <span className="text-red-500">*</span></label>
+                <label className="border-2 border-dashed border-gray-300 rounded-xl min-h-[150px] p-5 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-primary transition">
+                  {penerimaanBukti ? (
+                    <>
+                      <FaFileUpload className="text-3xl text-primary mb-2" />
+                      <p className="font-semibold text-gray-700 text-center break-all">{penerimaanBukti.name}</p>
+                      <p className="text-xs text-gray-400 mt-1">Klik untuk mengganti file</p>
+                    </>
+                  ) : (
+                    <>
+                      <FaCamera className="text-3xl text-gray-400 mb-2" />
+                      <p className="font-semibold text-gray-600">Upload bukti penerimaan</p>
+                      <p className="text-xs text-gray-400 mt-1">Foto atau dokumen PDF</p>
+                    </>
+                  )}
+                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => setPenerimaanBukti(e.target.files?.[0] || null)} />
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Keterangan (opsional)</label>
+                <textarea value={penerimaanKeterangan} onChange={(e) => setPenerimaanKeterangan(e.target.value)} placeholder="Keterangan penerimaan..." className="textarea textarea-bordered w-full bg-white rounded-xl min-h-[90px]" />
+              </div>
+            </div>
+
+            <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+              <button type="button" onClick={closePenerimaanLain} disabled={isSubmittingPenerimaan} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 disabled:opacity-50">Batal</button>
+              <button type="button" onClick={handleSubmitPenerimaanLain} disabled={isSubmittingPenerimaan} className="px-6 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-md inline-flex items-center gap-2 disabled:opacity-50">
+                <FaCheckCircle /> {isSubmittingPenerimaan ? "Menyimpan..." : "Simpan Penerimaan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
 
