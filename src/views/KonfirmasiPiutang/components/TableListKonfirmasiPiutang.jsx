@@ -14,7 +14,6 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaEllipsisV,
-  FaHashtag,
   FaInfoCircle,
   FaWhatsapp,
   FaEnvelope,
@@ -32,6 +31,8 @@ import {
 
 import ReactPaginate
   from "react-paginate";
+
+import * as XLSX from "xlsx-js-style";
 
 import storeSchema from "global/store";
 import { swal } from "global/helper/swal";
@@ -169,22 +170,14 @@ const statusConfig = {
 // Normalisasi kode status dari backend ke status yang dipakai UI.
 // Kode singkat dapat disesuaikan dengan nilai aktual d_status.kd_status.
 const normalizeStatusKonfirmasi = (status) => {
-  if (!status) return null;
-
-  const value = String(status).trim().toUpperCase();
-
+  const value = String(status ?? "").trim().toUpperCase();
   const statusMap = {
-    MK: "MENUNGGU_KONFIRMASI",
-    MENUNGGU_KONFIRMASI: "MENUNGGU_KONFIRMASI",
-    STJ: "DISETUJUI_CUSTOMER",
-    DISETUJUI_CUSTOMER: "DISETUJUI_CUSTOMER",
-    TLK: "DITOLAK_CUSTOMER",
-    DITOLAK_CUSTOMER: "DITOLAK_CUSTOMER",
-    OTO: "DISETUJUI_OTOMATIS",
-    DISETUJUI_OTOMATIS: "DISETUJUI_OTOMATIS",
+    S: "DISETUJUI_CUSTOMER", STJ: "DISETUJUI_CUSTOMER", DISETUJUI_CUSTOMER: "DISETUJUI_CUSTOMER",
+    T: "DITOLAK_CUSTOMER", TLK: "DITOLAK_CUSTOMER", DITOLAK_CUSTOMER: "DITOLAK_CUSTOMER",
+    O: "DISETUJUI_OTOMATIS", OTO: "DISETUJUI_OTOMATIS", DISETUJUI_OTOMATIS: "DISETUJUI_OTOMATIS",
+    MK: "MENUNGGU_KONFIRMASI", MENUNGGU_KONFIRMASI: "MENUNGGU_KONFIRMASI",
   };
-
-  return statusMap[value] || value;
+  return statusMap[value] || "MENUNGGU_KONFIRMASI";
 };
 
 
@@ -1000,8 +993,8 @@ const TableListKonfirmasiPiutang = ({
             : "BELUM_DIKIRIM");
 
         const rawStatus =
-          item?.kode_singkat_status ??
           item?.status_konfirmasi ??
+          item?.kode_singkat_status ??
           item?.kd_status ??
           item?.status ??
           null;
@@ -1032,6 +1025,8 @@ const TableListKonfirmasiPiutang = ({
           ),
           status_pengiriman_konfirmasi: statusPengiriman,
           status_konfirmasi: normalizeStatusKonfirmasi(rawStatus),
+          status_konfirmasi_date: item?.status_konfirmasi_date ?? null,
+          status_catatan: item?.status_catatan ?? "",
           tgl_kirim_konfirmasi: tanggalKirim,
           batas_konfirmasi: tanggalBatas,
           sales: item?.nama_sales ?? item?.sales ?? "-",
@@ -1686,6 +1681,189 @@ const TableListKonfirmasiPiutang = ({
 
 
   // ===================================================
+  // EXPORT EXCEL - SELURUH DATA SESUAI FILTER (TANPA PAGING)
+  // ===================================================
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const exportKeyword = (keyword || "").trim();
+      const exportStatus = selectedStatus === "ALL" ? "" : selectedStatus;
+      const limitExport = 1000;
+      let page = 1;
+      let allRows = [];
+      let expectedTotal = null;
+      let totalPages = null;
+      const maxPages = 10000;
+
+      // Ambil per halaman dari API agar tidak bergantung pada jumlah data yang tampil di tabel.
+      while (page <= maxPages) {
+        const res = await storeSchema.actions.getDataKonfirmasiPiutang({
+          page,
+          limit: limitExport,
+          keyword: exportKeyword,
+          status: exportStatus,
+        });
+        if (res?.status !== true) {
+          throw new Error(res?.message || "Gagal mengambil data untuk export Excel.");
+        }
+
+        const responseData = res?.data || {};
+        const pageRows = Array.isArray(responseData?.list_data)
+          ? responseData.list_data
+          : Array.isArray(responseData?.data)
+            ? responseData.data
+            : Array.isArray(res?.data)
+              ? res.data
+              : [];
+
+        if (expectedTotal === null) {
+          const rawTotal = responseData?.total_data ?? responseData?.total;
+          expectedTotal = rawTotal == null ? null : Number(rawTotal);
+          const rawPages = responseData?.total_halaman ?? responseData?.total_page;
+          totalPages = rawPages == null ? null : Number(rawPages);
+        }
+
+        if (!pageRows.length) break;
+        allRows = allRows.concat(pageRows);
+
+        if (totalPages !== null && page >= totalPages) break;
+        if (expectedTotal !== null && allRows.length >= expectedTotal) break;
+        // Jika API tidak mengirim metadata total, lanjutkan sampai API mengembalikan halaman kosong.
+        if (totalPages === null && expectedTotal === null && pageRows.length < limitExport) {
+          // Tetap cek halaman berikutnya agar API yang membatasi limit di server tidak memotong hasil.
+          page += 1;
+          continue;
+        }
+        page += 1;
+      }
+
+      if (page > maxPages) throw new Error("Export dihentikan karena jumlah halaman melebihi batas pengaman.");
+      if (!allRows.length) {
+        await swal.info("Tidak ada data untuk diexport sesuai filter yang dipilih.");
+        return;
+      }
+
+      const excelRows = allRows.map((item) => {
+        const statusRaw = item?.status_konfirmasi ?? item?.kode_singkat_status ?? item?.kd_status ?? item?.status;
+        const statusKey = normalizeStatusKonfirmasi(statusRaw);
+        const statusLabels = {
+          DISETUJUI_CUSTOMER: "Disetujui",
+          DITOLAK_CUSTOMER: "Ditolak",
+          DISETUJUI_OTOMATIS: "Otomatis",
+          MENUNGGU_KONFIRMASI: "Menunggu Konfirmasi",
+        };
+        const tanggalKirim = item?.tgl_kirim_konfirmasi ?? item?.tanggal_kirim_konfirmasi ?? null;
+        const statusPengiriman = item?.status_pengiriman_konfirmasi ?? (item?.k_piutang_id || tanggalKirim ? "SUDAH_DIKIRIM" : "BELUM_DIKIRIM");
+        const dpp = Number(item?.dpp ?? item?.DPP ?? item?.nominal_piutang ?? 0);
+        const ppn = Number(item?.ppn ?? item?.PPN ?? 0);
+        const pph = Number(item?.pph ?? item?.PPH ?? 0);
+        return {
+          "Pengiriman Konfirmasi": statusPengiriman === "SUDAH_DIKIRIM" ? "Sudah Dikirim" : "Belum Dikirim",
+          "Status Konfirmasi": statusLabels[statusKey] || "Menunggu Konfirmasi",
+          "Tanggal Konfirmasi": item?.status_konfirmasi_date ?? "",
+          "Catatan Konfirmasi": item?.status_catatan ?? "",
+          "Tanggal Kirim": tanggalKirim ?? "",
+          "No. Billing": item?.no_billing ?? "",
+          "No. Faktur": item?.no_faktur ?? "",
+          "Customer": item?.nama_customer ?? item?.customer_name ?? item?.name ?? "",
+          "Penagih": item?.nama_penagih ?? item?.petugas ?? item?.nama_petugas ?? "",
+          "DPP": dpp,
+          "PPN": ppn,
+          "PPh": pph,
+          "Total Invoice": Number(item?.total_invoice ?? item?.total_tagihan ?? item?.nominal_invoice ?? (dpp + ppn)),
+          "Posting Date": item?.posting_date ?? item?.tgl_posting ?? "",
+          "Batas Konfirmasi": item?.batas_konfirmasi ?? "",
+          "Sales": item?.nama_sales ?? item?.sales ?? "",
+        };
+      });
+
+      // Susun worksheet dengan judul, informasi filter, lalu header dan isi tabel.
+      const excelHeaders = Object.keys(excelRows[0] || {});
+      const filterStatusLabels = {
+        ALL: "Semua Status",
+        MENUNGGU_KONFIRMASI: "Menunggu Konfirmasi",
+        DISETUJUI_CUSTOMER: "Disetujui",
+        DITOLAK_CUSTOMER: "Ditolak",
+        DISETUJUI_OTOMATIS: "Otomatis",
+      };
+      const statusFilterText = filterStatusLabels[selectedStatus] || selectedStatus || "Semua Status";
+      const keywordFilterText = (keyword || "").trim() || "Semua Customer / Billing";
+      const exportDateText = new Date().toLocaleString("id-ID", {
+        day: "2-digit", month: "long", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet([
+        ["DATA KONFIRMASI PIUTANG"],
+        [`Filter Status Konfirmasi: ${statusFilterText}`],
+        [`Filter Pencarian: ${keywordFilterText}`],
+        [`Tanggal Export: ${exportDateText}`],
+        [],
+        excelHeaders,
+        ...excelRows.map((row) => excelHeaders.map((header) => row[header] ?? "")),
+      ]);
+
+      const lastCol = excelHeaders.length - 1;
+      // Gabungkan judul dan informasi filter selebar tabel.
+      worksheet["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: lastCol } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: lastCol } },
+      ];
+      worksheet["!cols"] = [
+        { wch: 23 }, { wch: 25 }, { wch: 20 }, { wch: 35 }, { wch: 20 },
+        { wch: 22 }, { wch: 22 }, { wch: 32 }, { wch: 25 }, { wch: 18 },
+        { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 20 }, { wch: 25 },
+      ];
+      worksheet["!rows"] = [
+        { hpt: 30 }, { hpt: 22 }, { hpt: 22 }, { hpt: 22 }, { hpt: 8 }, { hpt: 28 },
+      ];
+
+      // Warna judul dan header tabel mengikuti tampilan header tabel aplikasi (bg-primary / text-white).
+      const titleCell = worksheet["A1"];
+      if (titleCell) titleCell.s = {
+        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+        fill: { patternType: "solid", fgColor: { rgb: "1E3A8A" } },
+        alignment: { horizontal: "center", vertical: "center" },
+      };
+      ["A2", "A3", "A4"].forEach((address) => {
+        if (worksheet[address]) worksheet[address].s = {
+          font: { sz: 10, color: { rgb: "334155" } },
+          fill: { patternType: "solid", fgColor: { rgb: "F1F5F9" } },
+          alignment: { horizontal: "left", vertical: "center" },
+        };
+      });
+      excelHeaders.forEach((_, colIndex) => {
+        const cellAddress = XLSX.utils.encode_cell({ r: 5, c: colIndex });
+        if (worksheet[cellAddress]) worksheet[cellAddress].s = {
+          font: { bold: true, color: { rgb: "FFFFFF" }, sz: 10 },
+          fill: { patternType: "solid", fgColor: { rgb: "1E3A8A" } },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          border: {
+            top: { style: "thin", color: { rgb: "CBD5E1" } },
+            bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+            left: { style: "thin", color: { rgb: "CBD5E1" } },
+            right: { style: "thin", color: { rgb: "CBD5E1" } },
+          },
+        };
+      });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Konfirmasi Piutang");
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Data_Konfirmasi_Piutang_${dateStamp}.xlsx`);
+    } catch (error) {
+      console.error("ERROR EXPORT KONFIRMASI PIUTANG:", error);
+      await swal.error(error?.message || "Gagal export data konfirmasi piutang.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ===================================================
   // HEADER TABLE
   // ===================================================
 
@@ -1722,18 +1900,22 @@ const TableListKonfirmasiPiutang = ({
 
     {
       label:
-        "Tanggal Kirim",
-
-      icon:
-        <FaCalendarAlt />,
+        "Tanggal Konfirmasi",
+      icon: <FaCalendarAlt />,
     },
 
     {
       label:
-        "No",
+        "Catatan Konfirmasi",
+      icon: <FaInfoCircle />,
+    },
+
+    {
+      label:
+        "Tanggal Kirim",
 
       icon:
-        <FaHashtag />,
+        <FaCalendarAlt />,
     },
 
     {
@@ -1972,6 +2154,15 @@ const TableListKonfirmasiPiutang = ({
             className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 whitespace-nowrap"
           >
             <FaUsers /> Konfirmasi per Customer
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
+          >
+            {isExporting ? <FaSpinner className="animate-spin" /> : <FaFileInvoiceDollar />}
+            {isExporting ? "Menyiapkan Excel..." : "Download Excel"}
           </button>
 
         </div>
@@ -2666,6 +2857,21 @@ const TableListKonfirmasiPiutang = ({
                               {renderStatus(v.status_konfirmasi)}
                             </td>
 
+                            {/* TANGGAL KONFIRMASI */}
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <FaCalendarAlt className="text-primary" />
+                                {formatDate(v.status_konfirmasi_date)}
+                              </div>
+                            </td>
+
+                            {/* CATATAN KONFIRMASI */}
+                            <td className="px-4 py-2 min-w-[220px] max-w-[360px]">
+                              <span className="text-sm text-gray-600 whitespace-normal break-words">
+                                {v.status_catatan || "-"}
+                              </span>
+                            </td>
+
                             {/* TANGGAL KIRIM KONFIRMASI */}
 
                             <td className="px-4 py-2 whitespace-nowrap">
@@ -2674,30 +2880,6 @@ const TableListKonfirmasiPiutang = ({
                                 {formatDate(v.tgl_kirim_konfirmasi)}
                               </div>
                             </td>
-
-                            {/* NO */}
-
-                            <td
-                              className="
-                                px-4
-                                py-2
-                                font-semibold
-                                text-gray-700
-                              "
-                            >
-
-                              {
-                                (
-                                  currentPage -
-                                  1
-                                ) *
-                                perPage +
-                                i +
-                                1
-                              }
-
-                            </td>
-
 
                             {/* NO BILLING */}
 
