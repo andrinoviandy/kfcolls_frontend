@@ -394,7 +394,6 @@ export default function KonfirmasiCustomer() {
           .toLowerCase()
           .includes(keyword) ||
         String(
-          item?.sales ||
             item?.nama_sales ||
             item?.nama_pengantar ||
             ""
@@ -1349,7 +1348,7 @@ export default function KonfirmasiCustomer() {
                     const totalPiutang = item?.total_piutang ?? item?.nominal_piutang ?? item?.total ??
                       (Number(dpp || 0) + Number(ppn || 0));
                     const noBilling = item?.no_billing || item?.billing_id || item?.nomor_billing || "-";
-                    const sales = item?.sales || item?.nama_sales || item?.sales_name || item?.nama_pengantar || "-";
+                    const sales = item?.nama_sales || item?.sales_name || item?.nama_pengantar || "-";
                     const confirmationStatus = getConfirmationStatus(item?.kd_status);
 
                     return (
@@ -1901,7 +1900,6 @@ export default function KonfirmasiCustomer() {
                           "-";
 
                         const sales =
-                          item?.sales ||
                           item?.nama_sales ||
                           item?.sales_name ||
                           item?.nama_pengantar ||
