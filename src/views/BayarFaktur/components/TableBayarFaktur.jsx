@@ -507,6 +507,12 @@ const TableBayarFaktur = ({
   const [perPagePenerimaanLain, setPerPagePenerimaanLain] = useState(10);
   const [totalDataPenerimaanLain, setTotalDataPenerimaanLain] = useState(0);
   const [totalHalamanPenerimaanLain, setTotalHalamanPenerimaanLain] = useState(0);
+  const [keywordPenerimaanLain, setKeywordPenerimaanLain] = useState("");
+  const [searchKeywordPenerimaanLain, setSearchKeywordPenerimaanLain] = useState("");
+  const [showModalAlokasiPenerimaanLain, setShowModalAlokasiPenerimaanLain] = useState(false);
+  const [selectedPenerimaanAlokasi, setSelectedPenerimaanAlokasi] = useState(null);
+  const [noBillingAlokasi, setNoBillingAlokasi] = useState("");
+  const [isSubmittingAlokasiPenerimaanLain, setIsSubmittingAlokasiPenerimaanLain] = useState(false);
 
   // State khusus alokasi Partial Payment di Modal Bayar Faktur
   const [paymentAllocationMode, setPaymentAllocationMode] =
@@ -717,7 +723,8 @@ const TableBayarFaktur = ({
   const openRiwayatPenerimaanLain = async (
     page = 1,
     limit = perPagePenerimaanLain,
-    shouldOpen = true
+    shouldOpen = true,
+    keywordOverride = searchKeywordPenerimaanLain
   ) => {
     if (shouldOpen) setShowRiwayatPenerimaanLain(true);
     setLoadingRiwayatPenerimaanLain(true);
@@ -725,7 +732,7 @@ const TableBayarFaktur = ({
       const res = await storeSchema.actions.getDataPenerimaanLain({
         page,
         limit,
-        keyword: "",
+        keyword: keywordOverride,
       });
       if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil riwayat Penerimaan Lain");
       const responseData = res?.data || {};
@@ -755,14 +762,69 @@ const TableBayarFaktur = ({
   };
 
   const handlePageChangePenerimaanLain = (event) => {
-    openRiwayatPenerimaanLain(event.selected + 1, perPagePenerimaanLain, false);
+    openRiwayatPenerimaanLain(event.selected + 1, perPagePenerimaanLain, false, searchKeywordPenerimaanLain);
   };
 
   const handlePerPagePenerimaanLain = (event) => {
     const nextLimit = Number(event.target.value) || 10;
     setPerPagePenerimaanLain(nextLimit);
     setCurrentPagePenerimaanLain(1);
-    openRiwayatPenerimaanLain(1, nextLimit, false);
+    openRiwayatPenerimaanLain(1, nextLimit, false, searchKeywordPenerimaanLain);
+  };
+
+  const handleSearchPenerimaanLain = () => {
+    const nextKeyword = keywordPenerimaanLain.trim();
+    setSearchKeywordPenerimaanLain(nextKeyword);
+    setCurrentPagePenerimaanLain(1);
+    openRiwayatPenerimaanLain(1, perPagePenerimaanLain, false, nextKeyword);
+  };
+
+  const openModalAlokasiPenerimaanLain = (item) => {
+    setSelectedPenerimaanAlokasi(item);
+    setNoBillingAlokasi("");
+    setShowModalAlokasiPenerimaanLain(true);
+  };
+
+  const closeModalAlokasiPenerimaanLain = () => {
+    if (isSubmittingAlokasiPenerimaanLain) return;
+    setShowModalAlokasiPenerimaanLain(false);
+    setSelectedPenerimaanAlokasi(null);
+    setNoBillingAlokasi("");
+  };
+
+  const handleSubmitAlokasiPenerimaanLain = async () => {
+    const pembayaranId = selectedPenerimaanAlokasi?.pembayaran_id ?? selectedPenerimaanAlokasi?.id;
+    const noBilling = noBillingAlokasi.trim();
+    if (!pembayaranId) {
+      await swal.error("ID pembayaran tidak ditemukan.");
+      return;
+    }
+    if (!noBilling) {
+      await swal.error("No Billing wajib diisi.");
+      return;
+    }
+
+    try {
+      setIsSubmittingAlokasiPenerimaanLain(true);
+      const res = await storeSchema.actions.alokasiPenerimaanLain({
+        pembayaran_id: pembayaranId,
+        no_billing: noBilling,
+      });
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal melakukan alokasi penerimaan lain.");
+      }
+      await swal.success(res?.message || "Alokasi penerimaan berhasil diproses.");
+      setShowModalAlokasiPenerimaanLain(false);
+      setSelectedPenerimaanAlokasi(null);
+      setNoBillingAlokasi("");
+      await openRiwayatPenerimaanLain(currentPagePenerimaanLain, perPagePenerimaanLain, false, searchKeywordPenerimaanLain);
+      await getDataBayarFaktur();
+    } catch (error) {
+      console.error("ERROR ALOKASI PENERIMAAN LAIN:", error);
+      await swal.error(error?.message || "Gagal melakukan alokasi penerimaan lain.");
+    } finally {
+      setIsSubmittingAlokasiPenerimaanLain(false);
+    }
   };
 
   const getDataBayarFaktur = async () => {
@@ -2488,7 +2550,7 @@ const TableBayarFaktur = ({
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
-            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang terlebih dahulu" : loadingCustomerOptions ? "Memuat customer..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomerOptions ? "Memuat customer..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Status Pembayaran</label>
@@ -3761,7 +3823,7 @@ const TableBayarFaktur = ({
             className="
               fixed
               inset-0
-              z-[999]
+              z-[500]
               bg-black/40
               backdrop-blur-sm
               flex
@@ -5496,7 +5558,7 @@ const TableBayarFaktur = ({
             className="
               fixed
               inset-0
-              z-[1000]
+              z-[500]
               bg-black/40
               backdrop-blur-sm
               flex
@@ -7103,7 +7165,7 @@ const TableBayarFaktur = ({
       }
 
       {showRiwayatPenerimaanLain && (
-        <div className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowRiwayatPenerimaanLain(false)}>
+        <div className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowRiwayatPenerimaanLain(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-primary px-6 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -7116,6 +7178,24 @@ const TableBayarFaktur = ({
               <div><p className="text-xs text-purple-700">Total Penerimaan Lain</p><p className="text-xl font-bold text-purple-900">{formatRupiah(totalPenerimaanLain)}</p></div>
               <div className="text-sm text-gray-600">{riwayatPenerimaanLain.length} data</div>
             </div>
+            <div className="p-5 border-b border-gray-100">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={keywordPenerimaanLain}
+                    onChange={(e) => setKeywordPenerimaanLain(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSearchPenerimaanLain(); }}
+                    placeholder="Cari penerimaan lain..."
+                    className="input input-bordered w-full rounded-xl bg-white pl-10"
+                  />
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                </div>
+                <button type="button" onClick={handleSearchPenerimaanLain} disabled={loadingRiwayatPenerimaanLain} className="btn btn-primary rounded-xl">
+                  <FaSearch /> Cari
+                </button>
+              </div>
+            </div>
             <div className="p-5 overflow-auto">
               {loadingRiwayatPenerimaanLain ? (
                 <div className="py-12 text-center text-gray-500"><span className="loading loading-spinner loading-md mr-2"></span>Memuat riwayat penerimaan lain...</div>
@@ -7124,7 +7204,7 @@ const TableBayarFaktur = ({
               ) : (
                 <div className="overflow-x-auto border border-gray-200 rounded-xl">
                   <table className="table table-zebra w-full text-sm">
-                    <thead><tr className="bg-gray-50 text-gray-700"><th>No</th><th>Tanggal Pembayaran</th><th>Metode</th><th>Keterangan</th><th className="text-right">Nominal</th></tr></thead>
+                    <thead><tr className="bg-gray-50 text-gray-700"><th>No</th><th>Tanggal Pembayaran</th><th>Metode</th><th>Keterangan</th><th className="text-right">Nominal</th><th className="text-center">Aksi</th></tr></thead>
                     <tbody>{riwayatPenerimaanLain.map((item, index) => (
                       <tr key={item?.id ?? item?.pembayaran_id ?? index}>
                         <td>{index + 1}</td>
@@ -7132,6 +7212,11 @@ const TableBayarFaktur = ({
                         <td>{item?.metode_pembayaran ?? item?.metode ?? "-"}</td>
                         <td className="min-w-[180px]">{item?.keterangan ?? "-"}</td>
                         <td className="text-right font-semibold whitespace-nowrap">{formatRupiah(item?.nominal_bayar ?? item?.nominal_pembayaran ?? item?.nominal ?? 0)}</td>
+                        <td className="text-center whitespace-nowrap">
+                          <button type="button" onClick={() => openModalAlokasiPenerimaanLain(item)} className="btn btn-sm btn-primary rounded-lg">
+                            Alokasi Penerimaan
+                          </button>
+                        </td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -7179,9 +7264,39 @@ const TableBayarFaktur = ({
         </div>
       )}
 
+      {showModalAlokasiPenerimaanLain && (
+        <div className="fixed inset-0 z-[600] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeModalAlokasiPenerimaanLain}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg">Alokasi Penerimaan</h3>
+                <p className="text-xs text-blue-100">Masukkan No Billing tujuan alokasi</p>
+              </div>
+              <button type="button" onClick={closeModalAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center disabled:opacity-50"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 text-sm">
+                <p className="text-gray-500 mt-2">Nominal Penerimaan</p>
+                <p className="font-semibold text-gray-800">{formatRupiah(selectedPenerimaanAlokasi?.nominal_bayar ?? selectedPenerimaanAlokasi?.nominal_pembayaran ?? selectedPenerimaanAlokasi?.nominal ?? 0)}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">No Billing <span className="text-red-500">*</span></label>
+                <input type="text" value={noBillingAlokasi} onChange={(e) => setNoBillingAlokasi(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSubmitAlokasiPenerimaanLain(); }} placeholder="Masukkan No Billing" className="input input-bordered w-full bg-white rounded-xl" autoFocus />
+              </div>
+            </div>
+            <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3">
+              <button type="button" onClick={closeModalAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain} className="btn btn-ghost rounded-xl">Batal</button>
+              <button type="button" onClick={handleSubmitAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain || !noBillingAlokasi.trim()} className="btn btn-primary rounded-xl">
+                {isSubmittingAlokasiPenerimaanLain ? <><span className="loading loading-spinner loading-sm" /> Memproses...</> : <><FaCheckCircle /> Submit</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPenerimaanLainModal && (
         <div
-          className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={closePenerimaanLain}
         >
           <div

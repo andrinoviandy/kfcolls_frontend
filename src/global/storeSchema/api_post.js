@@ -817,6 +817,14 @@ const n2nPostService = {
       return error.response;
     }
   },
+  alokasiPenerimaanLain: async (data) => {
+    try {
+      const response = await api.post("/alokasiPenerimaanLain", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nPostService;
