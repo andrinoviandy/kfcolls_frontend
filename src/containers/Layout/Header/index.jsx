@@ -166,175 +166,6 @@ const Header = () => {
 
 
   // ===================================================
-  // DUMMY NOTIFICATION
-  // ===================================================
-
-  const dummyListNotif = [
-
-    {
-      notifikasi_push_id:
-        "NTF001",
-
-      no_pengajuan:
-        "280000992",
-
-      title:
-        "Faktur berhasil diantar",
-
-      body:
-        "Faktur 280000992 berhasil diantarkan ke Dinkes Kota Medan.",
-
-      created_at:
-        "2026-08-16T09:31:00",
-
-      is_read:
-        "T",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF002",
-
-      no_pengajuan:
-        "280009812",
-
-      title:
-        "Faktur berhasil diantar",
-
-      body:
-        "Faktur 280009812 berhasil diantarkan ke Apotek Madju Djaya.",
-
-      created_at:
-        "2026-08-16T09:35:00",
-
-      is_read:
-        "T",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF003",
-
-      no_pengajuan:
-        "28000912",
-
-      title:
-        "Pembayaran tunai berhasil diterima",
-
-      body:
-        "Rp140.000.000 berhasil diterima untuk pembayaran tunai faktur 28000912 oleh Apotek Rusli.",
-
-      created_at:
-        "2026-08-16T09:20:00",
-
-      is_read:
-        "F",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF004",
-
-      no_pengajuan:
-        "2800091281",
-
-      title:
-        "Pembayaran transfer berhasil diterima",
-
-      body:
-        "Rp140.000.000 berhasil diterima untuk pembayaran transfer faktur 2800091281 oleh RSUD Pasuruan.",
-
-      created_at:
-        "2026-08-16T09:15:00",
-
-      is_read:
-        "F",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF005",
-
-      no_pengajuan:
-        "280009134",
-
-      title:
-        "Faktur berhasil diantar",
-
-      body:
-        "Faktur 280009134 berhasil diantarkan ke Klinik Sehat Medika.",
-
-      created_at:
-        "2026-08-16T08:55:00",
-
-      is_read:
-        "T",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF006",
-
-      no_pengajuan:
-        "280009155",
-
-      title:
-        "Faktur berhasil diantar",
-
-      body:
-        "Faktur 280009155 berhasil diantarkan ke Rumah Sakit Harapan Bunda.",
-
-      created_at:
-        "2026-08-16T08:40:00",
-
-      is_read:
-        "F",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF007",
-
-      no_pengajuan:
-        "280009167",
-
-      title:
-        "Pembayaran tunai berhasil diterima",
-
-      body:
-        "Rp85.500.000 berhasil diterima untuk pembayaran tunai faktur 280009167 oleh Apotek Sejahtera.",
-
-      created_at:
-        "2026-08-16T08:25:00",
-
-      is_read:
-        "F",
-    },
-
-    {
-      notifikasi_push_id:
-        "NTF008",
-
-      no_pengajuan:
-        "280009188",
-
-      title:
-        "Pembayaran transfer berhasil diterima",
-
-      body:
-        "Rp215.000.000 berhasil diterima untuk pembayaran transfer faktur 280009188 oleh RSUD Dr. Soetomo.",
-
-      created_at:
-        "2026-08-16T08:10:00",
-
-      is_read:
-        "T",
-    },
-
-  ];
-
-
-  // ===================================================
   // GET ACCESS
   // ===================================================
 
@@ -372,19 +203,6 @@ const Header = () => {
 
 
     getAccess();
-
-  }, []);
-
-
-  // ===================================================
-  // INITIAL NOTIFICATION
-  // ===================================================
-
-  useEffect(() => {
-
-    setListNotif(
-      dummyListNotif
-    );
 
   }, []);
 
@@ -500,92 +318,91 @@ const Header = () => {
     };
 
   }, []);
-
-
   // ===================================================
-  // REFRESH
+  // NOTIFICATION API + LAZY LOAD
   // ===================================================
 
-  const refreshNotifications =
-    async () => {
+  const PAGE_LIMIT = 10;
 
-      /*
-       * Dummy sementara.
-       *
-       * Nanti tinggal ganti dengan:
-       *
-       * storeSchema.actions.getListNotification(...)
-       */
+  const getListNotification = async (pageNumber = 1, mode = "replace") => {
+    const isLoadMore = pageNumber > 1;
 
+    if (isLoadMore && (loadingMore || refreshing)) return;
+    if (!isLoadMore && refreshing) return;
+
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
       setRefreshing(true);
+    }
 
-      try {
+    try {
+      const res = await storeSchema.actions.getListNotification({
+        page: pageNumber,
+        limit: PAGE_LIMIT,
+      });
 
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              200
-            )
-        );
+      const nextData = Array.isArray(res?.data) ? res.data : [];
 
-        setListNotif(
-          dummyListNotif
-        );
+      if (res?.status) {
+        setListNotif((prev) => {
+          if (pageNumber === 1 || mode === "replace") return nextData;
 
-      } finally {
+          // Hindari item ganda ketika data halaman bertumpuk.
+          const existingIds = new Set(
+            prev.map((item) => item.notifikasi_push_id)
+          );
+          return [
+            ...prev,
+            ...nextData.filter(
+              (item) => !existingIds.has(item.notifikasi_push_id)
+            ),
+          ];
+        });
 
-        setRefreshing(
-          false
-        );
-
+        setHasMore(nextData.length >= PAGE_LIMIT);
+        setPage(pageNumber);
+      } else if (!isLoadMore) {
+        setListNotif([]);
+        setHasMore(false);
+      } else {
+        setHasMore(false);
       }
-
-    };
-
-
-  // ===================================================
-  // HANDLE SCROLL
-  // ===================================================
-
-  const handleScroll =
-    (e) => {
-
-      const container =
-        notificationListRef.current ||
-        e.currentTarget;
-
-
-      if (
-        !container
-      ) {
-        return;
+    } catch (error) {
+      console.error("Gagal mengambil notifikasi:", error);
+      if (!isLoadMore) setListNotif([]);
+      setHasMore(false);
+    } finally {
+      if (isLoadMore) {
+        setLoadingMore(false);
+      } else {
+        setRefreshing(false);
       }
+    }
+  };
 
+  const refreshNotifications = async () => {
+    await getListNotification(1, "replace");
+  };
 
-      const isBottomReached =
-        container.scrollTop +
-        container.clientHeight >=
-        container.scrollHeight - 5;
+  // Ambil halaman pertama saat Header dimuat.
+  useEffect(() => {
+    refreshNotifications();
+    // Fungsi dipanggil sekali saat komponen dimuat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const handleScroll = (e) => {
+    const container = notificationListRef.current || e.currentTarget;
+    if (!container) return;
 
-      if (
-        !isBottomReached ||
-        !hasMore ||
-        loadingMore ||
-        refreshing
-      ) {
-        return;
-      }
+    const isBottomReached =
+      container.scrollTop + container.clientHeight >= container.scrollHeight - 5;
 
+    if (!isBottomReached || !hasMore || loadingMore || refreshing) return;
 
-      setPage(
-        (prev) =>
-          prev + 1
-      );
-
-    };
-
+    getListNotification(page + 1, "append");
+  };
 
   // ===================================================
   // HANDLE FLAG
@@ -593,14 +410,13 @@ const Header = () => {
 
   const handleFlag =
     async (
-      status_id,
-      no_pengajuan
+      data
     ) => {
 
       const payload = {
 
         notifikasi_push_id:
-          status_id,
+          data?.notifikasi_push_id,
 
         is_read:
           "Y",
@@ -610,51 +426,42 @@ const Header = () => {
 
       try {
 
-        /*
-         * Kalau API sudah siap:
-         *
-         * await storeSchema.actions.updateNotifikasiPush(payload)
-         */
+        const res = await storeSchema.actions.updateNotifikasiPush(payload);
 
-        setListNotif(
-          (prev) =>
-            prev.map(
-              (item) =>
-                item.notifikasi_push_id ===
-                  status_id
-                  ? {
-                    ...item,
-                    is_read:
-                      "F",
-                  }
-                  : item
-            )
+        if (!res?.status) {
+          swal.error("Gagal memperbarui status notifikasi.");
+          return;
+        }
+
+        // Perbarui status lokal agar badge langsung mengikuti perubahan.
+        setListNotif((prev) =>
+          prev.map((item) =>
+            item.notifikasi_push_id === data?.notifikasi_push_id
+              ? { ...item, is_read: "F" }
+              : item
+          )
         );
 
-
-        setShowNotification(
-          false
-        );
-
+        setShowNotification(false);
 
         navigation(
-          loginAccess?.role_id ===
-            "RL01"
-            ? "/data-pengajuan"
-            : "/approval-pengajuan",
+          data?.kegiatan ===
+            "TUKAR_FAKTUR"
+            ? "/tukar-faktur"
+            : "/bayar-faktur",
           {
             state: {
 
               ...location.state,
 
               project:
-                loginAccess?.role_id ===
-                  "RL01"
-                  ? "Data Pengajuan"
-                  : "Approval Pengajuan",
+                data?.kegiatan ===
+                  "TUKAR_FAKTUR"
+                  ? "Tukar Faktur"
+                  : "Bayar Faktur",
 
-              no_pengajuan:
-                no_pengajuan,
+              no_billing:
+                data?.no_billing,
 
             },
           }
@@ -669,33 +476,25 @@ const Header = () => {
       }
 
     };
-
-
   // ===================================================
   // READ ALL
   // ===================================================
 
-  const handleReadAll =
-    async () => {
-
-      /*
-       * API nanti:
-       *
-       * await storeSchema.actions.readAllNotification()
-       */
-
-      setListNotif(
-        (prev) =>
-          prev.map(
-            (item) => ({
-              ...item,
-              is_read: "F",
-            })
-          )
-      );
-
-    };
-
+  const handleReadAll = async () => {
+    try {
+      const res = await storeSchema.actions.readAllNotification();
+      if (res?.status) {
+        setListNotif((prev) =>
+          prev.map((item) => ({ ...item, is_read: "F" }))
+        );
+      } else {
+        swal.error("Gagal menandai semua notifikasi sebagai terbaca.");
+      }
+    } catch (error) {
+      console.error("Gagal menandai semua notifikasi:", error);
+      swal.error("Gagal menandai semua notifikasi sebagai terbaca.");
+    }
+  };
 
   // ===================================================
   // LOGOUT
@@ -1226,12 +1025,11 @@ const Header = () => {
 
                               <button
                                 type="button"
-                                onClick={() =>
-                                  handleFlag(
-                                    item.notifikasi_push_id,
-                                    item.no_pengajuan
-                                  )
-                                }
+                                // onClick={() =>
+                                //   handleFlag(
+                                //     item
+                                //   )
+                                // }
                                 className={`
                                 w-full
                                 text-left
@@ -1381,7 +1179,7 @@ const Header = () => {
                                       <FaTags />
 
                                       {
-                                        item.no_pengajuan
+                                        item.no_billing
                                       }
 
                                     </div>
@@ -1481,6 +1279,19 @@ const Header = () => {
 
                         </div>
 
+                      )}
+
+                      {loadingMore && (
+                        <div className="flex items-center justify-center gap-2 px-4 py-3 text-xs text-gray-500">
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                          Memuat notifikasi...
+                        </div>
+                      )}
+
+                      {!hasMore && listNotif.length > 0 && (
+                        <div className="px-4 py-2 text-center text-[10px] text-gray-400">
+                          Semua notifikasi sudah ditampilkan
+                        </div>
                       )}
 
                     </div>

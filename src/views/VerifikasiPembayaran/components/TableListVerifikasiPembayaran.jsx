@@ -1046,6 +1046,9 @@ const TableVerifikasiPembayaran = ({
                 piutang_id:
                   item?.piutang_id ||
                   null,
+                petugas_nip:
+                  item?.petugas_nip ||
+                  null,
                 no_faktur:
                   item?.no_faktur ||
                   null,
