@@ -1003,8 +1003,8 @@ const TableListKonfirmasiPiutang = ({
           item?.batas_konfirmasi ??
           (tanggalKirim
             ? new Date(new Date(tanggalKirim).getTime() + 14 * 24 * 60 * 60 * 1000)
-                .toISOString()
-                .slice(0, 10)
+              .toISOString()
+              .slice(0, 10)
             : null);
 
         return {
@@ -1125,9 +1125,8 @@ const TableListKonfirmasiPiutang = ({
     const sudahDikirim = status === "SUDAH_DIKIRIM";
 
     return (
-      <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
-        sudahDikirim ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-      }`}>
+      <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${sudahDikirim ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+        }`}>
         {sudahDikirim ? <FaCheckCircle /> : <FaClock />}
         {sudahDikirim ? "Sudah Dikirim" : "Belum Dikirim"}
       </span>
@@ -1256,7 +1255,7 @@ const TableListKonfirmasiPiutang = ({
       const data = res?.data || {};
       const rows = Array.isArray(data?.list_data) ? data.list_data
         : Array.isArray(data?.data) ? data.data
-        : Array.isArray(res?.data) ? res.data : [];
+          : Array.isArray(res?.data) ? res.data : [];
       const map = new Map();
       rows.forEach((item) => {
         const key = String(item?.customer ?? item?.customer_id ?? item?.kode_customer ?? item?.nama_customer ?? item?.customer_name ?? "").trim();
@@ -1293,7 +1292,7 @@ const TableListKonfirmasiPiutang = ({
       const data = res?.data || {};
       const rows = Array.isArray(data?.list_data) ? data.list_data
         : Array.isArray(data?.data) ? data.data
-        : Array.isArray(res?.data) ? res.data : [];
+          : Array.isArray(res?.data) ? res.data : [];
 
       const normalized = rows.map((item, index) => {
         const tanggalKirim = item?.tgl_kirim_konfirmasi ?? item?.tanggal_kirim_konfirmasi ?? null;
@@ -1873,49 +1872,41 @@ const TableListKonfirmasiPiutang = ({
       label: "Pilih Billing",
       icon: <FaCheckCircle />,
     },
-
     {
-      label:
-        "Aksi",
-
-      icon:
-        <FaEllipsisV />,
+      label: "Aksi",
+      icon: <FaEllipsisV />,
     },
-
     {
-      label:
-        "Pengiriman Konfirmasi",
-
-      icon:
-        <FaPaperPlane />,
+      label: "No. Billing",
+      icon: <FaFileAlt />,
     },
-
     {
-      label:
-        "Status Konfirmasi",
-
-      icon:
-        <FaInfoCircle />,
+      label: "Pengiriman Konfirmasi",
+      icon: <FaPaperPlane />,
     },
-
     {
-      label:
-        "Tanggal Konfirmasi",
-      icon: <FaCalendarAlt />,
+      label: "Email Penerima",
+      icon: <FaEnvelope />,
     },
-
     {
-      label:
-        "Catatan Konfirmasi",
+      label: "Status Konfirmasi",
       icon: <FaInfoCircle />,
     },
-
     {
-      label:
-        "Tanggal Kirim",
-
-      icon:
-        <FaCalendarAlt />,
+      label: "Tanggal Konfirmasi",
+      icon: <FaCalendarAlt />,
+    },
+    {
+      label: "Tgl Rencana Pembayaran",
+      icon: <FaCalendarAlt />,
+    },
+    {
+      label: "Catatan Konfirmasi",
+      icon: <FaInfoCircle />,
+    },
+    {
+      label: "Tanggal Kirim",
+      icon: <FaCalendarAlt />,
     },
 
     {
@@ -2845,10 +2836,37 @@ const TableListKonfirmasiPiutang = ({
 
                             </td>
 
+                            {/* NO BILLING */}
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+                                  <FaFileAlt className="text-orange-500" />
+                                </div>
+
+                                <div>
+                                  <span className="font-semibold text-gray-700">
+                                    {v.no_billing || "-"}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
                             {/* STATUS PENGIRIMAN */}
 
                             <td className="px-4 py-2">
                               {renderStatusPengiriman(v.status_pengiriman_konfirmasi)}
+                            </td>
+
+                            {/* EMAIL PENERIMA */}
+                            <td className="min-w-[220px] px-4 py-2">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <FaEnvelope className="shrink-0 text-primary" />
+                                <span className="break-words">
+                                  {v.konfirmasi_email ||
+                                    v.email ||
+                                    "-"}
+                                </span>
+                              </div>
                             </td>
 
                             {/* STATUS KONFIRMASI */}
@@ -2862,6 +2880,15 @@ const TableListKonfirmasiPiutang = ({
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <FaCalendarAlt className="text-primary" />
                                 {formatDate(v.status_konfirmasi_date)}
+                              </div>
+                            </td>
+
+                            {/* TANGGAL Rencana Bayar */}
+
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <FaCalendarAlt className="text-primary" />
+                                {formatDate(v.tgl_rencana_pembayaran)}
                               </div>
                             </td>
 
@@ -2879,75 +2906,6 @@ const TableListKonfirmasiPiutang = ({
                                 <FaCalendarAlt className="text-primary" />
                                 {formatDate(v.tgl_kirim_konfirmasi)}
                               </div>
-                            </td>
-
-                            {/* NO BILLING */}
-
-                            <td
-                              className="
-                                px-4
-                                py-2
-                                whitespace-nowrap
-                              "
-                            >
-
-                              <div
-                                className="
-                                  flex
-                                  items-center
-                                  gap-2
-                                "
-                              >
-
-                                <div
-                                  className="
-                                    w-9
-                                    h-9
-                                    rounded-lg
-                                    bg-orange-50
-                                    flex
-                                    items-center
-                                    justify-center
-                                  "
-                                >
-
-                                  <FaFileAlt
-                                    className="
-                                      text-orange-500
-                                    "
-                                  />
-
-                                </div>
-
-
-                                <div>
-
-                                  <span
-                                    className="
-                                      font-semibold
-                                      text-gray-700
-                                    "
-                                  >
-                                    {
-                                      v.no_billing ||
-                                      "-"
-                                    }
-                                  </span>
-
-
-                                  <p
-                                    className="
-                                      text-xs
-                                      text-gray-400
-                                    "
-                                  >
-                                    Nomor Billing
-                                  </p>
-
-                                </div>
-
-                              </div>
-
                             </td>
 
 

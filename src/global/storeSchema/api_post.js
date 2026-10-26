@@ -769,6 +769,14 @@ const n2nPostService = {
       return error.response;
     }
   },
+  terimaFaktur: async (data) => {
+    try {
+        const response = await api.post("/terimaFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
   insertTukarFaktur: async (data) => {
     try {
       const response = await api.post("/insertTukarFaktur", data);
@@ -780,6 +788,14 @@ const n2nPostService = {
   insertBayarFaktur: async (data) => {
     try {
       const response = await api.post("/insertBayarFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  insertPenerimaanLain: async (data) => {
+    try {
+      const response = await api.post("/insertPenerimaanLain", data);
       return response.data;
     } catch (error) {
       return error.response;

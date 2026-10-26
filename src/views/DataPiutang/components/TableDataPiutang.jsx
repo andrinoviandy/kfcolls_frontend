@@ -350,7 +350,7 @@ const getPiutangKeterangan = ({ saldoPiutang, ppn, pph }) => {
     return "Sisa PPN + PPh";
   }
 
-  return "Sisa Piutang";
+  return "Sisa Komersil";
 };
 
 // =====================================================
@@ -1827,7 +1827,7 @@ const TableDataPiutang = ({
                   <th className="px-4 py-3 whitespace-nowrap text-right">Collection</th>
                   <th className="px-4 py-3 whitespace-nowrap text-right">Saldo Piutang</th>
                   <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
-                  <th className="px-4 py-3 whitespace-nowrap text-center">Aging</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Umur Piutang</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
                 </tr>
 

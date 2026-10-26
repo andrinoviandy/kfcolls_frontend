@@ -325,6 +325,12 @@ const mainColumns = [
     type: "calculatedPph",
   },
   {
+    key: "Total Penjualan + PPN",
+    label: "Total Penjualan",
+    icon: <FaMoneyBillWave />,
+    type: "calculatedTotalPenjualan",
+  },
+  {
     key: "Total COGS",
     label: "Total COGS",
     icon: <FaMoneyBillWave />,
@@ -526,6 +532,9 @@ const getCalculatedValue = (item, key) => {
   }
   if (key === "PPh") {
     return totalPenjualan * 0.015;
+  }
+  if (key === "Total Penjualan + PPN") {
+    return totalPenjualan + Number(item?.["Tax Amount"] || 0);
   }
   if (key === "Margin") {
     return totalPenjualan - totalCOGS;
@@ -1281,6 +1290,7 @@ const TableMasterFaktur = ({
                           "Margin",
                           "Persentase Margin",
                           "PPh",
+                          "Total Penjualan + PPN",
                         ].includes(column.key)
                           ? getCalculatedValue(item, column.key)
                           : column.key === "Tanggal Jatuh Tempo"
@@ -1324,7 +1334,8 @@ const TableMasterFaktur = ({
                               <span className="font-bold text-gray-700">
                                 {formatRupiah(value)}
                               </span>
-                            ) : column.type === "calculatedPph" ? (
+                            ) : column.type === "calculatedPph" ||
+                              column.type === "calculatedTotalPenjualan" ? (
                               <span className="font-bold text-gray-700">
                                 {formatRupiah(value)}
                               </span>

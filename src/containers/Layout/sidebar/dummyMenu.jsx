@@ -14,6 +14,7 @@ import {
     FaExchangeAlt,
     FaCheckCircle,
 } from "react-icons/fa";
+import { FaFileCircleCheck } from "react-icons/fa6";
 import { MdOutlineRequestQuote } from "react-icons/md";
 
 export const dummyMenu = [
@@ -46,6 +47,14 @@ export const dummyMenu = [
         name: "Data COD",
         path: "/data-cod",
         icon: FaFileInvoice,
+        // roles: [],
+        submenu: [],
+    },
+    {
+        id: 3,
+        name: "Kreasi Faktur",
+        path: "/kreasi-faktur",
+        icon: FaFileCircleCheck,
         // roles: [],
         submenu: [],
     },

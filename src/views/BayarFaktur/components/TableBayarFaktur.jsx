@@ -59,6 +59,19 @@ const formatDate = (date) => {
 
 };
 
+// Mengambil URL lampiran dari field files, baik berupa string maupun object.
+const getPenerimaanFileUrl = (files) => {
+  if (!files) return "";
+  if (typeof files === "string") return files;
+  if (Array.isArray(files)) {
+    const firstFile = files[0];
+    return typeof firstFile === "string"
+      ? firstFile
+      : firstFile?.url || firstFile?.file_url || firstFile?.download_url || firstFile?.path || firstFile?.uri || "";
+  }
+  return files?.url || files?.file_url || files?.download_url || files?.path || files?.uri || "";
+};
+
 
 // =====================================================
 // FORMAT CURRENCY
@@ -494,6 +507,7 @@ const TableBayarFaktur = ({
   // State untuk modal Penerimaan Lain
   const [showPenerimaanLainModal, setShowPenerimaanLainModal] = useState(false);
   const [penerimaanNominal, setPenerimaanNominal] = useState("");
+  const [penerimaanDocumentNumber, setPenerimaanDocumentNumber] = useState("");
   const [penerimaanTanggal, setPenerimaanTanggal] = useState(new Date().toISOString().slice(0, 10));
   const [penerimaanMetode, setPenerimaanMetode] = useState("DIRECT_TRANSFER");
   const [penerimaanBukti, setPenerimaanBukti] = useState(null);
@@ -503,6 +517,9 @@ const TableBayarFaktur = ({
   const [loadingRiwayatPenerimaanLain, setLoadingRiwayatPenerimaanLain] = useState(false);
   const [riwayatPenerimaanLain, setRiwayatPenerimaanLain] = useState([]);
   const [totalPenerimaanLain, setTotalPenerimaanLain] = useState(0);
+  const [expandedRiwayatAlokasi, setExpandedRiwayatAlokasi] = useState({});
+  const [dataRiwayatAlokasi, setDataRiwayatAlokasi] = useState({});
+  const [loadingRiwayatAlokasi, setLoadingRiwayatAlokasi] = useState({});
   const [currentPagePenerimaanLain, setCurrentPagePenerimaanLain] = useState(1);
   const [perPagePenerimaanLain, setPerPagePenerimaanLain] = useState(10);
   const [totalDataPenerimaanLain, setTotalDataPenerimaanLain] = useState(0);
@@ -512,6 +529,14 @@ const TableBayarFaktur = ({
   const [showModalAlokasiPenerimaanLain, setShowModalAlokasiPenerimaanLain] = useState(false);
   const [selectedPenerimaanAlokasi, setSelectedPenerimaanAlokasi] = useState(null);
   const [noBillingAlokasi, setNoBillingAlokasi] = useState("");
+  const [stepAlokasiPenerimaan, setStepAlokasiPenerimaan] = useState(1);
+  const [cabangAlokasiPenerimaan, setCabangAlokasiPenerimaan] = useState(null);
+  const [customerOptionsAlokasi, setCustomerOptionsAlokasi] = useState([]);
+  const [loadingCustomerAlokasi, setLoadingCustomerAlokasi] = useState(false);
+  const [customerAlokasiPenerimaan, setCustomerAlokasiPenerimaan] = useState([]);
+  const [billingOptionsAlokasi, setBillingOptionsAlokasi] = useState([]);
+  const [selectedBillingAlokasi, setSelectedBillingAlokasi] = useState([]);
+  const [loadingBillingAlokasi, setLoadingBillingAlokasi] = useState(false);
   const [isSubmittingAlokasiPenerimaanLain, setIsSubmittingAlokasiPenerimaanLain] = useState(false);
 
   // State khusus alokasi Partial Payment di Modal Bayar Faktur
@@ -727,6 +752,8 @@ const TableBayarFaktur = ({
     keywordOverride = searchKeywordPenerimaanLain
   ) => {
     if (shouldOpen) setShowRiwayatPenerimaanLain(true);
+    setExpandedRiwayatAlokasi({});
+    setDataRiwayatAlokasi({});
     setLoadingRiwayatPenerimaanLain(true);
     try {
       const res = await storeSchema.actions.getDataPenerimaanLain({
@@ -756,6 +783,48 @@ const TableBayarFaktur = ({
     }
   };
 
+  // Detail alokasi dimuat hanya ketika baris riwayat di-expand.
+  const toggleRiwayatAlokasi = async (item) => {
+    const penerimaanId = item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id;
+    if (penerimaanId === null || penerimaanId === undefined || penerimaanId === "") {
+      await swal.error("ID Penerimaan Lain tidak ditemukan.");
+      return;
+    }
+    const key = String(penerimaanId);
+    if (expandedRiwayatAlokasi[key]) {
+      setExpandedRiwayatAlokasi((prev) => ({ ...prev, [key]: false }));
+      return;
+    }
+    setExpandedRiwayatAlokasi((prev) => ({ ...prev, [key]: true }));
+    setLoadingRiwayatAlokasi((prev) => ({ ...prev, [key]: true }));
+    try {
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: "ALL",
+        customer: "ALL",
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
+        penerimaan_lain_id: penerimaanId,
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil riwayat alokasi.");
+      const responseData = res?.data;
+      const rows = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.list_data) ? responseData.list_data : [];
+      setDataRiwayatAlokasi((prev) => ({ ...prev, [key]: rows }));
+    } catch (error) {
+      console.error("ERROR RIWAYAT ALOKASI PENERIMAAN LAIN:", error);
+      setExpandedRiwayatAlokasi((prev) => ({ ...prev, [key]: false }));
+      await swal.error(error?.message || "Gagal mengambil riwayat alokasi.");
+    } finally {
+      setLoadingRiwayatAlokasi((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
   const handleOpenRiwayatPenerimaanLain = () => {
     setCurrentPagePenerimaanLain(1);
     openRiwayatPenerimaanLain(1, perPagePenerimaanLain, true);
@@ -782,6 +851,12 @@ const TableBayarFaktur = ({
   const openModalAlokasiPenerimaanLain = (item) => {
     setSelectedPenerimaanAlokasi(item);
     setNoBillingAlokasi("");
+    setStepAlokasiPenerimaan(1);
+    setCabangAlokasiPenerimaan(null);
+    setCustomerOptionsAlokasi([]);
+    setCustomerAlokasiPenerimaan([]);
+    setBillingOptionsAlokasi([]);
+    setSelectedBillingAlokasi([]);
     setShowModalAlokasiPenerimaanLain(true);
   };
 
@@ -790,33 +865,173 @@ const TableBayarFaktur = ({
     setShowModalAlokasiPenerimaanLain(false);
     setSelectedPenerimaanAlokasi(null);
     setNoBillingAlokasi("");
+    setStepAlokasiPenerimaan(1);
+    setCabangAlokasiPenerimaan(null);
+    setCustomerOptionsAlokasi([]);
+    setCustomerAlokasiPenerimaan([]);
+    setBillingOptionsAlokasi([]);
+    setSelectedBillingAlokasi([]);
+  };
+
+  const loadCustomerAlokasiPenerimaan = async (cabangId) => {
+    setCabangAlokasiPenerimaan(cabangId || null);
+    setCustomerAlokasiPenerimaan([]);
+    setCustomerOptionsAlokasi([]);
+    setBillingOptionsAlokasi([]);
+    setSelectedBillingAlokasi([]);
+    if (cabangId === null || cabangId === undefined || String(cabangId).trim() === "") return;
+
+    try {
+      setLoadingCustomerAlokasi(true);
+      const res = await storeSchema.actions.getDataPelanggan({
+        page: 1,
+        limit: 9999,
+        cabang_id: [cabangId],
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil customer berdasarkan cabang");
+      const responseData = res?.data;
+      const rows = Array.isArray(responseData)
+        ? responseData
+        : responseData?.list_data || responseData?.data || responseData?.rows || [];
+      const unique = new Map();
+      rows.forEach((item) => {
+        const customerId = item?.kode_customer ?? item?.customer ?? item?.customer_id;
+        if (customerId === null || customerId === undefined || String(customerId).trim() === "") return;
+        const key = String(customerId);
+        if (unique.has(key)) return;
+        const name = item?.name ?? item?.nama_customer ?? item?.nama ?? "";
+        unique.set(key, {
+          value: customerId,
+          customer_id: customerId,
+          nama_customer: name || key,
+          label: `${customerId}${name ? ` - ${name}` : ""}`,
+        });
+      });
+      setCustomerOptionsAlokasi(Array.from(unique.values()));
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER ALOKASI PENERIMAAN:", error);
+      await swal.error(error?.message || "Gagal mengambil customer berdasarkan cabang.");
+    } finally {
+      setLoadingCustomerAlokasi(false);
+    }
+  };
+
+  const loadBillingAlokasiPenerimaan = async () => {
+    const customerIds = customerAlokasiPenerimaan.map((item) => item.value);
+    if (cabangAlokasiPenerimaan === null || cabangAlokasiPenerimaan === undefined || String(cabangAlokasiPenerimaan).trim() === "") {
+      await swal.error("Pilih satu cabang terlebih dahulu.");
+      return;
+    }
+    if (!customerIds.length) {
+      await swal.error("Pilih minimal satu customer terlebih dahulu.");
+      return;
+    }
+
+    try {
+      setLoadingBillingAlokasi(true);
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: [cabangAlokasiPenerimaan],
+        customer: customerIds,
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
+      });
+      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data billing customer");
+
+      const rows = Array.isArray(res?.data?.list_data) ? res.data.list_data : [];
+      const uniqueBilling = new Map();
+      rows.forEach((item, index) => {
+        const billing = String(item?.no_billing ?? "").trim();
+        if (!billing || billing === "-") return;
+        const customerId = item?.customer_id ?? item?.customer;
+        if (!customerIds.some((id) => String(id) === String(customerId))) return;
+        if (!uniqueBilling.has(billing)) {
+          const saldo = Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+          uniqueBilling.set(billing, {
+            value: billing,
+            label: `${billing} - ${item?.nama_customer || customerId || "Customer"} - ${formatRupiah(saldo)}`,
+            no_billing: billing,
+            customer_id: customerId,
+            nama_customer: item?.nama_customer || String(customerId || ""),
+            saldo_piutang: saldo,
+            row_id: item?.piutang_id ?? item?.id ?? index,
+          });
+        }
+      });
+
+      const options = Array.from(uniqueBilling.values());
+      setBillingOptionsAlokasi(options);
+      setSelectedBillingAlokasi([]);
+      setStepAlokasiPenerimaan(2);
+      if (!options.length) await swal.error("Tidak ditemukan billing untuk customer yang dipilih.");
+    } catch (error) {
+      console.error("ERROR GET BILLING ALOKASI PENERIMAAN:", error);
+      await swal.error(error?.message || "Gagal mengambil data billing customer.");
+    } finally {
+      setLoadingBillingAlokasi(false);
+    }
   };
 
   const handleSubmitAlokasiPenerimaanLain = async () => {
-    const pembayaranId = selectedPenerimaanAlokasi?.pembayaran_id ?? selectedPenerimaanAlokasi?.id;
-    const noBilling = noBillingAlokasi.trim();
+    const pembayaranId = selectedPenerimaanAlokasi?.id ?? selectedPenerimaanAlokasi?.penerimaan_lain_id;
+    const billings = selectedBillingAlokasi
+      .map((item) => ({
+        no_billing: item.no_billing || item.value,
+        nominal: Number(item.saldo_piutang || 0),
+      }))
+      .filter((item) => item.no_billing);
+
+    const nominalPenerimaan = Number(
+      selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0
+    ) || 0;
+    const totalAlokasi = billings.reduce((sum, item) => sum + item.nominal, 0);
+    const sisaPenerimaan = nominalPenerimaan - totalAlokasi;
+
     if (!pembayaranId) {
-      await swal.error("ID pembayaran tidak ditemukan.");
+      await swal.error("ID Penerimaan tidak ditemukan.");
       return;
     }
-    if (!noBilling) {
-      await swal.error("No Billing wajib diisi.");
+    if (!billings.length) {
+      await swal.error("Pilih minimal satu billing untuk dialokasikan.");
+      return;
+    }
+    if (totalAlokasi > nominalPenerimaan) {
+      await swal.error(
+        `Total nominal billing (${formatRupiah(totalAlokasi)}) tidak boleh melebihi nominal penerimaan (${formatRupiah(nominalPenerimaan)}).`
+      );
       return;
     }
 
     try {
       setIsSubmittingAlokasiPenerimaanLain(true);
-      const res = await storeSchema.actions.alokasiPenerimaanLain({
-        pembayaran_id: pembayaranId,
-        no_billing: noBilling,
-      });
-      if (res?.status !== true) {
-        throw new Error(res?.message || "Gagal melakukan alokasi penerimaan lain.");
+      // Endpoint menerima satu no_billing per request.
+      // sisa_penerimaan dikirim sebagai saldo penerimaan setelah billing ini dialokasikan.
+      let sisaBerjalan = nominalPenerimaan;
+      for (const billing of billings) {
+        sisaBerjalan = Math.max(0, sisaBerjalan - billing.nominal);
+        const res = await storeSchema.actions.alokasiPenerimaanLain({
+          penerimaan_lain_id: pembayaranId,
+          no_billing: billing.no_billing,
+          sisa_penerimaan: sisaBerjalan,
+        });
+        if (res?.status !== true) {
+          throw new Error(res?.message || `Gagal melakukan alokasi billing ${billing.no_billing}.`);
+        }
       }
-      await swal.success(res?.message || "Alokasi penerimaan berhasil diproses.");
+      await swal.success(
+        `${billings.length} billing berhasil diproses. Sisa penerimaan: ${formatRupiah(sisaPenerimaan)}.`
+      );
       setShowModalAlokasiPenerimaanLain(false);
       setSelectedPenerimaanAlokasi(null);
       setNoBillingAlokasi("");
+      setStepAlokasiPenerimaan(1);
+      setCustomerAlokasiPenerimaan([]);
+      setBillingOptionsAlokasi([]);
+      setSelectedBillingAlokasi([]);
       await openRiwayatPenerimaanLain(currentPagePenerimaanLain, perPagePenerimaanLain, false, searchKeywordPenerimaanLain);
       await getDataBayarFaktur();
     } catch (error) {
@@ -1488,6 +1703,7 @@ const TableBayarFaktur = ({
 
   const openPenerimaanLain = () => {
     setPenerimaanNominal("");
+    setPenerimaanDocumentNumber("");
     setPenerimaanTanggal(new Date().toISOString().slice(0, 10));
     setPenerimaanMetode("DIRECT_TRANSFER");
     setPenerimaanBukti(null);
@@ -1499,26 +1715,33 @@ const TableBayarFaktur = ({
     if (isSubmittingPenerimaan) return;
     setShowPenerimaanLainModal(false);
     setPenerimaanNominal("");
+    setPenerimaanDocumentNumber("");
     setPenerimaanBukti(null);
     setPenerimaanKeterangan("");
   };
 
   const handleSubmitPenerimaanLain = async () => {
+    const documentNumber = String(penerimaanDocumentNumber ?? "").trim();
+    if (!documentNumber) {
+      await swal.error("Document Number wajib diisi.");
+      return;
+    }
+
     const nominal = parseNominal(penerimaanNominal);
     if (nominal <= 0) {
-      swal.error("Masukkan nominal penerimaan yang valid.");
+      await swal.error("Masukkan nominal penerimaan yang valid.");
       return;
     }
     if (!penerimaanTanggal) {
-      swal.error("Tanggal pembayaran wajib diisi.");
+      await swal.error("Tanggal pembayaran wajib diisi.");
       return;
     }
     if (!penerimaanMetode) {
-      swal.error("Pilih metode pembayaran.");
+      await swal.error("Pilih metode pembayaran.");
       return;
     }
     if (!penerimaanBukti) {
-      swal.error("Bukti penerimaan wajib diupload.");
+      await swal.error("Bukti penerimaan wajib diupload.");
       return;
     }
 
@@ -1527,6 +1750,7 @@ const TableBayarFaktur = ({
       const formData = new FormData();
       const payload = {
         jenis_pembayaran: "PENERIMAAN_LAIN",
+        document_number: documentNumber,
         metode_pembayaran: penerimaanMetode,
         nominal_bayar: nominal,
         tanggal_pembayaran: penerimaanTanggal,
@@ -1537,7 +1761,7 @@ const TableBayarFaktur = ({
       formData.append("payload", JSON.stringify(payload));
       formData.append("lampiran", penerimaanBukti, penerimaanBukti.name);
 
-      const res = await storeSchema.actions.insertBayarFaktur(formData);
+      const res = await storeSchema.actions.insertPenerimaanLain(formData);
       if (res?.status !== true) {
         throw new Error(res?.message || "Gagal menyimpan penerimaan lain.");
       }
@@ -1545,6 +1769,7 @@ const TableBayarFaktur = ({
       swal.success(res?.message || "Penerimaan lain berhasil disimpan.");
       setShowPenerimaanLainModal(false);
       setPenerimaanNominal("");
+      setPenerimaanDocumentNumber("");
       setPenerimaanBukti(null);
       setPenerimaanKeterangan("");
       await getDataBayarFaktur();
@@ -4418,6 +4643,50 @@ const TableBayarFaktur = ({
                     </button>
 
 
+                    {/* PEMBEBANAN AFILIASI */}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentMethod(
+                          "PEMBEBANAN_AFILIASI"
+                        )
+                      }
+                      className={`
+                        w-full
+                        flex
+                        items-center
+                        justify-between
+                        p-4
+                        rounded-xl
+                        border
+                        mb-3
+                        transition
+                        ${paymentMethod ===
+                          "PEMBEBANAN_AFILIASI"
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-gray-200 bg-white"
+                        }
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                          <FaBuilding className="text-indigo-500" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-700">
+                            Pembebanan Afiliasi
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Pembayaran melalui pembebanan ke afiliasi
+                          </p>
+                        </div>
+                      </div>
+                      {paymentMethod === "PEMBEBANAN_AFILIASI" && (
+                        <FaCheckCircle className="text-orange-500" />
+                      )}
+                    </button>
+
                     {/* SSP */}
 
                     <button
@@ -5174,7 +5443,10 @@ const TableBayarFaktur = ({
                                   : paymentMethod ===
                                     "SSP"
                                     ? "Surat Setor Pajak"
-                                    : "Cash"
+                                    : paymentMethod ===
+                                      "PEMBEBANAN_AFILIASI"
+                                      ? "Pembebanan Afiliasi"
+                                      : "Cash"
                         }
                       </span>
 
@@ -7174,10 +7446,6 @@ const TableBayarFaktur = ({
               </div>
               <button type="button" onClick={() => setShowRiwayatPenerimaanLain(false)} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"><FaTimes /></button>
             </div>
-            <div className="p-5 border-b border-gray-100 bg-purple-50 flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs text-purple-700">Total Penerimaan Lain</p><p className="text-xl font-bold text-purple-900">{formatRupiah(totalPenerimaanLain)}</p></div>
-              <div className="text-sm text-gray-600">{riwayatPenerimaanLain.length} data</div>
-            </div>
             <div className="p-5 border-b border-gray-100">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
@@ -7196,7 +7464,7 @@ const TableBayarFaktur = ({
                 </button>
               </div>
             </div>
-            <div className="p-5 overflow-auto">
+            <div className="p-5 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               {loadingRiwayatPenerimaanLain ? (
                 <div className="py-12 text-center text-gray-500"><span className="loading loading-spinner loading-md mr-2"></span>Memuat riwayat penerimaan lain...</div>
               ) : riwayatPenerimaanLain.length === 0 ? (
@@ -7204,20 +7472,84 @@ const TableBayarFaktur = ({
               ) : (
                 <div className="overflow-x-auto border border-gray-200 rounded-xl">
                   <table className="table table-zebra w-full text-sm">
-                    <thead><tr className="bg-gray-50 text-gray-700"><th>No</th><th>Tanggal Pembayaran</th><th>Metode</th><th>Keterangan</th><th className="text-right">Nominal</th><th className="text-center">Aksi</th></tr></thead>
+                    <thead><tr className="bg-gray-50 text-gray-700"><th>No</th><th>Document Number</th><th>Tanggal Pembayaran</th><th>Metode</th><th>Keterangan</th><th className="text-right">Nominal</th><th className="text-right">Sisa Penerimaan</th><th className="text-center">Lampiran</th><th className="text-center">Aksi</th></tr></thead>
                     <tbody>{riwayatPenerimaanLain.map((item, index) => (
-                      <tr key={item?.id ?? item?.pembayaran_id ?? index}>
+                      <React.Fragment key={item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id ?? index}>
+                      <tr>
                         <td>{index + 1}</td>
-                        <td>{formatDate(item?.tanggal_pembayaran ?? item?.tanggal_bayar ?? item?.created_at)}</td>
+                        <td className="whitespace-nowrap">{item?.document_number ?? "-"}</td>
+                        <td className="whitespace-nowrap">{formatDate(item?.tanggal_pembayaran ?? item?.tanggal_bayar ?? item?.created_at)}</td>
                         <td>{item?.metode_pembayaran ?? item?.metode ?? "-"}</td>
                         <td className="min-w-[180px]">{item?.keterangan ?? "-"}</td>
                         <td className="text-right font-semibold whitespace-nowrap">{formatRupiah(item?.nominal_bayar ?? item?.nominal_pembayaran ?? item?.nominal ?? 0)}</td>
+                        <td className="text-right font-semibold whitespace-nowrap text-blue-700">{formatRupiah(item?.sisa_penerimaan ?? 0)}</td>
                         <td className="text-center whitespace-nowrap">
-                          <button type="button" onClick={() => openModalAlokasiPenerimaanLain(item)} className="btn btn-sm btn-primary rounded-lg">
-                            Alokasi Penerimaan
-                          </button>
+                          {getPenerimaanFileUrl(item?.files) ? (
+                            <button
+                              type="button"
+                              onClick={() => window.open(getPenerimaanFileUrl(item?.files), "_blank", "noopener,noreferrer")}
+                              className="btn btn-sm btn-outline btn-primary rounded-lg flex-nowrap"
+                              title="Buka lampiran di tab baru"
+                            >
+                              <FaFileUpload /> Lihat
+                            </button>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleRiwayatAlokasi(item)}
+                              className="btn btn-sm btn-ghost border border-gray-200 rounded-lg"
+                              title="Lihat riwayat alokasi"
+                              disabled={Boolean(loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)])}
+                            >
+                              {loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? (
+                                <span className="loading loading-spinner loading-xs" />
+                              ) : expandedRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? <FaChevronUp /> : <FaChevronDown />}
+                            </button>
+                            <button type="button" onClick={() => openModalAlokasiPenerimaanLain(item)} className="btn btn-sm btn-primary rounded-lg">
+                              Alokasi Penerimaan
+                            </button>
+                          </div>
                         </td>
                       </tr>
+                      {expandedRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] && (
+                        <tr className="bg-blue-50/60">
+                          <td colSpan={9} className="p-4">
+                            <div className="border border-blue-100 bg-white rounded-xl p-4">
+                              <p className="text-sm font-semibold text-gray-700 mb-3">Riwayat Alokasi Penerimaan</p>
+                              {loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? (
+                                <div className="text-sm text-gray-500 py-3"><span className="loading loading-spinner loading-xs mr-2" />Memuat riwayat alokasi...</div>
+                              ) : !(dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] || []).length ? (
+                                <p className="text-sm text-gray-500 py-3">Belum ada riwayat alokasi untuk penerimaan ini.</p>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="table table-sm table-zebra w-full">
+                                    <thead className="bg-gray-50"><tr><th>No</th><th>No. Billing</th><th>No. Faktur</th><th>Customer</th><th>Cabang</th><th className="text-right">Total Invoice</th><th className="text-right">Saldo Piutang</th></tr></thead>
+                                    <tbody>
+                                      {dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)].map((alokasi, alokasiIndex) => (
+                                        <tr key={alokasi?.piutang_id ?? alokasi?.id ?? alokasiIndex}>
+                                          <td>{alokasiIndex + 1}</td>
+                                          <td className="whitespace-nowrap">{alokasi?.no_billing ?? "-"}</td>
+                                          <td className="whitespace-nowrap">{alokasi?.no_faktur ?? "-"}</td>
+                                          <td>{alokasi?.nama_customer ?? alokasi?.customer ?? "-"}</td>
+                                          <td>{alokasi?.nama_cabang ?? alokasi?.cabang ?? "-"}</td>
+                                          <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.total_invoice ?? alokasi?.total_tagihan ?? 0)}</td>
+                                          <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.saldo_piutang ?? alokasi?.sisa_tagihan ?? 0)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     ))}</tbody>
                   </table>
                 </div>
@@ -7266,29 +7598,128 @@ const TableBayarFaktur = ({
 
       {showModalAlokasiPenerimaanLain && (
         <div className="fixed inset-0 z-[600] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeModalAlokasiPenerimaanLain}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-lg">Alokasi Penerimaan</h3>
-                <p className="text-xs text-blue-100">Masukkan No Billing tujuan alokasi</p>
+                <p className="text-xs text-blue-100">{stepAlokasiPenerimaan === 1 ? "Langkah 1 dari 2 · Pilih customer" : "Langkah 2 dari 2 · Pilih billing tujuan alokasi"}</p>
               </div>
               <button type="button" onClick={closeModalAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center disabled:opacity-50"><FaTimes /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 text-sm">
-                <p className="text-gray-500 mt-2">Nominal Penerimaan</p>
-                <p className="font-semibold text-gray-800">{formatRupiah(selectedPenerimaanAlokasi?.nominal_bayar ?? selectedPenerimaanAlokasi?.nominal_pembayaran ?? selectedPenerimaanAlokasi?.nominal ?? 0)}</p>
+            <div className="p-6 space-y-5 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Nominal Penerimaan</p>
+                  <p className="font-semibold text-gray-800">{formatRupiah(selectedPenerimaanAlokasi?.nominal_bayar ?? selectedPenerimaanAlokasi?.nominal_pembayaran ?? selectedPenerimaanAlokasi?.nominal ?? 0)}</p>
+                  <p className="text-gray-500 mt-2">Sisa Penerimaan untuk Alokasi</p>
+                  <p className="font-semibold text-blue-700">{formatRupiah(selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0)}</p>
+                </div>
+                <div><p className="text-gray-500">Cabang</p><p className="font-semibold text-gray-800">{cabangOptions.find((item) => String(item.value) === String(cabangAlokasiPenerimaan))?.label || "Belum dipilih"}</p><p className="text-gray-500 mt-2">Customer dipilih</p><p className="font-semibold text-gray-800">{customerAlokasiPenerimaan.length} customer</p></div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">No Billing <span className="text-red-500">*</span></label>
-                <input type="text" value={noBillingAlokasi} onChange={(e) => setNoBillingAlokasi(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSubmitAlokasiPenerimaanLain(); }} placeholder="Masukkan No Billing" className="input input-bordered w-full bg-white rounded-xl" autoFocus />
-              </div>
+
+              {stepAlokasiPenerimaan === 1 ? (
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Cabang <span className="text-red-500">*</span></label>
+                    <Select
+                      options={cabangOptions}
+                      value={cabangOptions.find((option) => String(option.value) === String(cabangAlokasiPenerimaan)) || null}
+                      onChange={(option) => loadCustomerAlokasiPenerimaan(option?.value ?? null)}
+                      placeholder="Pilih satu cabang..."
+                      noOptionsMessage={() => "Cabang tidak tersedia"}
+                      isClearable
+                      isDisabled={isSubmittingAlokasiPenerimaanLain || loadingCustomerAlokasi}
+                      classNamePrefix="alokasi-cabang"
+                      styles={{ ...filterSelectStyles, menu: (base) => ({ ...base, zIndex: 700 }) }}
+                    />
+                    <p className="text-xs text-gray-500 mt-2">Alokasi penerimaan hanya dapat menggunakan satu cabang.</p>
+                  </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Customer <span className="text-red-500">*</span></label>
+                  <Select
+                    isMulti
+                    options={customerOptionsAlokasi}
+                    value={customerAlokasiPenerimaan}
+                    onChange={(value) => setCustomerAlokasiPenerimaan(value || [])}
+                    placeholder={!cabangAlokasiPenerimaan ? "Pilih cabang terlebih dahulu" : loadingCustomerAlokasi ? "Memuat customer..." : "Pilih satu atau beberapa customer..."}
+                    noOptionsMessage={() => !cabangAlokasiPenerimaan ? "Pilih cabang terlebih dahulu" : "Customer tidak tersedia untuk cabang ini"}
+                    closeMenuOnSelect={false}
+                    isDisabled={!cabangAlokasiPenerimaan || loadingCustomerAlokasi || isSubmittingAlokasiPenerimaanLain}
+                    classNamePrefix="alokasi-customer"
+                    styles={{ ...filterSelectStyles, menu: (base) => ({ ...base, zIndex: 700 }) }}
+                  />
+                  {loadingCustomerAlokasi && <p className="text-xs text-blue-600 mt-2">Memuat customer berdasarkan cabang...</p>}
+                  <p className="text-xs text-gray-500 mt-2">Pilih beberapa customer dari cabang yang sama. Billing akan difilter berdasarkan cabang dan customer terpilih.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Customer terpilih</label>
+                    <div className="flex flex-wrap gap-2">
+                      {customerAlokasiPenerimaan.map((customer) => <span key={String(customer.value)} className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-medium">{customer.label}</span>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Billing <span className="text-red-500">*</span></label>
+                    <Select
+                      isMulti
+                      options={billingOptionsAlokasi}
+                      value={selectedBillingAlokasi}
+                      onChange={(value) => setSelectedBillingAlokasi(value || [])}
+                      placeholder="Pilih satu atau beberapa billing..."
+                      noOptionsMessage={() => "Tidak ada billing untuk customer terpilih"}
+                      closeMenuOnSelect={false}
+                      isDisabled={isSubmittingAlokasiPenerimaanLain || loadingBillingAlokasi}
+                      classNamePrefix="alokasi-billing"
+                      styles={{ ...filterSelectStyles, menu: (base) => ({ ...base, zIndex: 700 }) }}
+                    />
+                    {loadingBillingAlokasi && <p className="text-xs text-blue-600 mt-2">Memuat billing sesuai customer...</p>}
+                    <p className="text-xs text-gray-500 mt-2">Billing diambil dari getDataBayarFaktur dan difilter sesuai cabang serta customer yang dipilih.</p>
+                  </div>
+                  {selectedBillingAlokasi.length > 0 && (() => {
+                    const nominalPenerimaan = Number(
+                      selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0
+                    ) || 0;
+                    const totalAlokasi = selectedBillingAlokasi.reduce(
+                      (sum, item) => sum + Number(item.saldo_piutang || 0),
+                      0
+                    );
+                    const sisaPenerimaan = nominalPenerimaan - totalAlokasi;
+                    const melebihiNominal = sisaPenerimaan < 0;
+                    return (
+                      <div className={`rounded-xl border p-3 text-sm ${melebihiNominal ? "border-red-200 bg-red-50" : "border-blue-100 bg-blue-50"}`}>
+                        <div className="flex justify-between gap-3">
+                          <span className={melebihiNominal ? "text-red-700" : "text-blue-700"}>Jumlah billing dipilih</span>
+                          <strong className={melebihiNominal ? "text-red-900" : "text-blue-900"}>{selectedBillingAlokasi.length}</strong>
+                        </div>
+                        <div className="flex justify-between gap-3 mt-1">
+                          <span className={melebihiNominal ? "text-red-700" : "text-blue-700"}>Total saldo billing</span>
+                          <strong className={melebihiNominal ? "text-red-900" : "text-blue-900"}>{formatRupiah(totalAlokasi)}</strong>
+                        </div>
+                        <div className="flex justify-between gap-3 mt-1">
+                          <span className={melebihiNominal ? "text-red-700" : "text-blue-700"}>Sisa penerimaan</span>
+                          <strong className={melebihiNominal ? "text-red-900" : "text-blue-900"}>{formatRupiah(sisaPenerimaan)}</strong>
+                        </div>
+                        {melebihiNominal && (
+                          <p className="mt-2 text-xs font-semibold text-red-700">
+                            Total saldo billing melebihi sisa penerimaan yang tersedia. Kurangi billing yang dipilih sebelum submit.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
-            <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3">
-              <button type="button" onClick={closeModalAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain} className="btn btn-ghost rounded-xl">Batal</button>
-              <button type="button" onClick={handleSubmitAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain || !noBillingAlokasi.trim()} className="btn btn-primary rounded-xl">
-                {isSubmittingAlokasiPenerimaanLain ? <><span className="loading loading-spinner loading-sm" /> Memproses...</> : <><FaCheckCircle /> Submit</>}
-              </button>
+            <div className="border-t bg-gray-50 px-6 py-4 flex flex-wrap justify-between gap-3 shrink-0">
+              <div>{stepAlokasiPenerimaan === 2 && <button type="button" onClick={() => setStepAlokasiPenerimaan(1)} disabled={isSubmittingAlokasiPenerimaanLain} className="btn btn-ghost rounded-xl">Kembali</button>}</div>
+              <div className="flex gap-3">
+                <button type="button" onClick={closeModalAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain} className="btn btn-ghost rounded-xl">Batal</button>
+                {stepAlokasiPenerimaan === 1 ? (
+                  <button type="button" onClick={loadBillingAlokasiPenerimaan} disabled={!cabangAlokasiPenerimaan || !customerAlokasiPenerimaan.length || loadingCustomerAlokasi || loadingBillingAlokasi} className="btn btn-primary rounded-xl">{loadingBillingAlokasi ? <><span className="loading loading-spinner loading-sm" /> Memuat...</> : <>Next <FaChevronRight /></>}</button>
+                ) : (
+                  <button type="button" onClick={handleSubmitAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain || loadingBillingAlokasi || !selectedBillingAlokasi.length || selectedBillingAlokasi.reduce((sum, item) => sum + Number(item.saldo_piutang || 0), 0) > Number(selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0)} className="btn btn-primary rounded-xl">{isSubmittingAlokasiPenerimaanLain ? <><span className="loading loading-spinner loading-sm" /> Memproses...</> : <><FaCheckCircle /> Submit Alokasi</>}</button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -7319,6 +7750,18 @@ const TableBayarFaktur = ({
             </div>
 
             <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Document Number <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={penerimaanDocumentNumber}
+                  onChange={(e) => setPenerimaanDocumentNumber(e.target.value)}
+                  placeholder="Masukkan document number"
+                  required
+                  className="input input-bordered w-full bg-white rounded-xl"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Nominal Penerimaan <span className="text-red-500">*</span></label>
                 <div className="relative">

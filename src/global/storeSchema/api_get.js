@@ -2184,6 +2184,44 @@ const n2nGetService = {
       return error.response;
     }
   },
+  getDataKreasiFaktur: async ({
+    page,
+    limit,
+    keyword = "",
+    status = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    posting_status = "ALL",
+    customer_group = "ALL",
+    principle = "ALL",
+    start_date = "",
+    end_date = "",
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataKreasiFaktur",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            status,
+            sales_office,
+            posting_status,
+            customer,
+            customer_group,
+            principle,
+            start_date,
+            end_date,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
   getListPrinciple: async ({ page, limit, sortBy = "ASC", keyword = "" }) => {
     try {
       const response = await api.get("/getListPrinciple", {
@@ -2392,6 +2430,7 @@ const n2nGetService = {
     status_verifikasi = "ALL",
     start_date = "",
     end_date = "",
+    penerimaan_lain_id,
   }) => {
     try {
       const response = await api.get(
@@ -2407,6 +2446,7 @@ const n2nGetService = {
             status_verifikasi,
             start_date,
             end_date,
+            penerimaan_lain_id
           },
         }
       );
@@ -2655,6 +2695,413 @@ const n2nGetService = {
       };
     }
   },
+  getSummaryPiutangDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+  } = {}) => {
+    try {
+      const response = await api.get("/getSummaryPiutangDashboard", {
+        params: {
+          cabang,
+          principal,
+          channel,
+          customer,
+          produk,
+          tanggal,
+        },
+        paramsSerializer: {
+          indexes: null,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET SUMMARY PIUTANG DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil summary piutang dashboard",
+          data: null,
+        }
+      );
+    }
+  },
+
+  getTrendSaldoPiutangDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getTrendSaldoPiutangDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET TREND SALDO PIUTANG DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil trend saldo piutang",
+          data: [],
+        }
+      );
+    }
+  },
+
+  getDetailPiutangDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+    page = 1,
+    limit = 10,
+    keyword = "",
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getDetailPiutangDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal,
+            page,
+            limit,
+            keyword,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DETAIL PIUTANG DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil detail piutang",
+          list_data: [],
+          total_data: 0,
+          total_halaman: 0,
+          summary: null,
+        }
+      );
+    }
+  },
+
+  getSalesOpenInvoiceDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getSalesOpenInvoiceDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET SALES OPEN INVOICE DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil data sales open invoice",
+          data: [],
+        }
+      );
+    }
+  },
+
+  getAnalisisPiutangDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getAnalisisPiutangDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET ANALISIS PIUTANG DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil analisis piutang",
+          data: null,
+        }
+      );
+    }
+  },
+
+  getCollectionByCustomerDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getCollectionByCustomerDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET COLLECTION BY CUSTOMER DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil collection per customer",
+          data: [],
+        }
+      );
+    }
+  },
+
+  getPerformaPiutangProdukDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getPerformaPiutangProdukDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET PERFORMA PIUTANG PRODUK DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil performa piutang produk",
+          data: [],
+        }
+      );
+    }
+  },
+  getSaldoAkhirJatuhTempoDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getSaldoAkhirJatuhTempoDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET SALDO AKHIR JATUH TEMPO DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message ||
+            "Gagal mengambil data saldo akhir jatuh tempo",
+          data: [],
+        }
+      );
+    }
+  },
+
+  getAgingPiutangDashboard: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getAgingPiutangDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET AGING PIUTANG DASHBOARD:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message ||
+            "Gagal mengambil data aging piutang",
+          data: [],
+        }
+      );
+    }
+  },
+
 };
 
 export default n2nGetService;
