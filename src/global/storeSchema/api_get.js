@@ -2780,6 +2780,7 @@ const n2nGetService = {
     }
   },
 
+
   getDetailPiutangDashboard: async ({
     cabang = [],
     principal = [],
@@ -2787,6 +2788,8 @@ const n2nGetService = {
     customer = [],
     produk = [],
     tanggal = null,
+    tanggal_mulai = null,
+    tanggal_akhir = null,
     page = 1,
     limit = 10,
     keyword = "",
@@ -2802,6 +2805,8 @@ const n2nGetService = {
             customer,
             produk,
             tanggal,
+            tanggal_mulai,
+            tanggal_akhir,
             page,
             limit,
             keyword,
@@ -2833,13 +2838,15 @@ const n2nGetService = {
     }
   },
 
+
   getSalesOpenInvoiceDashboard: async ({
     cabang = [],
     principal = [],
     channel = [],
     customer = [],
     produk = [],
-    tanggal = null,
+    tanggal_mulai = null,
+    tanggal_akhir = null,
   } = {}) => {
     try {
       const response = await api.get(
@@ -2851,7 +2858,8 @@ const n2nGetService = {
             channel,
             customer,
             produk,
-            tanggal,
+            tanggal_mulai,
+            tanggal_akhir,
           },
           paramsSerializer: {
             indexes: null,
