@@ -62,6 +62,7 @@ const penjualanDetailColumns = [
   { key: "Name Salesman", label: "Nama Salesman" },
   { key: "PO Number", label: "PO Number" },
   { key: "Quotation Number", label: "Quotation Number" },
+  { key: "Collection", label: "Collection", type: "currency" },
 ];
 
 const normalizePenjualanDetail = (item) => ({
@@ -243,6 +244,22 @@ const formatDate = (value) => {
   });
 };
 
+// Label tanggal acuan aging: hari terakhir bulan berjalan (dd/mm/yyyy).
+const getEndOfCurrentMonthLabel = () => {
+  const today = new Date();
+  const endOfMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0
+  );
+
+  const day = String(endOfMonth.getDate()).padStart(2, "0");
+  const month = String(endOfMonth.getMonth() + 1).padStart(2, "0");
+  const year = endOfMonth.getFullYear();
+
+  return `${day}/${month}/${year}`;
+};
+
 const addDaysToDate = (dateValue, days) => {
   if (!dateValue || days === null || days === undefined || days === "") return null;
 
@@ -304,21 +321,25 @@ const getInvoiceAmounts = (item) => {
   const ppn = firstNumber(item?.ppn);
   const pph = firstNumber(item?.pph);
   const totalInvoice = dpp + ppn;
+
   const collection = firstNumber(
     item?.collection,
     item?.dibayar,
     item?.sudah_dibayar
   );
+
   const saldoValue =
     item?.saldo_piutang !== null &&
-    item?.saldo_piutang !== undefined &&
-    item?.saldo_piutang !== ""
+      item?.saldo_piutang !== undefined &&
+      item?.saldo_piutang !== ""
       ? item.saldo_piutang
       : item?.outstanding;
+
   const hasSaldoValue =
     saldoValue !== null &&
     saldoValue !== undefined &&
     saldoValue !== "";
+
   const saldoPiutang = totalInvoice - collection;
 
   return {
@@ -329,6 +350,67 @@ const getInvoiceAmounts = (item) => {
     collection,
     saldoPiutang,
   };
+};
+
+// =====================================================
+// ALOKASI COLLECTION DETAIL PENJUALAN SECARA PROPORSIONAL
+// Dasar proporsi: DPP + PPN masing-masing detail.
+// =====================================================
+
+const getDetailCollection = (details, totalCollection, detailIndex) => {
+  const rows = Array.isArray(details) ? details : [];
+  const collection = Number(totalCollection) || 0;
+
+  if (
+    rows.length === 0 ||
+    detailIndex < 0 ||
+    detailIndex >= rows.length
+  ) {
+    return 0;
+  }
+
+  // Dasar alokasi tiap detail adalah DPP + PPN.
+  const detailAmounts = rows.map((detail) => {
+    const dpp = firstNumber(
+      detail?.["Total Penjualan"],
+      detail?.total_penjualan,
+      detail?.total_penjualan_neto,
+      detail?.dpp
+    );
+
+    const ppn = firstNumber(
+      detail?.["Tax Amount"],
+      detail?.tax_amount,
+      detail?.ppn
+    );
+
+    return Math.max(0, dpp + ppn);
+  });
+
+  const totalDetailInvoice = detailAmounts.reduce(
+    (sum, amount) => sum + amount,
+    0
+  );
+
+  if (totalDetailInvoice <= 0) return 0;
+
+  // Baris terakhir menampung sisa pembulatan agar jumlah alokasi
+  // tepat sama dengan Collection dari data utama piutang.
+  if (detailIndex === rows.length - 1) {
+    const allocatedBefore = detailAmounts
+      .slice(0, detailIndex)
+      .reduce(
+        (sum, amount) =>
+          sum + Math.round((collection * amount) / totalDetailInvoice),
+        0
+      );
+
+    return Math.round(collection) - allocatedBefore;
+  }
+
+  return Math.round(
+    (collection * detailAmounts[detailIndex]) / totalDetailInvoice
+  );
 };
 
 const getPiutangKeterangan = ({ saldoPiutang, ppn, pph }) => {
@@ -352,7 +434,6 @@ const getPiutangKeterangan = ({ saldoPiutang, ppn, pph }) => {
 
   return "Sisa Komersil";
 };
-
 // =====================================================
 // DATE HELPER
 // =====================================================
@@ -383,8 +464,7 @@ const getCalculatedDueDate = (item) => {
     return normalizeDate(item.jatuh_tempo);
   }
 
-  // Fallback:
-  // hitung dari posting_date + 7 hari
+  // Fallback: hitung dari posting_date + 7 hari
   const postingDate = normalizeDate(
     item?.posting_date ||
     item?.tanggal_faktur
@@ -396,10 +476,7 @@ const getCalculatedDueDate = (item) => {
 
   const dueDate = new Date(postingDate);
 
-  dueDate.setDate(
-    dueDate.getDate() + 7
-  );
-
+  dueDate.setDate(dueDate.getDate() + 7);
   dueDate.setHours(0, 0, 0, 0);
 
   return dueDate;
@@ -410,22 +487,17 @@ const getCalculatedDueDate = (item) => {
 // =====================================================
 
 const getDaysToDue = (item) => {
-  const dueDate =
-    getCalculatedDueDate(item);
+  const dueDate = getCalculatedDueDate(item);
 
   if (!dueDate) {
     return null;
   }
 
   const today = new Date();
-
   today.setHours(0, 0, 0, 0);
 
   return Math.ceil(
-    (
-      dueDate.getTime() -
-      today.getTime()
-    ) /
+    (dueDate.getTime() - today.getTime()) /
     (1000 * 60 * 60 * 24)
   );
 };
@@ -437,57 +509,35 @@ const getDaysToDue = (item) => {
 //    Belum ada pembayaran
 //
 // 2. BELUM_LUNAS
-//    Sudah ada pembayaran,
-//    tetapi masih ada outstanding
+//    Sudah ada pembayaran, tetapi masih ada outstanding
 //
 // 3. LUNAS
 //    Outstanding <= 0
 // =====================================================
 
 const getPiutangStatus = (item) => {
-  const { collection, saldoPiutang } = getInvoiceAmounts(item);
-  const outstanding = saldoPiutang;
+  const { collection, saldoPiutang } =
+    getInvoiceAmounts(item);
 
-  // =================================================
-  // SUDAH LUNAS
-  // =================================================
+  const outstanding = saldoPiutang;
 
   if (outstanding <= 0) {
     return "LUNAS";
   }
 
-  // =================================================
-  // BELUM ADA PEMBAYARAN
-  // =================================================
-
   if (collection <= 0) {
     return "OUTSTANDING";
   }
-
-  // =================================================
-  // SUDAH ADA PEMBAYARAN,
-  // TAPI MASIH ADA SISA
-  // =================================================
 
   return "BELUM_LUNAS";
 };
 
 // =====================================================
 // CEK AKAN JATUH TEMPO
-//
-// Hanya untuk piutang yang:
-// - belum lunas
-// - jatuh tempo > hari ini
-// - jatuh tempo <= 7 hari dari hari ini
-//
-// Catatan:
-// Jatuh tempo sendiri berasal dari:
-// posting_date + 7 hari
 // =====================================================
 
 const isAkanJatuhTempo = (item) => {
-  const status =
-    getPiutangStatus(item);
+  const status = getPiutangStatus(item);
 
   if (status === "LUNAS") {
     return false;
@@ -499,10 +549,7 @@ const isAkanJatuhTempo = (item) => {
     return false;
   }
 
-  return (
-    days >= 0 &&
-    days <= 7
-  );
+  return days >= 0 && days <= 7;
 };
 
 // =====================================================
@@ -510,8 +557,7 @@ const isAkanJatuhTempo = (item) => {
 // =====================================================
 
 const isSudahJatuhTempo = (item) => {
-  const status =
-    getPiutangStatus(item);
+  const status = getPiutangStatus(item);
 
   if (status === "LUNAS") {
     return false;
@@ -531,19 +577,11 @@ const isSudahJatuhTempo = (item) => {
 // =====================================================
 
 const renderStatus = (item) => {
-  const status =
-    getPiutangStatus(item);
+  const status = getPiutangStatus(item);
+  const akanJatuhTempo = isAkanJatuhTempo(item);
+  const sudahJatuhTempo = isSudahJatuhTempo(item);
 
-  const akanJatuhTempo =
-    isAkanJatuhTempo(item);
-
-  const sudahJatuhTempo =
-    isSudahJatuhTempo(item);
-
-  // =================================================
   // SUDAH LUNAS
-  // =================================================
-
   if (status === "LUNAS") {
     return (
       <div className="flex flex-col items-center gap-1">
@@ -555,10 +593,7 @@ const renderStatus = (item) => {
     );
   }
 
-  // =================================================
   // BELUM LUNAS
-  // =================================================
-
   if (status === "BELUM_LUNAS") {
     return (
       <div className="flex flex-col items-center gap-1">
@@ -582,10 +617,7 @@ const renderStatus = (item) => {
     );
   }
 
-  // =================================================
   // OUTSTANDING
-  // =================================================
-
   return (
     <div className="flex flex-col items-center gap-1">
       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 whitespace-nowrap">
@@ -608,40 +640,51 @@ const renderStatus = (item) => {
   );
 };
 
+// =====================================================
+// STATUS JATUH TEMPO
+// =====================================================
+
 const renderJtoStatus = (item) => {
   const daysToDue = getDaysToDue(item);
 
   if (daysToDue === null) {
-    return <span className="text-sm text-gray-400">-</span>;
+    return (
+      <span className="text-sm text-gray-400">
+        -
+      </span>
+    );
   }
 
-  const status = daysToDue < 0
-    ? {
-        label: "Sudah JTO",
-        icon: FaExclamationCircle,
-        className: "bg-red-100 text-red-700",
-      }
-    : daysToDue <= 7
+  const status =
+    daysToDue < 0
       ? {
-          label: "Akan JTO",
-          icon: FaClock,
-          className: "bg-yellow-100 text-yellow-700",
+          label: "Sudah JTO",
+          icon: FaExclamationCircle,
+          className: "bg-red-100 text-red-700",
         }
-      : {
-          label: "Belum JTO",
-          icon: FaClock,
-          className: "bg-blue-100 text-blue-700",
-        };
+      : daysToDue <= 7
+        ? {
+            label: "Akan JTO",
+            icon: FaClock,
+            className: "bg-yellow-100 text-yellow-700",
+          }
+        : {
+            label: "Belum JTO",
+            icon: FaClock,
+            className: "bg-blue-100 text-blue-700",
+          };
+
   const StatusIcon = status.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${status.className}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${status.className}`}
+    >
       <StatusIcon />
       {status.label}
     </span>
   );
 };
-
 // =====================================================
 // COMPONENT
 // =====================================================
@@ -890,9 +933,9 @@ const TableDataPiutang = ({
         const listData = Array.isArray(responseData)
           ? responseData
           : responseData?.list_data ||
-            responseData?.data ||
-            responseData?.rows ||
-            [];
+          responseData?.data ||
+          responseData?.rows ||
+          [];
 
         const customerOptions = listData
           .map((item) => {
@@ -1334,7 +1377,7 @@ const TableDataPiutang = ({
   // ===================================================
 
   return (
-    <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
 
       {/* ================================================= */}
       {/* SEARCH + FILTER */}
@@ -1346,6 +1389,7 @@ const TableDataPiutang = ({
 
           <div className="flex items-center w-full lg:w-[460px] h-12 px-2 border border-gray-300 rounded-full bg-white shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
             <FaSearch className="ml-3 shrink-0 text-base text-gray-400" />
+
             <input
               type="text"
               placeholder="Cari billing / customer / sales..."
@@ -1404,6 +1448,7 @@ const TableDataPiutang = ({
             <label className="mb-1 block text-xs font-medium text-gray-600">
               Cabang
             </label>
+
             <Select
               isMulti
               options={options?.cabang || []}
@@ -1425,6 +1470,7 @@ const TableDataPiutang = ({
             <label className="mb-1 block text-xs font-medium text-gray-600">
               Channel
             </label>
+
             <Select
               isMulti
               options={options?.channel || []}
@@ -1445,6 +1491,7 @@ const TableDataPiutang = ({
             <label className="mb-1 block text-xs font-medium text-gray-600">
               Principle
             </label>
+
             <Select
               isMulti
               options={options?.principle || []}
@@ -1465,6 +1512,7 @@ const TableDataPiutang = ({
             <label className="mb-1 block text-xs font-medium text-gray-600">
               Customer
             </label>
+
             <Select
               isMulti
               isDisabled={!filterCabang.length}
@@ -1495,6 +1543,7 @@ const TableDataPiutang = ({
             <label className="mb-1 block text-xs font-medium text-gray-600">
               Document Date
             </label>
+
             <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
               <FaCalendarAlt className="text-primary text-sm" />
 
@@ -1565,9 +1614,7 @@ const TableDataPiutang = ({
             </div>
 
             <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
-
               <FaFileInvoiceDollar className="text-blue-600" />
-
             </div>
 
           </div>
@@ -1599,9 +1646,7 @@ const TableDataPiutang = ({
             </div>
 
             <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-
               <FaCheckCircle className="text-green-600" />
-
             </div>
 
           </div>
@@ -1636,9 +1681,7 @@ const TableDataPiutang = ({
             </div>
 
             <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center">
-
               <FaMoneyBillWave className="text-purple-600" />
-
             </div>
 
           </div>
@@ -1673,9 +1716,7 @@ const TableDataPiutang = ({
             </div>
 
             <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-
               <FaClock className="text-green-600" />
-
             </div>
 
           </div>
@@ -1710,9 +1751,7 @@ const TableDataPiutang = ({
             </div>
 
             <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
-
               <FaClock className="text-yellow-600" />
-
             </div>
 
           </div>
@@ -1747,9 +1786,7 @@ const TableDataPiutang = ({
             </div>
 
             <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center">
-
               <FaExclamationCircle className="text-red-600" />
-
             </div>
 
           </div>
@@ -1757,6 +1794,7 @@ const TableDataPiutang = ({
         </div>
 
       </div>
+
       {/* ================================================= */}
       {/* TABLE */}
       {/* ================================================= */}
@@ -1769,10 +1807,8 @@ const TableDataPiutang = ({
             : ""
         }
       >
-
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-
-          <div className="relative overflow-auto rounded-2xl max-h-[65vh]">
+                    <div className="relative overflow-auto rounded-2xl max-h-[65vh]">
 
             {/* ============================================= */}
             {/* LOADING */}
@@ -1780,17 +1816,12 @@ const TableDataPiutang = ({
 
             {loading && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-
                 <div className="flex flex-col items-center gap-3">
-
                   <span className="loading loading-spinner loading-lg text-primary" />
-
                   <span className="text-sm text-gray-600">
                     Memuat data piutang...
                   </span>
-
                 </div>
-
               </div>
             )}
 
@@ -1799,14 +1830,15 @@ const TableDataPiutang = ({
             {/* ============================================= */}
 
             <table className="table w-full">
-
               <thead className="bg-primary text-white sticky top-0 text-[13px] z-10">
-
                 <tr>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Aksi</th>
                   <th className="px-4 py-3 whitespace-nowrap">No. Billing</th>
                   <th className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2"><FaCalendarAlt />Document Date</div>
+                    <div className="flex items-center gap-2">
+                      <FaCalendarAlt />
+                      Document Date
+                    </div>
                   </th>
                   <th className="px-4 py-3 whitespace-nowrap">Document Type</th>
                   <th className="px-4 py-3 whitespace-nowrap">Kode Customer</th>
@@ -1818,7 +1850,10 @@ const TableDataPiutang = ({
                   <th className="px-4 py-3 whitespace-nowrap">Lini</th>
                   <th className="px-4 py-3 whitespace-nowrap">TOP</th>
                   <th className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2"><FaCalendarAlt />Jatuh Tempo</div>
+                    <div className="flex items-center gap-2">
+                      <FaCalendarAlt />
+                      Jatuh Tempo
+                    </div>
                   </th>
                   <th className="px-4 py-3 whitespace-nowrap text-right">DPP</th>
                   <th className="px-4 py-3 whitespace-nowrap text-right">PPN</th>
@@ -1828,26 +1863,29 @@ const TableDataPiutang = ({
                   <th className="px-4 py-3 whitespace-nowrap text-right">Saldo Piutang</th>
                   <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Umur Piutang</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Aging Standar</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">
+                    {getEndOfCurrentMonthLabel()}
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Aging TOP</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">
+                    {getEndOfCurrentMonthLabel()}
+                  </th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
                 </tr>
-
               </thead>
 
               <tbody>
-
                 {/* ========================================= */}
                 {/* EMPTY DATA */}
                 {/* ========================================= */}
 
                 {tableData.length === 0 ? (
-
                   <tr>
-
                     <td
-                      colSpan={22}
+                      colSpan={26}
                       className="text-center py-16 text-gray-500"
                     >
-
                       <FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" />
 
                       <p className="font-medium">
@@ -1857,77 +1895,55 @@ const TableDataPiutang = ({
                       <p className="text-xs text-gray-400 mt-1">
                         Silakan ubah filter atau kata pencarian
                       </p>
-
                     </td>
-
                   </tr>
-
                 ) : (
-
                   /* ========================================= */
                   /* DATA */
                   /* ========================================= */
 
-                  tableData.map(
-                    (item, index) => {
+                  tableData.map((item, index) => {
+                    const rowKey = `${item?.billing_no || item?.no_billing || "billing"}-${item?.customer || "customer"}-${index}`;
+                    const invoiceAmounts = getInvoiceAmounts(item);
+                    const keterangan = getPiutangKeterangan(invoiceAmounts);
 
-                      const rowKey = `${item?.billing_no || item?.no_billing || "billing"}-${item?.customer || "customer"}-${index}`;
-                      const invoiceAmounts = getInvoiceAmounts(item);
-                      const keterangan = getPiutangKeterangan(invoiceAmounts);
-
-                      return (
-                        <React.Fragment key={rowKey}>
+                    return (
+                      <React.Fragment key={rowKey}>
                         <tr className="border-b hover:bg-blue-50 transition duration-200">
                           <td className="px-3 py-3 text-center">
                             <button
                               type="button"
                               onClick={() => handleExpandPenjualan(item, rowKey)}
-                              title={expandedRows[rowKey] ? "Tutup detail penjualan" : "Lihat detail penjualan"}
-                              aria-label={expandedRows[rowKey] ? "Tutup detail penjualan" : "Lihat detail penjualan"}
-                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${expandedRows[rowKey] ? "border-blue-200 bg-blue-100 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"}`}
+                              title={
+                                expandedRows[rowKey]
+                                  ? "Tutup detail penjualan"
+                                  : "Lihat detail penjualan"
+                              }
+                              aria-label={
+                                expandedRows[rowKey]
+                                  ? "Tutup detail penjualan"
+                                  : "Lihat detail penjualan"
+                              }
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                expandedRows[rowKey]
+                                  ? "border-blue-200 bg-blue-100 text-blue-700"
+                                  : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                              }`}
                             >
-                              {expandedRows[rowKey] ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                              {expandedRows[rowKey]
+                                ? <FaChevronUp size={12} />
+                                : <FaChevronDown size={12} />}
                             </button>
                           </td>
 
-
-
-                          {/* ================================= */}
-                          {/* NO */}
-                          {/* ================================= */}
-
-                          {/* <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {rowNumber}
-                          </td> */}
-
-                          {/* ================================= */}
-                          {/* BILLING */}
-                          {/* ================================= */}
-
                           <td className="px-4 py-3 whitespace-nowrap">
-
                             <p className="font-semibold text-gray-700">
                               {displayValue(
                                 item?.billing_no ??
                                 item?.no_billing
                               )}
                             </p>
-
                           </td>
-
-                          {/* ================================= */}
-                          {/* NO FAKTUR */}
-                          {/* ================================= */}
-
-                          {/* <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {displayValue(
-                              item?.no_faktur
-                            )}
-                          </td> */}
-
-                          {/* ================================= */}
-                          {/* TANGGAL FAKTUR */}
-                          {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -1944,14 +1960,8 @@ const TableDataPiutang = ({
                           </td>
 
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {displayValue(
-                              item?.document_type
-                            )}
+                            {displayValue(item?.document_type)}
                           </td>
-
-                          {/* ================================= */}
-                          {/* KODE CUSTOMER */}
-                          {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
@@ -1960,34 +1970,19 @@ const TableDataPiutang = ({
                               </div>
 
                               <span className="font-semibold text-gray-700 text-sm">
-                                {displayValue(
-                                  item?.customer
-                                )}
+                                {displayValue(item?.customer)}
                               </span>
                             </div>
                           </td>
 
-                          {/* ================================= */}
-                          {/* NAMA CUSTOMER */}
-                          {/* ================================= */}
-
                           <td className="px-4 py-3 min-w-[220px]">
                             <p
                               className="font-semibold text-gray-700 text-sm truncate max-w-[240px]"
-                              title={String(
-                                item?.customer_name ||
-                                "-"
-                              )}
+                              title={String(item?.customer_name || "-")}
                             >
-                              {displayValue(
-                                item?.customer_name
-                              )}
+                              {displayValue(item?.customer_name)}
                             </p>
                           </td>
-
-                          {/* ================================= */}
-                          {/* KODE SALES */}
-                          {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
@@ -1996,68 +1991,36 @@ const TableDataPiutang = ({
                               </div>
 
                               <span className="font-semibold text-gray-700 text-sm">
-                                {displayValue(
-                                  item?.sales
-                                )}
+                                {displayValue(item?.sales)}
                               </span>
                             </div>
                           </td>
 
-                          {/* ================================= */}
-                          {/* NAMA SALES */}
-                          {/* ================================= */}
-
                           <td className="px-4 py-3 min-w-[200px]">
                             <p className="font-semibold text-gray-700 text-sm truncate max-w-[220px]">
-                              {displayValue(
-                                item?.nama_sales
-                              )}
+                              {displayValue(item?.nama_sales)}
                             </p>
                           </td>
 
-                          {/* ================================= */}
-                          {/* PROFIT CENTER */}
-                          {/* ================================= */}
-
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className="font-semibold text-gray-700 text-sm">
-                              {displayValue(
-                                item?.cabang
-                              )}
+                              {displayValue(item?.cabang)}
                             </span>
                           </td>
-
-                          {/* ================================= */}
-                          {/* CABANG */}
-                          {/* ================================= */}
 
                           <td className="px-4 py-3 min-w-[180px]">
                             <span className="font-semibold text-gray-700 text-sm">
-                              {displayValue(
-                                item?.name_cabang || ''
-                              )}
+                              {displayValue(item?.name_cabang || "")}
                             </span>
                           </td>
-
-                          {/* ================================= */}
-                          {/* LINI */}
-                          {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                             {displayValue(item?.lini)}
                           </td>
 
-                          {/* ================================= */}
-                          {/* TOP */}
-                          {/* ================================= */}
-
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                             {formatTOP(item?.top)}
                           </td>
-
-                          {/* ================================= */}
-                          {/* JATUH TEMPO */}
-                          {/* ================================= */}
 
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -2103,7 +2066,13 @@ const TableDataPiutang = ({
 
                           {/* SALDO PIUTANG */}
                           <td className="px-4 py-3 whitespace-nowrap text-right">
-                            <span className={`font-bold ${invoiceAmounts.saldoPiutang > 0 ? "text-red-600" : "text-gray-500"}`}>
+                            <span
+                              className={`font-bold ${
+                                invoiceAmounts.saldoPiutang > 0
+                                  ? "text-red-600"
+                                  : "text-gray-500"
+                              }`}
+                            >
                               {formatRupiah(invoiceAmounts.saldoPiutang)}
                             </span>
                           </td>
@@ -2113,77 +2082,120 @@ const TableDataPiutang = ({
                             {keterangan}
                           </td>
 
-                          {/* ================================= */}
                           {/* AGING */}
-                          {/* ================================= */}
-
                           <td className="px-4 py-3 whitespace-nowrap text-center">
-
-                            {Number(
-                              item?.aging ||
-                              0
-                            ) <= 0 ? (
-
+                            {Number(item?.aging || 0) <= 0 ? (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-green-50 text-green-600 text-xs font-semibold">
-
                                 Current
-
                               </span>
-
                             ) : (
-
                               <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${Number(
-                                  item?.aging ||
-                                  0
-                                ) <= 7
-                                  ? "bg-yellow-50 text-yellow-600"
-                                  : Number(
-                                    item?.aging ||
-                                    0
-                                  ) <= 30
-                                    ? "bg-orange-50 text-orange-600"
-                                    : "bg-red-50 text-red-600"
-                                  }`}
+                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                  Number(item?.aging || 0) <= 7
+                                    ? "bg-yellow-50 text-yellow-600"
+                                    : Number(item?.aging || 0) <= 30
+                                      ? "bg-orange-50 text-orange-600"
+                                      : "bg-red-50 text-red-600"
+                                }`}
                               >
-
-                                {formatNumber(
-                                  item?.aging
-                                )}{" "}
-                                Hari
-
+                                {formatNumber(item?.aging)} Hari
                               </span>
-
                             )}
-
                           </td>
 
-                          {/* ================================= */}
-                          {/* STATUS */}
-                          {/* ================================= */}
+                          {/* AGING STANDAR: JUMLAH HARI */}
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                              {item?.aging_standar === null ||
+                              item?.aging_standar === undefined ||
+                              item?.aging_standar === ""
+                                ? "-"
+                                : `${formatNumber(item.aging_standar)} Hari`}
+                            </span>
+                          </td>
 
+                          {/* KELOMPOK AGING STANDAR PER AKHIR BULAN */}
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            {item?.ur_aging_standar ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold">
+                                {item.ur_aging_standar}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+
+                          {/* AGING TOP: JUMLAH HARI */}
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                Number(item?.aging_top) > 0
+                                  ? "bg-red-50 text-red-700"
+                                  : Number(item?.aging_top) < 0
+                                    ? "bg-green-50 text-green-700"
+                                    : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
+                              {item?.aging_top === null ||
+                              item?.aging_top === undefined ||
+                              item?.aging_top === ""
+                                ? "-"
+                                : `${formatNumber(item.aging_top)} Hari`}
+                            </span>
+                          </td>
+
+                          {/* KELOMPOK AGING TOP PER AKHIR BULAN */}
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            {item?.ur_aging_top ? (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                  item.ur_aging_top === "Belum JTO"
+                                    ? "bg-green-50 text-green-700"
+                                    : item.ur_aging_top === ">360"
+                                      ? "bg-red-50 text-red-700"
+                                      : "bg-purple-50 text-purple-700"
+                                }`}
+                              >
+                                {item.ur_aging_top}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+
+                          {/* STATUS */}
                           <td className="px-4 py-3 whitespace-nowrap text-center">
                             {renderJtoStatus(item)}
                           </td>
-
                         </tr>
+
+                        {/* DETAIL DATA PENJUALAN */}
                         {expandedRows[rowKey] && (
                           <tr className="border-b border-blue-100 bg-slate-50">
-                            <td colSpan={22} className="p-0">
+                            <td colSpan={26} className="p-0">
                               <div className="border-l-4 border-blue-500 px-4 py-4">
                                 <div className="mb-3 flex items-center justify-between gap-3">
                                   <div>
-                                    <p className="font-semibold text-gray-800">Detail Data Penjualan</p>
-                                    <p className="text-xs text-gray-500">No. Billing: {displayValue(item?.no_billing || item?.billing_no)}</p>
+                                    <p className="font-semibold text-gray-800">
+                                      Detail Data Penjualan
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      No. Billing: {displayValue(item?.no_billing || item?.billing_no)}
+                                    </p>
                                   </div>
+
                                   {loadingPenjualanDetails[rowKey] && (
                                     <span className="inline-flex items-center gap-2 text-sm text-blue-600">
-                                      <FaSpinner className="animate-spin" /> Memuat detail...
+                                      <FaSpinner className="animate-spin" />
+                                      Memuat detail...
                                     </span>
                                   )}
                                 </div>
+
                                 {loadingPenjualanDetails[rowKey] ? (
-                                  <div className="py-8 text-center text-sm text-gray-500">Sedang mengambil data penjualan dari API...</div>
+                                  <div className="py-8 text-center text-sm text-gray-500">
+                                    Sedang mengambil data penjualan dari API...
+                                  </div>
                                 ) : (penjualanDetails[rowKey] || []).length === 0 ? (
                                   <div className="rounded-xl border border-dashed border-gray-300 bg-white py-8 text-center text-sm text-gray-500">
                                     Data penjualan untuk billing ini tidak ditemukan.
@@ -2194,26 +2206,93 @@ const TableDataPiutang = ({
                                       <thead className="sticky top-0 z-[1] bg-blue-50 text-gray-700">
                                         <tr>
                                           {penjualanDetailColumns.map((column) => (
-                                            <th key={column.key} className="whitespace-nowrap px-3 py-2 text-xs">{column.label}</th>
+                                            <th
+                                              key={column.key}
+                                              className="whitespace-nowrap px-3 py-2 text-xs"
+                                            >
+                                              {column.label}
+                                            </th>
                                           ))}
                                         </tr>
                                       </thead>
+
                                       <tbody>
                                         {penjualanDetails[rowKey].map((detail, detailIndex) => (
-                                          <tr key={`${detail?.["Billing No"] || rowKey}-${detail?.Material || detail?.material || detailIndex}-${detailIndex}`} className="border-b last:border-b-0 hover:bg-blue-50/60">
+                                          <tr
+                                            key={`${detail?.["Billing No"] || rowKey}-${detail?.Material || detail?.material || detailIndex}-${detailIndex}`}
+                                            className="border-b last:border-b-0 hover:bg-blue-50/60"
+                                          >
                                             {penjualanDetailColumns.map((column) => {
                                               const totalPenjualan = Number(detail?.["Total Penjualan"] || 0);
                                               const totalCOGS = Number(detail?.["Total COGS"] || 0);
                                               let value = detail?.[column.key];
-                                              if (column.key === "Tanggal Jatuh Tempo") value = getTanggalJatuhTempoPenjualan(detail);
-                                              if (column.key === "TOP") value = detail?.["TOP"] ?? detail?.top ?? detail?.top_days ?? detail?.term_of_payment;
-                                              if (column.key === "PPh") value = totalPenjualan * 0.015;
-                                              if (column.key === "Persentase COGS") value = totalPenjualan !== 0 ? (totalCOGS / totalPenjualan) * 100 : 0;
-                                              if (column.key === "Margin") value = totalPenjualan - totalCOGS;
-                                              if (column.key === "Persentase Margin") value = totalPenjualan !== 0 ? ((totalPenjualan - totalCOGS) / totalPenjualan) * 100 : 0;
+
+                                              if (column.key === "Tanggal Jatuh Tempo") {
+                                                value = getTanggalJatuhTempoPenjualan(detail);
+                                              }
+
+                                              if (column.key === "TOP") {
+                                                value = detail?.["TOP"] ?? detail?.top ?? detail?.top_days ?? detail?.term_of_payment;
+                                              }
+
+                                              if (column.key === "PPh") {
+                                                value = totalPenjualan * 0.015;
+                                              }
+
+                                              if (column.key === "Persentase COGS") {
+                                                value = totalPenjualan !== 0
+                                                  ? (totalCOGS / totalPenjualan) * 100
+                                                  : 0;
+                                              }
+
+                                              if (column.key === "Margin") {
+                                                value = totalPenjualan - totalCOGS;
+                                              }
+
+                                              if (column.key === "Persentase Margin") {
+                                                value = totalPenjualan !== 0
+                                                  ? ((totalPenjualan - totalCOGS) / totalPenjualan) * 100
+                                                  : 0;
+                                              }
+
+                                              // COLLECTION DETAIL:
+                                              // Alokasi proporsional berdasarkan DPP + PPN.
+                                              // Sisa pembulatan dialokasikan ke baris terakhir.
+                                              if (column.key === "Collection") {
+                                                // Ambil Collection dari data utama piutang,
+                                                // bukan dari API detail penjualan.
+                                                const collectionInduk = firstNumber(
+                                                  item?.collection,
+                                                  item?.Collection,
+                                                  item?.["Collection"],
+                                                  item?.dibayar,
+                                                  item?.sudah_dibayar,
+                                                  item?.total_dibayar
+                                                );
+
+                                                value = getDetailCollection(
+                                                  penjualanDetails[rowKey],
+                                                  collectionInduk,
+                                                  detailIndex
+                                                );
+                                              }
+
                                               return (
-                                                <td key={column.key} className="whitespace-nowrap px-3 py-2 text-xs text-gray-700">
-                                                  {column.type === "currency" ? formatRupiah(value) : column.type === "number" ? formatNumber(value) : column.type === "percent" ? `${formatNumber(value)}%` : column.type === "date" ? formatDate(value) : column.type === "top" ? formatTOP(value) : displayValue(value)}
+                                                <td
+                                                  key={column.key}
+                                                  className="whitespace-nowrap px-3 py-2 text-xs text-gray-700"
+                                                >
+                                                  {column.type === "currency"
+                                                    ? formatRupiah(value)
+                                                    : column.type === "number"
+                                                      ? formatNumber(value)
+                                                      : column.type === "percent"
+                                                        ? `${formatNumber(value)}%`
+                                                        : column.type === "date"
+                                                          ? formatDate(value)
+                                                          : column.type === "top"
+                                                            ? formatTOP(value)
+                                                            : displayValue(value)}
                                                 </td>
                                               );
                                             })}
@@ -2227,21 +2306,14 @@ const TableDataPiutang = ({
                             </td>
                           </tr>
                         )}
-                        </React.Fragment>
-                      );
-
-                    }
-                  )
-
+                      </React.Fragment>
+                    );
+                  })
                 )}
-
               </tbody>
-
             </table>
-
           </div>
-
-          {/* ================================================= */}
+                    {/* ================================================= */}
           {/* FOOTER / PAGINATION */}
           {/* ================================================= */}
 
@@ -2293,7 +2365,6 @@ const TableDataPiutang = ({
                     className="select select-bordered select-sm rounded-full bg-white"
                     value={perPage}
                     onChange={(e) => {
-
                       setCurrentPage(1);
 
                       setPerPage(
@@ -2302,25 +2373,13 @@ const TableDataPiutang = ({
                           10
                         )
                       );
-
                     }}
                   >
 
-                    <option value="5">
-                      5
-                    </option>
-
-                    <option value="10">
-                      10
-                    </option>
-
-                    <option value="25">
-                      25
-                    </option>
-
-                    <option value="50">
-                      50
-                    </option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
 
                   </select>
 
@@ -2339,9 +2398,7 @@ const TableDataPiutang = ({
                   previousLabel="←"
                   nextLabel="→"
 
-                  pageCount={
-                    totalPage
-                  }
+                  pageCount={totalPage}
 
                   onPageChange={(e) =>
                     setCurrentPage(
@@ -2418,9 +2475,7 @@ const TableDataPiutang = ({
                   <div className="flex items-center gap-3">
 
                     <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-
                       <FaFileInvoiceDollar />
-
                     </div>
 
                     <div>
@@ -2430,13 +2485,10 @@ const TableDataPiutang = ({
                       </h3>
 
                       <p className="text-xs text-blue-100">
-
                         No. Billing:{" "}
-
                         {displayValue(
                           selectedData?.billing_no
                         )}
-
                       </p>
 
                     </div>
@@ -2445,14 +2497,10 @@ const TableDataPiutang = ({
 
                   <button
                     type="button"
-                    onClick={
-                      closeDetail
-                    }
+                    onClick={closeDetail}
                     className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"
                   >
-
                     <FaTimes />
-
                   </button>
 
                 </div>
@@ -2476,11 +2524,9 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700 break-words">
-
                       {displayValue(
                         selectedData?.billing_no
                       )}
-
                     </p>
 
                   </div>
@@ -2494,19 +2540,15 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700 break-words">
-
                       {displayValue(
                         selectedData?.name_bill_to
                       )}
-
                     </p>
 
                     <p className="text-xs text-gray-400 mt-1">
-
                       {displayValue(
                         selectedData?.bill_to_party
                       )}
-
                     </p>
 
                   </div>
@@ -2520,19 +2562,15 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700 break-words">
-
                       {displayValue(
                         selectedData?.name_salesman
                       )}
-
                     </p>
 
                     <p className="text-xs text-gray-400 mt-1">
-
                       {displayValue(
                         selectedData?.salesman
                       )}
-
                     </p>
 
                   </div>
@@ -2546,19 +2584,15 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700 break-words">
-
                       {displayValue(
                         selectedData?.desc_s_office
                       )}
-
                     </p>
 
                     <p className="text-xs text-gray-400 mt-1">
-
                       {displayValue(
                         selectedData?.sales_office
                       )}
-
                     </p>
 
                   </div>
@@ -2572,11 +2606,9 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700 break-words">
-
                       {displayValue(
                         selectedData?.desc_cust_grp4
                       )}
-
                     </p>
 
                   </div>
@@ -2590,19 +2622,15 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700 break-words">
-
                       {displayValue(
                         selectedData?.name_principle
                       )}
-
                     </p>
 
                     <p className="text-xs text-gray-400 mt-1">
-
                       {displayValue(
                         selectedData?.principle
                       )}
-
                     </p>
 
                   </div>
@@ -2616,11 +2644,9 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-gray-700">
-
                       {formatDate(
                         selectedData?.posting_date
                       )}
-
                     </p>
 
                   </div>
@@ -2634,59 +2660,53 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="font-semibold text-yellow-700">
-
                       {formatDate(
                         selectedData?.jatuh_tempo
                       )}
-
                     </p>
 
                     {getDaysToDue(
                       selectedData
                     ) !== null && (
 
-                        <p className="text-xs mt-1">
+                      <p className="text-xs mt-1">
 
-                          {getDaysToDue(
-                            selectedData
-                          ) > 0 ? (
+                        {getDaysToDue(
+                          selectedData
+                        ) > 0 ? (
 
-                            <span className="text-yellow-600">
+                          <span className="text-yellow-600">
+                            {getDaysToDue(
+                              selectedData
+                            )}{" "}
+                            hari lagi
+                          </span>
 
-                              {getDaysToDue(
+                        ) : getDaysToDue(
+                          selectedData
+                        ) === 0 ? (
+
+                          <span className="text-red-600 font-semibold">
+                            Jatuh tempo hari ini
+                          </span>
+
+                        ) : (
+
+                          <span className="text-red-600">
+                            Terlambat{" "}
+                            {Math.abs(
+                              getDaysToDue(
                                 selectedData
-                              )}{" "}
-                              hari lagi
+                              )
+                            )}{" "}
+                            hari
+                          </span>
 
-                            </span>
+                        )}
 
-                          ) : getDaysToDue(
-                            selectedData
-                          ) === 0 ? (
+                      </p>
 
-                            <span className="text-red-600 font-semibold">
-                              Jatuh tempo hari ini
-                            </span>
-
-                          ) : (
-
-                            <span className="text-red-600">
-
-                              Terlambat{" "}
-                              {Math.abs(
-                                getDaysToDue(
-                                  selectedData
-                                )
-                              )}{" "}
-                              hari
-
-                            </span>
-
-                          )}
-
-                        </p>
-
-                      )}
+                    )}
 
                   </div>
 
@@ -2699,11 +2719,9 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="text-lg font-bold text-blue-700">
-
                       {formatRupiah(
                         selectedData?.total_piutang
                       )}
-
                     </p>
 
                   </div>
@@ -2717,12 +2735,10 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="text-lg font-bold text-green-600">
-
                       {formatRupiah(
                         selectedData?.dibayar ??
                         selectedData?.sudah_dibayar
                       )}
-
                     </p>
 
                   </div>
@@ -2736,11 +2752,9 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="text-lg font-bold text-red-600">
-
                       {formatRupiah(
                         selectedData?.outstanding
                       )}
-
                     </p>
 
                   </div>
@@ -2754,12 +2768,10 @@ const TableDataPiutang = ({
                     </p>
 
                     <p className="text-lg font-bold text-gray-700">
-
                       {formatNumber(
                         selectedData?.aging
                       )}{" "}
                       Hari
-
                     </p>
 
                   </div>
@@ -2788,54 +2800,43 @@ const TableDataPiutang = ({
                   selectedData
                 ) && (
 
-                    <div className="mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-100">
+                  <div className="mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-100">
 
-                      <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3">
 
-                        <FaClock className="text-yellow-600 mt-0.5" />
+                      <FaClock className="text-yellow-600 mt-0.5" />
 
-                        <div>
+                      <div>
 
-                          <p className="text-xs font-semibold text-yellow-700">
+                        <p className="text-xs font-semibold text-yellow-700">
+                          Akan Jatuh Tempo
+                        </p>
 
-                            Akan Jatuh Tempo
+                        <p className="text-xs text-yellow-600 mt-1">
+                          Piutang ini akan jatuh tempo dalam{" "}
 
-                          </p>
+                          <strong>
+                            {getDaysToDue(
+                              selectedData
+                            )}{" "}
+                            hari
+                          </strong>.
+                        </p>
 
-                          <p className="text-xs text-yellow-600 mt-1">
-
-                            Piutang ini akan jatuh tempo dalam{" "}
-
-                            <strong>
-
-                              {getDaysToDue(
-                                selectedData
-                              )}{" "}
-                              hari
-
-                            </strong>
-
-                            .
-
-                          </p>
-
-                          <p className="text-[11px] text-yellow-600 mt-1">
-
-                            Jatuh tempo dihitung{" "}
-                            <strong>
-                              7 hari setelah tanggal faktur
-                            </strong>
-                            .
-
-                          </p>
-
-                        </div>
+                        <p className="text-[11px] text-yellow-600 mt-1">
+                          Jatuh tempo dihitung{" "}
+                          <strong>
+                            7 hari setelah tanggal faktur
+                          </strong>.
+                        </p>
 
                       </div>
 
                     </div>
 
-                  )}
+                  </div>
+
+                )}
 
                 {/* ========================================= */}
                 {/* INFO SUDAH JATUH TEMPO */}
@@ -2845,43 +2846,36 @@ const TableDataPiutang = ({
                   selectedData
                 ) && (
 
-                    <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-100">
+                  <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-100">
 
-                      <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3">
 
-                        <FaExclamationCircle className="text-red-600 mt-0.5" />
+                      <FaExclamationCircle className="text-red-600 mt-0.5" />
 
-                        <div>
+                      <div>
 
-                          <p className="text-xs font-semibold text-red-700">
+                        <p className="text-xs font-semibold text-red-700">
+                          Sudah Jatuh Tempo
+                        </p>
 
-                            Sudah Jatuh Tempo
+                        <p className="text-xs text-red-600 mt-1">
+                          Piutang ini sudah melewati tanggal jatuh tempo.
+                        </p>
 
-                          </p>
-
-                          <p className="text-xs text-red-600 mt-1">
-
-                            Piutang ini sudah melewati tanggal jatuh tempo.
-
-                          </p>
-
-                          <p className="text-[11px] text-red-600 mt-1">
-
-                            Jatuh tempo dihitung{" "}
-                            <strong>
-                              7 hari setelah tanggal faktur
-                            </strong>
-                            .
-
-                          </p>
-
-                        </div>
+                        <p className="text-[11px] text-red-600 mt-1">
+                          Jatuh tempo dihitung{" "}
+                          <strong>
+                            7 hari setelah tanggal faktur
+                          </strong>.
+                        </p>
 
                       </div>
 
                     </div>
 
-                  )}
+                  </div>
+
+                )}
 
               </div>
 
@@ -2893,14 +2887,10 @@ const TableDataPiutang = ({
 
                 <button
                   type="button"
-                  onClick={
-                    closeDetail
-                  }
+                  onClick={closeDetail}
                   className="px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90"
                 >
-
                   Tutup
-
                 </button>
 
               </div>
