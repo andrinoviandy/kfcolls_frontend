@@ -73,6 +73,24 @@ const formatDate = (
 };
 
 
+// Ambil URL dokumen jawaban dari field jawaban (string atau object).
+const getJawabanUrl = (jawaban) => {
+  if (typeof jawaban === "string") return jawaban.trim();
+  if (jawaban && typeof jawaban === "object") {
+    const value =
+      jawaban.url ??
+      jawaban.file_url ??
+      jawaban.document_url ??
+      jawaban.path ??
+      jawaban.href ??
+      jawaban.link ??
+      "";
+    return typeof value === "string" ? value.trim() : "";
+  }
+  return "";
+};
+
+
 // =====================================================
 // FORMAT CURRENCY
 // =====================================================
@@ -1897,6 +1915,10 @@ const TableListKonfirmasiPiutang = ({
       icon: <FaCalendarAlt />,
     },
     {
+      label: "Jawaban",
+      icon: <FaFileAlt />,
+    },
+    {
       label: "Tgl Rencana Pembayaran",
       icon: <FaCalendarAlt />,
     },
@@ -2883,6 +2905,24 @@ const TableListKonfirmasiPiutang = ({
                               </div>
                             </td>
 
+                            {/* DOKUMEN JAWABAN */}
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              {getJawabanUrl(v.jawaban) ? (
+                                <a
+                                  href={getJawabanUrl(v.jawaban)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                                  title="Buka dokumen jawaban di tab baru"
+                                >
+                                  <FaFileAlt />
+                                  Lihat Jawaban
+                                </a>
+                              ) : (
+                                <span className="text-sm text-gray-400">-</span>
+                              )}
+                            </td>
+
                             {/* TANGGAL Rencana Bayar */}
 
                             <td className="px-4 py-2 whitespace-nowrap">
@@ -3789,6 +3829,32 @@ const TableListKonfirmasiPiutang = ({
                   </div>
 
 
+                  {/* DOKUMEN JAWABAN */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600">
+                        <FaFileAlt />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="mb-1 text-xs text-gray-500">Dokumen Jawaban</p>
+                        {getJawabanUrl(selectedData.jawaban) ? (
+                          <a
+                            href={getJawabanUrl(selectedData.jawaban)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 break-all text-sm font-semibold text-blue-700 hover:underline"
+                            title="Buka dokumen jawaban di tab baru"
+                          >
+                            <FaEye className="shrink-0" />
+                            Lihat Dokumen Jawaban
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">Dokumen jawaban belum tersedia</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* RINCIAN NOMINAL INVOICE */}
                   <div className="grid grid-cols-2 gap-3">
                     {[
@@ -4054,7 +4120,6 @@ const TableListKonfirmasiPiutang = ({
 
 
                     {
-                      selectedData.media_email &&
                       (
 
                         <span
