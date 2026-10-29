@@ -226,10 +226,58 @@ const getPetugasTukarFaktur = (item) => item?.tukar_faktur_nama ?? item?.nama_pe
 const getTanggalTukarFaktur = (item) => item?.tukar_faktur_assigned_at ?? item?.tanggal_penugasan_tukar_faktur ?? item?.tgl_penugasan_tukar_faktur ?? item?.tanggal_penugasan_tukar ?? item?.tanggal_penugasan ?? null;
 const getPenagih = (item) => item?.penagihan_nama ?? item?.nama_penagih ?? item?.penagih ?? item?.nama_kolektor ?? item?.kolektor ?? "-";
 const getTanggalPenagihan = (item) => item?.penagihan_assigned_at ?? item?.tanggal_penugasan_penagihan ?? item?.tgl_penugasan_penagihan ?? item?.tanggal_penugasan_penagih ?? item?.tanggal_penagihan ?? null;
+
+const getJawabanUrl = (jawaban) => {
+  if (typeof jawaban === "string") return jawaban.trim();
+  if (jawaban && typeof jawaban === "object") {
+    const value = jawaban.url ?? jawaban.file_url ?? jawaban.document_url ?? jawaban.path ?? jawaban.href ?? jawaban.link ?? "";
+    return typeof value === "string" ? value.trim() : "";
+  }
+  return "";
+};
+const getStatusKonfirmasiLaporan = (item) => {
+  // Samakan pemetaan status dengan TableListKonfirmasiPiutang.
+  // Jika status belum ada atau backend mengirim "-", tampilkan Menunggu Konfirmasi.
+  const rawStatus =
+    item?.status_konfirmasi ??
+    item?.kode_singkat_status ??
+    item?.kd_status ??
+    item?.status_konfirmasi_customer ??
+    item?.status ??
+    "";
+
+  const value = String(rawStatus).trim().toUpperCase();
+
+  const statusMap = {
+    S: "Disetujui Customer",
+    STJ: "Disetujui Customer",
+    DISETUJUI_CUSTOMER: "Disetujui Customer",
+
+    T: "Ditolak Customer",
+    TLK: "Ditolak Customer",
+    DITOLAK_CUSTOMER: "Ditolak Customer",
+
+    O: "Disetujui Otomatis",
+    OTO: "Disetujui Otomatis",
+    DISETUJUI_OTOMATIS: "Disetujui Otomatis",
+
+    MK: "Menunggu Konfirmasi",
+    MENUNGGU_KONFIRMASI: "Menunggu Konfirmasi",
+    "-": "Menunggu Konfirmasi",
+  };
+
+  return statusMap[value] || "Menunggu Konfirmasi";
+};
+const getStatusPengirimanNotifikasi = (item) => {
+  const status = String(item?.status_pengiriman_konfirmasi ?? item?.status_pengiriman_notifikasi ?? "").trim().toUpperCase();
+  if (["SUDAH_DIKIRIM", "DIKIRIM", "SENT", "S"].includes(status)) return "Sudah Dikirim";
+  if (["BELUM_DIKIRIM", "BELUM", "NOT_SENT", "N"].includes(status)) return "Belum Dikirim";
+  return (item?.tgl_kirim_konfirmasi || item?.tanggal_kirim_konfirmasi || item?.k_piutang_id) ? "Sudah Dikirim" : "Belum Dikirim";
+};
 const getInvoiceAmounts = (item) => {
   const dpp = getDpp(item); const ppn = getPpn(item); const pph = getPph(item);
   const collection = getCollection(item); const saldoPiutang = getOutstanding(item);
-  let keterangan = "Sisa Piutang";
+  let keterangan = "Sisa Komersil";
   if (saldoPiutang > 0 && Math.round(saldoPiutang) === Math.round(ppn)) keterangan = "Sisa PPN";
   else if (saldoPiutang > 0 && Math.round(saldoPiutang) === Math.round(pph)) keterangan = "Sisa PPh";
   return { dpp, ppn, pph, totalInvoice: dpp + ppn, collection, saldoPiutang, keterangan };
@@ -440,6 +488,13 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
         Collection: getCollection(item), "Saldo Piutang": getOutstanding(item),
         "Keterangan Outstanding": item?.keterangan_outstanding || item?.keterangan || getInvoiceAmounts(item).keterangan,
         Status: item?.status || item?.status_piutang || "-",
+        "Pengiriman Notifikasi": getStatusPengirimanNotifikasi(item),
+        "Email Penerima": item?.konfirmasi_email || item?.email_penerima || item?.email_customer || item?.email || "-",
+        "Status Konfirmasi": getStatusKonfirmasiLaporan(item),
+        "Tanggal Konfirmasi": item?.status_konfirmasi_date || item?.tanggal_konfirmasi || "",
+        "Surat Jawaban": getJawabanUrl(item?.jawaban || item?.surat_jawaban || item?.jawaban_url),
+        "Tgl Rencana Pembayaran": item?.tgl_rencana_pembayaran || item?.tanggal_rencana_pembayaran || "",
+        "Catatan Konfirmasi": item?.status_catatan || item?.catatan_konfirmasi || "",
         "Tukar Faktur - Petugas": getPetugasTukarFaktur(item),
         "Tukar Faktur - Tanggal Penugasan": getTanggalTukarFaktur(item),
         "Status Tukar Faktur": ({ MENUNGGU_VERIFIKASI: "Menunggu Verifikasi", TERVERIFIKASI: "Terverifikasi", DITOLAK: "Ditolak" })[getTukarFakturStatus(item)],
@@ -509,7 +564,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
       {/* RINGKASAN */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4"><p className="text-sm text-blue-700">Total Data</p><p className="text-2xl font-bold text-blue-900">{summaryData.total_data || totalData}</p></div>
-        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4"><p className="text-sm text-purple-700">Total DPP</p><p className="text-xl font-bold text-purple-900">{formatCompactRupiah(summaryData.total_nominal)}</p></div>
+        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4"><p className="text-sm text-purple-700">Total Piutang</p><p className="text-xl font-bold text-purple-900">{formatCompactRupiah(summaryData.total_nominal)}</p></div>
         <div className="rounded-2xl bg-green-50 border border-green-100 p-4"><p className="text-sm text-green-700">Sudah Lunas</p><p className="text-2xl font-bold text-green-900">{summaryData.lunas_count}</p></div>
         <div className="rounded-2xl bg-orange-50 border border-orange-100 p-4"><p className="text-sm text-orange-700">Belum Lunas</p><p className="text-2xl font-bold text-orange-900">{summaryData.belum_lunas_count}</p></div>
         <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4"><p className="text-sm text-indigo-700">Collection</p><p className="text-xl font-bold text-indigo-900">{formatCompactRupiah(summaryData.total_collection)}</p></div>
@@ -544,13 +599,20 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                 <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
                 <th className="px-4 py-3 whitespace-nowrap text-center">Aging</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 whitespace-nowrap">Pengiriman Notifikasi</th>
+                <th className="px-4 py-3 whitespace-nowrap">Email Penerima</th>
+                <th className="px-4 py-3 whitespace-nowrap">Status Konfirmasi</th>
+                <th className="px-4 py-3 whitespace-nowrap">Tanggal Konfirmasi</th>
+                <th className="px-4 py-3 whitespace-nowrap">Surat Jawaban</th>
+                <th className="px-4 py-3 whitespace-nowrap">Tgl Rencana Pembayaran</th>
+                <th className="px-4 py-3 whitespace-nowrap">Catatan Konfirmasi</th>
                 <th className="px-4 py-3 whitespace-nowrap">Tukar Faktur</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status Tukar Faktur</th>
                 <th className="px-4 py-3 whitespace-nowrap">Penagihan</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status Lunas</th>
               </tr></thead>
               <tbody>
-                {!tableData.length ? <tr><td colSpan={26} className="text-center py-16 text-gray-500"><FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" /><p className="font-medium">Tidak ada data laporan</p><p className="text-xs text-gray-400 mt-1">Silakan ubah filter atau kata pencarian</p></td></tr> : tableData.map((item, index) => {
+                {!tableData.length ? <tr><td colSpan={33} className="text-center py-16 text-gray-500"><FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" /><p className="font-medium">Tidak ada data laporan</p><p className="text-xs text-gray-400 mt-1">Silakan ubah filter atau kata pencarian</p></td></tr> : tableData.map((item, index) => {
                   const amounts = getInvoiceAmounts(item);
                   const docDate = item?.document_date || item?.documentDate || item?.tanggal_faktur || item?.posting_date;
                   const postingDate = item?.posting_date || item?.tanggal_posting;
@@ -590,6 +652,47 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                     <td className="px-4 py-2 whitespace-nowrap"><span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">{displayValue(item?.keterangan_outstanding || item?.keterangan || amounts.keterangan)}</span></td>
                     <td className="px-4 py-2 whitespace-nowrap text-center">{displayValue(aging)}{typeof aging === "number" || /^\d+$/.test(String(aging)) ? " hari" : ""}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{displayValue(statusText)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${getStatusPengirimanNotifikasi(item) === "Sudah Dikirim" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                        {getStatusPengirimanNotifikasi(item)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 min-w-[220px] whitespace-nowrap">{displayValue(item?.konfirmasi_email || item?.email_penerima || item?.email_customer || item?.email)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${
+                        getStatusKonfirmasiLaporan(item) === "Disetujui Customer" || getStatusKonfirmasiLaporan(item) === "Disetujui Otomatis"
+                          ? "bg-green-100 text-green-700"
+                          : getStatusKonfirmasiLaporan(item) === "Ditolak Customer"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
+                      }`}>
+                        {getStatusKonfirmasiLaporan(item)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDate(item?.status_konfirmasi_date || item?.tanggal_konfirmasi)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {(() => {
+                        // Tombol hanya ditampilkan jika backend mengirim file surat jawaban.
+                        const jawabanUrl = getJawabanUrl(
+                          item?.surat_jawaban || item?.jawaban_url || item?.jawaban
+                        );
+
+                        return jawabanUrl ? (
+                          <a
+                            href={jawabanUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            Lihat Jawaban
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDate(item?.tgl_rencana_pembayaran || item?.tanggal_rencana_pembayaran)}</td>
+                    <td className="px-4 py-2 min-w-[220px] max-w-[360px]"><span className="whitespace-normal break-words text-sm text-gray-600">{displayValue(item?.status_catatan || item?.catatan_konfirmasi)}</span></td>
                     <td className="px-4 py-2 min-w-[200px]"><div className="flex flex-col gap-1"><span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700"><FaUser className="text-blue-500" />{displayValue(getPetugasTukarFaktur(item))}</span><span className="text-xs text-gray-500"><FaCalendarAlt className="inline mr-1" />{formatDate(getTanggalTukarFaktur(item))}</span></div></td>
                     <td className="px-4 py-2">{renderStatusTukarFaktur(item)}</td>
                     <td className="px-4 py-2 min-w-[190px]"><div className="flex flex-col gap-1"><span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700"><FaUser className="text-orange-500" />{displayValue(getPenagih(item))}</span><span className="text-xs text-gray-500"><FaCalendarAlt className="inline mr-1" />{formatDate(getTanggalPenagihan(item))}</span></div></td>
@@ -597,7 +700,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                   </tr>
                   {expandedRows[rowKey] && (
                     <tr className="border-b border-blue-100 bg-slate-50">
-                      <td colSpan={26} className="p-0">
+                      <td colSpan={33} className="p-0">
                         <div className="border-l-4 border-blue-500 px-4 py-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
