@@ -31,7 +31,7 @@ export const dummyMenu = [
         name: "Data Penjualan",
         path: "/data-penjualan",
         icon: FaFileInvoice,
-        // roles: [],
+        roles: ['00', '01'],
         submenu: [],
     },
     {
@@ -39,7 +39,7 @@ export const dummyMenu = [
         name: "Data Piutang",
         path: "/data-piutang",
         icon: FaFileInvoice,
-        // roles: [],
+        roles: ['00', '01'],
         submenu: [],
     },
     {
@@ -47,7 +47,7 @@ export const dummyMenu = [
         name: "Data COD",
         path: "/data-cod",
         icon: FaFileInvoice,
-        // roles: [],
+        roles: ['00', '01', '02', '03'],
         submenu: [],
     },
     {
@@ -55,7 +55,7 @@ export const dummyMenu = [
         name: "Kreasi Faktur",
         path: "/kreasi-faktur",
         icon: FaFileCircleCheck,
-        // roles: [],
+        roles: ['00', '02'],
         submenu: [],
     },
     {
@@ -63,7 +63,7 @@ export const dummyMenu = [
         name: "Penugasan Faktur",
         path: "/penugasan-faktur",
         icon: FaUserCheck,
-        // roles: [],
+        roles: ['03', '00'],
         submenu: [],
     },
     {
@@ -71,7 +71,7 @@ export const dummyMenu = [
         name: "Tukar Faktur",
         path: "/tukar-faktur",
         icon: FaExchangeAlt,
-        // roles: [],
+        roles: ['04', '00'],
         submenu: [],
     },
     {
@@ -79,7 +79,7 @@ export const dummyMenu = [
         name: "Verifikasi Tukar Faktur",
         path: "/verifikasi-tukar-faktur",
         icon: FaCheckCircle,
-        // roles: [],
+        roles: ['03', '00'],
         submenu: [],
     },
     {
@@ -87,7 +87,7 @@ export const dummyMenu = [
         name: "Bayar Faktur",
         path: "/bayar-faktur",
         icon: FaFileInvoiceDollar,
-        // roles: [],
+        roles: ['04', '03', '00'],
         submenu: [],
     },
     {
@@ -95,7 +95,7 @@ export const dummyMenu = [
         name: "Verifikasi Pembayaran",
         path: "/verifikasi-pembayaran",
         icon: FaMoneyCheckAlt,
-        // roles: [],
+        roles: ['03', '00'],
         submenu: [],
     },
     // {
@@ -111,7 +111,7 @@ export const dummyMenu = [
         name: "Monit. Penugasan",
         path: "/monitoring-penugasan",
         icon: FaTasks,
-        // roles: [],
+        roles: ['03', '01', '00'],
         submenu: [],
     },
     {
@@ -119,7 +119,7 @@ export const dummyMenu = [
         name: "Report Sales",
         path: "/report-sales",
         icon: FaChartBar,
-        // roles: [],
+        roles: ['04', '00'],
         submenu: [],
     },
     // {
@@ -135,7 +135,7 @@ export const dummyMenu = [
         name: "Kirim Konf. Piutang",
         path: "/konfirmasi-piutang",
         icon: MdOutlineRequestQuote,
-        // roles: [],
+        roles: ['01', '00'],
         submenu: [],
     },
     {
@@ -143,7 +143,7 @@ export const dummyMenu = [
         name: "Laporan",
         path: "/laporan",
         icon: FaChartBar,
-        // roles: [],
+        roles: ['00', '01', '02', '03'],
         submenu: [],
     },
     {
@@ -151,7 +151,7 @@ export const dummyMenu = [
         name: "Manajemen User",
         path: "/manajemen-user",
         icon: FaUsersCog,
-        // roles: [],
+        roles: ['00'],
         submenu: [],
     },
     {
@@ -159,16 +159,18 @@ export const dummyMenu = [
         name: "Data Master",
         path: "/data-master",
         icon: FaDatabase,
-        // roles: [],
+        roles: ['00', '01'],
         submenu: [
             {
                 name: "Master Pelanggan",
                 path: "/data-pelanggan",
+                roles: ['00', '01'],
                 // roles: [],
             },
             {
                 name: "Master Target",
                 path: "/master-target",
+                roles: ['00', '01'],
                 // roles: [],
             },
             // {
