@@ -1915,7 +1915,7 @@ const TableListKonfirmasiPiutang = ({
       icon: <FaCalendarAlt />,
     },
     {
-      label: "Jawaban",
+      label: "Surat Jawaban",
       icon: <FaFileAlt />,
     },
     {

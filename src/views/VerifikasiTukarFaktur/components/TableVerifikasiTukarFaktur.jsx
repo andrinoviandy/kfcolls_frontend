@@ -8,6 +8,7 @@ import {
   FaFileInvoiceDollar,
   FaBuilding,
   FaMapMarkerAlt,
+  FaMap,
   FaCalendarAlt,
   FaClock,
   FaCheckCircle,
@@ -111,6 +112,37 @@ const getId = (item) => firstValue(item, "piutang_id", "faktur_id", "id");
 const getNoFaktur = (item) => firstValue(item, "no_faktur", "nomor_faktur", "noFaktur") || "-";
 const getCustomer = (item) => firstValue(item, "nama_customer", "customer_name", "customer") || "-";
 const getAlamat = (item) => firstValue(item, "alamat", "customer_address") || "-";
+const getAlamatLokasi = (item) => {
+  const value = firstValue(item, "alamat_lokasi");
+
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (value && typeof value === "object") {
+    const alamat =
+      firstValue(
+        value,
+        "alamat",
+        "display_name",
+        "formatted_address",
+        "formatted",
+        "label",
+        "full_address",
+        "name"
+      );
+
+    if (alamat) return String(alamat).trim();
+
+    const parts = Object.values(value)
+      .filter((part) => typeof part === "string" && part.trim())
+      .map((part) => part.trim());
+
+    return parts.length ? parts.join(", ") : null;
+  }
+
+  return null;
+};
 const getJatuhTempo = (item) => firstValue(item, "jatuh_tempo", "due_date") || null;
 const getDpp = (item) => Number(firstValue(item, "dpp", "DPP") || 0);
 const getPpn = (item) => Number(firstValue(item, "ppn", "PPN") || 0);
@@ -134,6 +166,7 @@ const normalizeRow = (item, index, page, perPage) => ({
   no_faktur: getNoFaktur(item),
   nama_customer: getCustomer(item),
   alamat: getAlamat(item),
+  alamat_lokasi: getAlamatLokasi(item),
   jatuh_tempo: getJatuhTempo(item),
   dpp: getDpp(item),
   ppn: getPpn(item),
@@ -144,6 +177,11 @@ const normalizeRow = (item, index, page, perPage) => ({
   create_document_number: getDocumentNumber(item),
   nama_dokumen_tukar: getNamaDokumenTukar(item),
   dokumen_tukar: getDokumenTukar(item),
+  latitude: firstValue(item, "latitude"),
+  longitude: firstValue(item, "longitude"),
+  accuracy: firstValue(item, "accuracy"),
+  captured_at: firstValue(item, "captured_at"),
+  no_billing: firstValue(item, "no_billing", "billing_no", "billing_number") || "-",
   cabang: firstValue(item, "cabang", "sales_office"),
   nama_cabang: firstValue(item, "nama_cabang", "cabang_name", "sales_office_name") || "-",
   customer: firstValue(item, "customer", "kode_customer") || "",
@@ -237,10 +275,79 @@ const TableVerifikasiTukarFaktur = ({
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
   const [selectedData, setSelectedData] = useState(null);
+  const [resolvedMapAddress, setResolvedMapAddress] = useState("");
+  const [loadingMapAddress, setLoadingMapAddress] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectionReason, setShowRejectionReason] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ===================================================
+  // AMBIL ALAMAT DARI KOORDINAT MAP JIKA ALAMAT API KOSONG
+  // ===================================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const getAddressFromCoordinates = async () => {
+      setResolvedMapAddress("");
+
+      if (selectedData?.alamat_lokasi) {
+        setResolvedMapAddress(selectedData.alamat_lokasi);
+        setLoadingMapAddress(false);
+        return;
+      }
+
+      const latitude = Number(selectedData?.latitude);
+      const longitude = Number(selectedData?.longitude);
+
+      if (
+        !selectedData ||
+        selectedData.latitude === null ||
+        selectedData.latitude === undefined ||
+        selectedData.latitude === "" ||
+        selectedData.longitude === null ||
+        selectedData.longitude === undefined ||
+        selectedData.longitude === "" ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        setLoadingMapAddress(false);
+        return;
+      }
+
+      setLoadingMapAddress(true);
+
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&accept-language=id`
+        );
+        if (!response.ok) throw new Error("Gagal mengambil alamat dari peta");
+
+        const result = await response.json();
+        if (!cancelled) {
+          setResolvedMapAddress(
+            result?.display_name ||
+              result?.name ||
+              "Alamat tidak ditemukan dari koordinat peta."
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("ERROR REVERSE GEOCODING ALAMAT LOKASI:", error);
+          setResolvedMapAddress("Alamat tidak dapat diambil dari peta.");
+        }
+      } finally {
+        if (!cancelled) setLoadingMapAddress(false);
+      }
+    };
+
+    getAddressFromCoordinates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedData?.alamat_lokasi, selectedData?.latitude, selectedData?.longitude]);
 
   // ===================================================
   // FILTER OPTIONS
@@ -2397,6 +2504,132 @@ const TableVerifikasiTukarFaktur = ({
 
                   </div>
 
+                </div>
+
+                {/* ================================================= */}
+                {/* TITIK LOKASI TUKAR FAKTUR */}
+                {/* ================================================= */}
+
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <FaMap className="text-emerald-600" />
+                    <h3 className="font-bold text-gray-700">
+                      Titik Lokasi Tukar Faktur
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-semibold text-gray-700">
+                        No. Billing: {selectedData.no_billing || "-"}
+                      </p>
+                      <span className="text-xs text-gray-500">
+                        Lokasi saat proses Tukar Faktur dilakukan
+                      </span>
+                    </div>
+
+                    {selectedData.latitude !== null &&
+                    selectedData.latitude !== undefined &&
+                    selectedData.latitude !== "" &&
+                    selectedData.longitude !== null &&
+                    selectedData.longitude !== undefined &&
+                    selectedData.longitude !== "" &&
+                    Number.isFinite(Number(selectedData.latitude)) &&
+                    Number.isFinite(Number(selectedData.longitude)) ? (
+                      <>
+                        <div className="overflow-hidden rounded-xl border border-gray-200">
+                          <iframe
+                            title={`Peta lokasi Tukar Faktur ${selectedData.no_billing || ""}`}
+                            width="100%"
+                            height="320"
+                            loading="lazy"
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(selectedData.longitude) - 0.005}%2C${Number(selectedData.latitude) - 0.005}%2C${Number(selectedData.longitude) + 0.005}%2C${Number(selectedData.latitude) + 0.005}&layer=mapnik&marker=${Number(selectedData.latitude)}%2C${Number(selectedData.longitude)}`}
+                            className="block w-full"
+                          />
+                        </div>
+
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                          <div className="mb-2 flex items-center gap-2">
+                            <FaMapMarkerAlt className="shrink-0 text-blue-600" />
+                            <p className="text-sm font-semibold text-blue-900">
+                              Alamat Titik Lokasi
+                            </p>
+                          </div>
+                          <p className="whitespace-pre-line break-words text-sm leading-relaxed text-gray-700">
+                            {loadingMapAddress
+                              ? "Sedang mengambil alamat dari koordinat peta..."
+                              : resolvedMapAddress ||
+                                "Alamat titik lokasi belum tersedia."}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                            <p className="text-xs font-medium text-emerald-700">
+                              Latitude
+                            </p>
+                            <p className="mt-1 break-all text-sm font-bold text-emerald-900">
+                              {selectedData.latitude}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                            <p className="text-xs font-medium text-emerald-700">
+                              Longitude
+                            </p>
+                            <p className="mt-1 break-all text-sm font-bold text-emerald-900">
+                              {selectedData.longitude}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                            <p className="text-xs font-medium text-gray-500">
+                              Accuracy
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-gray-800">
+                              {selectedData.accuracy !== null &&
+                              selectedData.accuracy !== undefined &&
+                              selectedData.accuracy !== ""
+                                ? `±${selectedData.accuracy} meter`
+                                : "Tidak tersedia"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                            <p className="text-xs font-medium text-gray-500">
+                              Waktu Pengambilan
+                            </p>
+                            <p className="mt-1 break-all text-sm font-semibold text-gray-800">
+                              {selectedData.captured_at &&
+                              !Number.isNaN(new Date(selectedData.captured_at).getTime())
+                                ? new Date(selectedData.captured_at).toLocaleString("id-ID")
+                                : "Tidak tersedia"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${Number(selectedData.latitude)}&mlon=${Number(selectedData.longitude)}#map=17/${Number(selectedData.latitude)}/${Number(selectedData.longitude)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                        >
+                          <FaMap />
+                          Buka Peta di Tab Baru
+                        </a>
+                      </>
+                    ) : (
+                      <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
+                        <FaMapMarkerAlt className="mb-3 text-4xl text-gray-300" />
+                        <p className="font-semibold text-gray-700">
+                          Titik lokasi belum tersedia
+                        </p>
+                        <p className="mt-1 max-w-md text-sm leading-relaxed text-gray-500">
+                          Data latitude dan longitude belum tersedia pada data Tukar Faktur ini.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* ALASAN PENOLAKAN */}

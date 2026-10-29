@@ -8,6 +8,7 @@ import {
   FaFileInvoiceDollar,
   FaBuilding,
   FaMapMarkerAlt,
+  FaMap,
   FaCalendarAlt,
   FaClock,
   FaCheckCircle,
@@ -262,9 +263,74 @@ const TableTukarFaktur = ({
   const [showTukarModal, setShowTukarModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedRowData, setSelectedRowData] = useState({});
   const [bulkFile, setBulkFile] = useState(null);
+
+  // Koordinat perangkat saat proses Tukar Faktur dilakukan.
+  const [userCoordinates, setUserCoordinates] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
+
+  // Alamat hasil reverse geocoding berdasarkan titik koordinat peta.
+  const [alamatTukar, setAlamatTukar] = useState("");
+  const [alamatMap, setAlamatMap] = useState("");
+  const [loadingAlamatTukar, setLoadingAlamatTukar] = useState(false);
+  const [loadingAlamatMap, setLoadingAlamatMap] = useState(false);
+
+  const lookupAlamat = async (latitude, longitude, signal) => {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&zoom=18&addressdetails=1&accept-language=id`,
+      { signal, headers: { Accept: "application/json" } }
+    );
+    if (!response.ok) throw new Error("Gagal mencari alamat lokasi");
+    const result = await response.json();
+    return result?.display_name || "Alamat lengkap tidak ditemukan untuk titik ini.";
+  };
+
+  useEffect(() => {
+    if (!showTukarModal || !userCoordinates) {
+      setAlamatTukar("");
+      setLoadingAlamatTukar(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoadingAlamatTukar(true);
+    setAlamatTukar("");
+    lookupAlamat(userCoordinates.latitude, userCoordinates.longitude, controller.signal)
+      .then(setAlamatTukar)
+      .catch((error) => {
+        if (error.name !== "AbortError") setAlamatTukar("");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingAlamatTukar(false);
+      });
+    return () => controller.abort();
+  }, [showTukarModal, userCoordinates?.latitude, userCoordinates?.longitude]);
+
+  useEffect(() => {
+    const latitude = selectedFaktur?.latitude;
+    const longitude = selectedFaktur?.longitude;
+    if (!showMapModal || latitude == null || latitude === "" || longitude == null || longitude === "" ||
+        !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+      setAlamatMap("");
+      setLoadingAlamatMap(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoadingAlamatMap(true);
+    setAlamatMap("");
+    lookupAlamat(latitude, longitude, controller.signal)
+      .then(setAlamatMap)
+      .catch((error) => {
+        if (error.name !== "AbortError") setAlamatMap("");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingAlamatMap(false);
+      });
+    return () => controller.abort();
+  }, [showMapModal, selectedFaktur?.latitude, selectedFaktur?.longitude]);
 
   // ===================================================
   // FILTER OPTIONS
@@ -422,6 +488,51 @@ const TableTukarFaktur = ({
   );
 
   // ===================================================
+  // LOKASI USER / KOORDINAT
+  // ===================================================
+
+  const getUserCoordinates = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Browser ini tidak mendukung akses lokasi.");
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoordinates({
+          latitude: Number(position.coords.latitude.toFixed(7)),
+          longitude: Number(position.coords.longitude.toFixed(7)),
+          accuracy: position.coords.accuracy
+            ? Math.round(position.coords.accuracy)
+            : null,
+          captured_at: new Date().toISOString(),
+        });
+        setLocationLoading(false);
+      },
+      (error) => {
+        const messageByCode = {
+          1: "Izin lokasi ditolak. Izinkan akses lokasi pada browser lalu coba lagi.",
+          2: "Lokasi tidak dapat ditentukan. Pastikan GPS/lokasi perangkat aktif.",
+          3: "Permintaan lokasi timeout. Silakan coba lagi.",
+        };
+        setLocationError(
+          messageByCode[error.code] ||
+            "Gagal mengambil lokasi perangkat. Silakan coba lagi."
+        );
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  // ===================================================
   // OPEN TUKAR FAKTUR
   // ===================================================
 
@@ -430,7 +541,12 @@ const TableTukarFaktur = ({
     setSelectedIds([getId(faktur)]);
     setSelectedRowData({ [getId(faktur)]: faktur });
     setBulkFile(null);
+    setUserCoordinates(null);
+    setLocationError("");
     setShowTukarModal(true);
+
+    // Otomatis ambil koordinat saat modal Tukar Faktur dibuka.
+    getUserCoordinates();
   };
 
   // ===================================================
@@ -488,7 +604,12 @@ const TableTukarFaktur = ({
     }
     setSelectedFaktur(selectedFakturList[0]);
     setBulkFile(null);
+    setUserCoordinates(null);
+    setLocationError("");
     setShowTukarModal(true);
+
+    // Otomatis ambil koordinat saat modal Tukar Faktur massal dibuka.
+    getUserCoordinates();
   };
 
   // ===================================================
@@ -505,6 +626,8 @@ const TableTukarFaktur = ({
 
     setBulkFile(null);
     setShowTukarModal(false);
+    setUserCoordinates(null);
+    setLocationError("");
   };
 
 
@@ -549,6 +672,20 @@ const TableTukarFaktur = ({
     setShowDocumentModal(
       false
     );
+  };
+
+  // ===================================================
+  // OPEN / CLOSE MAP LOKASI
+  // ===================================================
+
+  const openMap = (faktur) => {
+    setSelectedFaktur(faktur);
+    setShowMapModal(true);
+  };
+
+  const closeMap = () => {
+    setShowMapModal(false);
+    setSelectedFaktur(null);
   };
 
 
@@ -607,6 +744,21 @@ const TableTukarFaktur = ({
       return;
     }
 
+    if (!userCoordinates?.latitude || !userCoordinates?.longitude) {
+      swal.error("Silakan ambil titik koordinat lokasi terlebih dahulu sebelum melakukan Tukar Faktur.");
+      return;
+    }
+
+    if (loadingAlamatTukar) {
+      swal.error("Tunggu sampai alamat titik lokasi selesai dicari.");
+      return;
+    }
+
+    if (!alamatTukar) {
+      swal.error("Alamat titik lokasi belum berhasil ditemukan. Periksa koneksi internet lalu coba lagi.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -618,6 +770,19 @@ const TableTukarFaktur = ({
         })),
         user_id: loginAccess?.user_id || null,
         nip: loginAccess?.nip || null,
+        latitude: userCoordinates?.latitude ?? null,
+        longitude: userCoordinates?.longitude ?? null,
+        // Alamat hasil reverse geocoding ikut dikirim ke API insertTukarFaktur.
+        alamat: alamatTukar || null,
+        koordinat: userCoordinates
+          ? {
+              latitude: userCoordinates.latitude,
+              longitude: userCoordinates.longitude,
+              accuracy: userCoordinates.accuracy,
+              captured_at: userCoordinates.captured_at,
+              alamat: alamatTukar || null,
+            }
+          : null,
       };
 
       const formData = new FormData();
@@ -730,24 +895,30 @@ const TableTukarFaktur = ({
 
     return (
       <div className="flex items-center gap-2 whitespace-nowrap">
-        <button type="button" onClick={() => openDetail(faktur)} title="Lihat Detail" className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-primary border border-blue-200 hover:bg-blue-100 transition">
-          <FaInfoCircle />
-        </button>
-
-        {sudahDitukar && (
-          <button type="button" onClick={() => openDocument(faktur)} title="Lihat Dokumen" className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-50 text-green-700 border border-green-200 text-xs font-semibold hover:bg-green-100 transition whitespace-nowrap">
-            <FaFileAlt />
-            Dokumen
-          </button>
-        )}
-
         {(!sudahDitukar || ditolak) && (
           <>
-            <label className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${checked ? "bg-blue-50 border-primary text-primary" : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"}`} title={checked ? "Batalkan pilihan" : "Pilih faktur"}>
-              <input type="checkbox" className="hidden" checked={checked} onChange={() => toggleSelectFaktur(faktur)} />
+            <label
+              className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${
+                checked
+                  ? "bg-blue-50 border-primary text-primary"
+                  : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
+              }`}
+              title={checked ? "Batalkan pilihan" : "Pilih faktur"}
+            >
+              <input
+                type="checkbox"
+                className="hidden"
+                checked={checked}
+                onChange={() => toggleSelectFaktur(faktur)}
+              />
               {checked ? <FaCheck /> : <span className="w-4 h-4 rounded border border-current" />}
             </label>
-            <button type="button" onClick={() => openTukarFaktur(faktur)} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition shadow-sm whitespace-nowrap">
+
+            <button
+              type="button"
+              onClick={() => openTukarFaktur(faktur)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition shadow-sm whitespace-nowrap"
+            >
               <FaExchangeAlt />
               Tukar Faktur
             </button>
@@ -775,15 +946,9 @@ const TableTukarFaktur = ({
       icon: <FaExchangeAlt />,
     },
     {
-      label: "No",
+      label: "Detail",
       icon: <FaHashtag />,
     },
-
-    {
-      label: "No. Faktur",
-      icon: <FaFileInvoiceDollar />,
-    },
-
     {
       label: "No. Billing",
       icon: <FaFileInvoiceDollar />,
@@ -1492,117 +1657,51 @@ const TableTukarFaktur = ({
                         >
 
                           {/* AKSI */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                            "
-                          >
-
-                            {
-                              renderAction(
-                                v
-                              )
-                            }
-
+                          <td className="px-4 py-3">
+                            {renderAction(v)}
                           </td>
 
-                          {/* NO */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              font-semibold
-                              text-gray-700
-                            "
-                          >
-
-                            {
-                              (
-                                currentPage -
-                                1
-                              ) *
-                              perPage +
-                              i +
-                              1
-                            }
-
-                          </td>
-
-
-                          {/* NO FAKTUR */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <div
-                              className="
-                                flex
-                                items-center
-                                gap-2
-                              "
-                            >
-
-                              <div
-                                className="
-                                  w-9
-                                  h-9
-                                  rounded-lg
-                                  bg-blue-50
-                                  flex
-                                  items-center
-                                  justify-center
-                                "
+                          {/* DETAIL: LIHAT DETAIL, DOKUMEN, DAN PETA */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => openDetail(v)}
+                                title="Lihat Detail"
+                                aria-label="Lihat Detail"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
                               >
+                                <FaEye />
+                              </button>
 
-                                <FaFileInvoiceDollar
-                                  className="
-                                    text-primary
-                                  "
-                                />
+                              {v.status === "SUDAH_DITUKAR" && (
+                                <button
+                                  type="button"
+                                  onClick={() => openDocument(v)}
+                                  title="Dokumen"
+                                  aria-label="Dokumen"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-green-200 bg-green-50 text-green-700 transition hover:bg-green-100"
+                                >
+                                  <FaFileAlt />
+                                </button>
+                              )}
 
-                              </div>
-
-
-                              <span
-                                className="
-                                  font-semibold
-                                  text-primary
-                                "
+                              <button
+                                type="button"
+                                onClick={() => openMap(v)}
+                                title="Lihat Titik Lokasi"
+                                aria-label="Lihat Titik Lokasi"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
                               >
-                                {
-                                  v.no_faktur
-                                }
-                              </span>
-
+                                <FaMap />
+                              </button>
                             </div>
-
                           </td>
-
 
                           {/* NO BILLING */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <div
-                                className="
-                                  w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600
-                                  flex items-center justify-center
-                                "
-                              >
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                                 <FaFileInvoiceDollar />
                               </div>
                               <span className="font-semibold text-indigo-700">
@@ -1610,7 +1709,6 @@ const TableTukarFaktur = ({
                               </span>
                             </div>
                           </td>
-
 
                           {/* CUSTOMER */}
 
@@ -2315,6 +2413,113 @@ const TableTukarFaktur = ({
                     </label>
                   </div>
 
+                  {/* LOKASI USER / TITIK KOORDINAT */}
+                  <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                          <FaMapMarkerAlt />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">
+                            Titik Lokasi Tukar Faktur
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                            Lokasi perangkat diambil otomatis saat modal dibuka. Pastikan izin akses lokasi pada browser sudah diizinkan.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={getUserCoordinates}
+                        disabled={locationLoading || isSubmitting}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {locationLoading ? (
+                          <>
+                            <span className="loading loading-spinner loading-xs" />
+                            Mengambil lokasi...
+                          </>
+                        ) : (
+                          <>
+                            <FaMapMarkerAlt />
+                            {userCoordinates ? "Perbarui Lokasi" : "Coba Ambil Lagi"}
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {locationError && (
+                      <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                        {locationError}
+                      </div>
+                    )}
+
+                    {userCoordinates ? (
+                      <>
+                        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="rounded-lg bg-emerald-50 p-3">
+                            <p className="text-[11px] font-medium text-emerald-700">Latitude</p>
+                            <p className="mt-1 break-all text-sm font-bold text-emerald-900">
+                              {userCoordinates.latitude}
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-emerald-50 p-3">
+                            <p className="text-[11px] font-medium text-emerald-700">Longitude</p>
+                            <p className="mt-1 break-all text-sm font-bold text-emerald-900">
+                              {userCoordinates.longitude}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
+                          <iframe
+                            title="Peta lokasi Tukar Faktur"
+                            width="100%"
+                            height="260"
+                            loading="lazy"
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${userCoordinates.longitude - 0.005}%2C${userCoordinates.latitude - 0.005}%2C${userCoordinates.longitude + 0.005}%2C${userCoordinates.latitude + 0.005}&layer=mapnik&marker=${userCoordinates.latitude}%2C${userCoordinates.longitude}`}
+                            className="block w-full"
+                          />
+                        </div>
+                        <div className="mt-3 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+                          <FaMapMarkerAlt className="mt-0.5 shrink-0 text-blue-600" />
+                          <div>
+                            <p className="text-xs font-semibold text-blue-800">Alamat Titik Lokasi</p>
+                            <p className="mt-1 text-sm leading-relaxed text-gray-700">
+                              {loadingAlamatTukar ? "Sedang mencari alamat..." : alamatTukar || "Alamat belum tersedia"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[11px] text-gray-500">
+                            {userCoordinates.accuracy
+                              ? `Akurasi perkiraan ±${userCoordinates.accuracy} meter`
+                              : "Akurasi lokasi tidak tersedia"}
+                          </p>
+                          <a
+                            href={`https://www.openstreetmap.org/?mlat=${userCoordinates.latitude}&mlon=${userCoordinates.longitude}#map=17/${userCoordinates.latitude}/${userCoordinates.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-blue-700 hover:underline"
+                          >
+                            Buka peta di tab baru
+                          </a>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mt-3 flex min-h-[100px] items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
+                        <div>
+                          <FaMapMarkerAlt className="mx-auto mb-2 text-2xl text-gray-300" />
+                          <p className="text-xs text-gray-500">
+                            Peta akan tampil setelah koordinat berhasil diambil.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* INFO */}
                   <div
                     className="
@@ -2358,7 +2563,11 @@ const TableTukarFaktur = ({
                 "
               >
                 <div className="flex items-center text-xs text-gray-500">
-                  {bulkFile ? "1 dokumen" : "0 dokumen"} siap diproses untuk {selectedFakturList.length} billing
+                  <span>
+                    {bulkFile ? "1 dokumen" : "0 dokumen"} siap diproses untuk {selectedFakturList.length} billing
+                    {" • "}
+                    {userCoordinates ? "Lokasi tercatat" : "Lokasi belum diambil"}
+                  </span>
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row gap-2">
@@ -2392,7 +2601,9 @@ const TableTukarFaktur = ({
                     disabled={
                       isSubmitting ||
                       selectedFakturList.length === 0 ||
-                      !bulkFile
+                      !bulkFile ||
+                      !userCoordinates?.latitude ||
+                      !userCoordinates?.longitude
                     }
                     onClick={handleTukarFaktur}
                     className="
@@ -2520,6 +2731,141 @@ const TableTukarFaktur = ({
 
             <div className="border-t bg-gray-50 px-5 py-4 flex justify-end">
               <button type="button" onClick={closeDocument} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 transition">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
+      {/* MODAL PETA LOKASI TUKAR FAKTUR */}
+      {/* ================================================= */}
+
+      {showMapModal && selectedFaktur && (
+        <div
+          className="fixed inset-0 z-[510] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm sm:p-5"
+          onClick={closeMap}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 bg-primary px-5 py-4 text-white sm:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <FaMap />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold">Lokasi Tukar Faktur</h3>
+                    <p className="mt-1 break-all text-xs text-blue-100">
+                      No. Billing: {selectedFaktur.no_billing || getNoBilling(selectedFaktur)}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMap}
+                  title="Tutup"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-white/10"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
+              {selectedFaktur.latitude !== null &&
+              selectedFaktur.latitude !== undefined &&
+              selectedFaktur.latitude !== "" &&
+              selectedFaktur.longitude !== null &&
+              selectedFaktur.longitude !== undefined &&
+              selectedFaktur.longitude !== "" &&
+              Number.isFinite(Number(selectedFaktur.latitude)) &&
+              Number.isFinite(Number(selectedFaktur.longitude)) ? (
+                <>
+                  <div className="overflow-hidden rounded-xl border border-gray-200">
+                    <iframe
+                      title={`Peta lokasi billing ${selectedFaktur.no_billing || ""}`}
+                      width="100%"
+                      height="360"
+                      loading="lazy"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(selectedFaktur.longitude) - 0.005}%2C${Number(selectedFaktur.latitude) - 0.005}%2C${Number(selectedFaktur.longitude) + 0.005}%2C${Number(selectedFaktur.latitude) + 0.005}&layer=mapnik&marker=${Number(selectedFaktur.latitude)}%2C${Number(selectedFaktur.longitude)}`}
+                      className="block w-full"
+                    />
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                    <FaMapMarkerAlt className="mt-0.5 shrink-0 text-blue-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-blue-800">Alamat Titik Lokasi</p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-700">
+                        {loadingAlamatMap ? "Sedang mencari alamat..." : alamatMap || "Alamat belum tersedia"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                      <p className="text-xs font-medium text-emerald-700">Latitude</p>
+                      <p className="mt-1 break-all text-sm font-bold text-emerald-900">
+                        {selectedFaktur.latitude}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                      <p className="text-xs font-medium text-emerald-700">Longitude</p>
+                      <p className="mt-1 break-all text-sm font-bold text-emerald-900">
+                        {selectedFaktur.longitude}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs font-medium text-gray-500">Accuracy</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-800">
+                        {selectedFaktur.accuracy !== null &&
+                        selectedFaktur.accuracy !== undefined &&
+                        selectedFaktur.accuracy !== ""
+                          ? `±${selectedFaktur.accuracy} meter`
+                          : "Tidak tersedia"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs font-medium text-gray-500">Waktu Pengambilan</p>
+                      <p className="mt-1 break-all text-sm font-semibold text-gray-800">
+                        {selectedFaktur.captured_at
+                          ? new Date(selectedFaktur.captured_at).toLocaleString("id-ID")
+                          : "Tidak tersedia"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`https://www.openstreetmap.org/?mlat=${Number(selectedFaktur.latitude)}&mlon=${Number(selectedFaktur.longitude)}#map=17/${Number(selectedFaktur.latitude)}/${Number(selectedFaktur.longitude)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <FaMap />
+                    Buka Peta di Tab Baru
+                  </a>
+                </>
+              ) : (
+                <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
+                  <FaMapMarkerAlt className="mb-3 text-4xl text-gray-300" />
+                  <p className="font-semibold text-gray-700">Titik lokasi belum tersedia</p>
+                  <p className="mt-1 max-w-md text-sm leading-relaxed text-gray-500">
+                    Data latitude dan longitude belum tersimpan pada data billing ini.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex shrink-0 justify-end border-t bg-gray-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeMap}
+                className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>
