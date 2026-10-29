@@ -162,8 +162,13 @@ export const dummyMenu = [
         // roles: [],
         submenu: [
             {
-                name: "Data Pelanggan",
+                name: "Master Pelanggan",
                 path: "/data-pelanggan",
+                // roles: [],
+            },
+            {
+                name: "Master Target",
+                path: "/master-target",
                 // roles: [],
             },
             // {

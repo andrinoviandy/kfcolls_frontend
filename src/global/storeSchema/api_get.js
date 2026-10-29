@@ -2109,6 +2109,19 @@ const n2nGetService = {
       return error.response;
     }
   },
+  historyPenugasan: async ({ piutang_id, kegiatan }) => {
+    try {
+      const response = await api.get("/historyPenugasan", {
+        params: {
+          piutang_id,
+          kegiatan
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
   // ?? KFCOLLS
   getDataPenjualan: async ({
     page,
@@ -2144,6 +2157,51 @@ const n2nGetService = {
       return response.data;
     } catch (error) {
       return error.response;
+    }
+  },
+
+  getMasterTarget: async ({
+    page = 1,
+    limit = 10,
+    keyword = "",
+    cabang_id = "ALL",
+    customer = "ALL",
+    channel = "ALL",
+    principle = "ALL",
+    start_date = "",
+    end_date = "",
+    periode = "ALL",
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getDataMasterTarget",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            cabang_id,
+            customer,
+            channel,
+            principle,
+            start_date,
+            end_date,
+            periode,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DATA MASTER TARGET:",
+        error.response?.data || error.message
+      );
+
+      return error.response?.data || {
+        status: false,
+        message: error.message || "Gagal mengambil data Master Target",
+      };
     }
   },
   getDataPiutang: async ({

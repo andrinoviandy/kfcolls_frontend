@@ -24,6 +24,7 @@ import {
   FaSyncAlt,
   FaInfoCircle,
   FaTimesCircle,
+  FaUndoAlt,
 } from "react-icons/fa";
 
 import {
@@ -94,6 +95,7 @@ const firstValue = (item, ...keys) => {
   return null;
 };
 
+const getPetugasId = (item) => firstValue(item, "faktur_petugas_id", "petugas_id");
 const getId = (item) => firstValue(item, "piutang_id", "faktur_id", "id");
 const getNoFaktur = (item) => firstValue(item, "no_faktur", "nomor_faktur", "noFaktur") || "-";
 const getNoBilling = (item) => firstValue(item, "no_billing", "billing_no", "billing_number") || "-";
@@ -267,6 +269,12 @@ const TableTukarFaktur = ({
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedRowData, setSelectedRowData] = useState({});
   const [bulkFile, setBulkFile] = useState(null);
+  const [showFakturKembaliModal, setShowFakturKembaliModal] = useState(false);
+  const [alasanFakturKembali, setAlasanFakturKembali] = useState("");
+  const [loadingFakturKembali, setLoadingFakturKembali] = useState(false);
+  const [fakturKembaliList, setFakturKembaliList] = useState([]);
+  const [historyPenugasanData, setHistoryPenugasanData] = useState([]);
+  const [loadingHistoryPenugasan, setLoadingHistoryPenugasan] = useState(false);
 
   // Koordinat perangkat saat proses Tukar Faktur dilakukan.
   const [userCoordinates, setUserCoordinates] = useState(null);
@@ -313,7 +321,7 @@ const TableTukarFaktur = ({
     const latitude = selectedFaktur?.latitude;
     const longitude = selectedFaktur?.longitude;
     if (!showMapModal || latitude == null || latitude === "" || longitude == null || longitude === "" ||
-        !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+      !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
       setAlamatMap("");
       setLoadingAlamatMap(false);
       return;
@@ -487,6 +495,13 @@ const TableTukarFaktur = ({
       )
   );
 
+  // Faktur Kembali hanya dapat dilakukan untuk faktur yang belum ditukar.
+  const selectedFakturKembaliList = Object.values(selectedRowData).filter(
+    (item) =>
+      selectedIds.includes(getId(item)) &&
+      getStatus(item) === "BELUM_DITUKAR"
+  );
+
   // ===================================================
   // LOKASI USER / KOORDINAT
   // ===================================================
@@ -520,7 +535,7 @@ const TableTukarFaktur = ({
         };
         setLocationError(
           messageByCode[error.code] ||
-            "Gagal mengambil lokasi perangkat. Silakan coba lagi."
+          "Gagal mengambil lokasi perangkat. Silakan coba lagi."
         );
         setLocationLoading(false);
       },
@@ -630,6 +645,119 @@ const TableTukarFaktur = ({
     setLocationError("");
   };
 
+
+  // ===================================================
+  // FAKTUR KEMBALI
+  // ===================================================
+
+  const openFakturKembali = (faktur = null) => {
+    const list = faktur
+      ? (getStatus(faktur) === "BELUM_DITUKAR" ? [faktur] : [])
+      : selectedFakturKembaliList;
+
+    if (!list.length) {
+      swal.error("Faktur Kembali hanya dapat dilakukan untuk faktur yang belum ditukar.");
+      return;
+    }
+
+    setFakturKembaliList(list);
+    setSelectedFaktur(list[0]);
+    setAlasanFakturKembali("");
+    setShowFakturKembaliModal(true);
+  };
+
+  const closeFakturKembali = () => {
+    if (loadingFakturKembali) return;
+    setShowFakturKembaliModal(false);
+    setAlasanFakturKembali("");
+    setFakturKembaliList([]);
+  };
+
+  const handleInsertFakturKembali = async () => {
+    const fakturTerpilih = fakturKembaliList;
+
+    if (!fakturTerpilih.length) {
+      await swal.error("Silakan pilih faktur terlebih dahulu.");
+      return;
+    }
+
+    const fakturBelumDitukar = fakturTerpilih.filter(
+      (item) => getStatus(item) === "BELUM_DITUKAR"
+    );
+
+    if (fakturBelumDitukar.length !== fakturTerpilih.length) {
+      await swal.error("Faktur Kembali hanya dapat dilakukan untuk faktur yang belum ditukar.");
+      return;
+    }
+
+    if (!alasanFakturKembali.trim()) {
+      await swal.error("Alasan Faktur Kembali wajib diisi.");
+      return;
+    }
+
+    try {
+      setLoadingFakturKembali(true);
+      const payload = {
+        faktur_petugas_id: fakturTerpilih.map((item) => getPetugasId(item)),
+        alasan: alasanFakturKembali.trim(),
+        kegiatan: 'TUKAR_FAKTUR',
+        user_id: loginAccess?.user_id || null,
+        nip: loginAccess?.nip || null,
+      };
+
+      const res = await storeSchema.actions.insertFakturKembali(payload);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal menyimpan Faktur Kembali.");
+      }
+
+      await swal.success(res?.message || "Faktur Kembali berhasil disimpan.");
+      setShowFakturKembaliModal(false);
+      setAlasanFakturKembali("");
+      setFakturKembaliList([]);
+      setSelectedIds([]);
+      setSelectedRowData({});
+      await getDataTukarFaktur();
+    } catch (error) {
+      console.error("ERROR INSERT FAKTUR KEMBALI:", error);
+      await swal.error(error?.message || "Gagal menyimpan Faktur Kembali.");
+    } finally {
+      setLoadingFakturKembali(false);
+    }
+  };
+
+  const getHistoryPenugasan = async (faktur) => {
+    const piutangId = faktur?.piutang_id || getId(faktur);
+    if (!piutangId) {
+      setHistoryPenugasanData([]);
+      return;
+    }
+
+    try {
+      setLoadingHistoryPenugasan(true);
+      setHistoryPenugasanData([]);
+      const res = await storeSchema.actions.historyPenugasan({
+        piutang_id: piutangId,
+        kegiatan: firstValue(faktur, "kegiatan") || "TUKAR_FAKTUR",
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil history penugasan.");
+      }
+
+      const data = res?.data;
+      setHistoryPenugasanData(
+        Array.isArray(data) ? data :
+          Array.isArray(data?.list_data) ? data.list_data :
+            Array.isArray(data?.history) ? data.history :
+              data ? [data] : []
+      );
+    } catch (error) {
+      console.error("ERROR HISTORY PENUGASAN:", error);
+      setHistoryPenugasanData([]);
+    } finally {
+      setLoadingHistoryPenugasan(false);
+    }
+  };
 
   // ===================================================
   // OPEN DOCUMENT
@@ -776,12 +904,12 @@ const TableTukarFaktur = ({
         alamat: alamatTukar || null,
         koordinat: userCoordinates
           ? {
-              latitude: userCoordinates.latitude,
-              longitude: userCoordinates.longitude,
-              accuracy: userCoordinates.accuracy,
-              captured_at: userCoordinates.captured_at,
-              alamat: alamatTukar || null,
-            }
+            latitude: userCoordinates.latitude,
+            longitude: userCoordinates.longitude,
+            accuracy: userCoordinates.accuracy,
+            captured_at: userCoordinates.captured_at,
+            alamat: alamatTukar || null,
+          }
           : null,
       };
 
@@ -885,7 +1013,9 @@ const TableTukarFaktur = ({
 
   const openDetail = (faktur) => {
     setSelectedFaktur(faktur);
+    setHistoryPenugasanData([]);
     setShowDocumentModal(true);
+    getHistoryPenugasan(faktur);
   };
 
   const renderAction = (faktur) => {
@@ -898,11 +1028,10 @@ const TableTukarFaktur = ({
         {(!sudahDitukar || ditolak) && (
           <>
             <label
-              className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${
-                checked
+              className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${checked
                   ? "bg-blue-50 border-primary text-primary"
                   : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
-              }`}
+                }`}
               title={checked ? "Batalkan pilihan" : "Pilih faktur"}
             >
               <input
@@ -923,6 +1052,18 @@ const TableTukarFaktur = ({
               Tukar Faktur
             </button>
           </>
+        )}
+
+        {!sudahDitukar && (
+          <button
+            type="button"
+            onClick={() => openFakturKembali(faktur)}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-full border border-orange-200 bg-orange-50 text-orange-700 text-xs font-semibold hover:bg-orange-100 transition whitespace-nowrap"
+            title="Faktur Kembali"
+          >
+            <FaUndoAlt />
+            Faktur Kembali
+          </button>
         )}
       </div>
     );
@@ -1450,11 +1591,21 @@ const TableTukarFaktur = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={openBulkTukarFaktur}
-          disabled={selectedIds.length === 0}
-          className="
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={() => openFakturKembali()}
+            disabled={selectedFakturKembaliList.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-orange-200 bg-white text-orange-700 text-sm font-semibold shadow-sm hover:bg-orange-50 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <FaUndoAlt />
+            Faktur Kembali {selectedFakturKembaliList.length > 0 ? `${selectedFakturKembaliList.length} Faktur` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={openBulkTukarFaktur}
+            disabled={selectedIds.length === 0}
+            className="
             inline-flex
             items-center
             justify-center
@@ -1473,10 +1624,11 @@ const TableTukarFaktur = ({
             disabled:cursor-not-allowed
             whitespace-nowrap
           "
-        >
-          <FaExchangeAlt />
-          Tukar {selectedIds.length > 0 ? `${selectedIds.length} Faktur` : "Faktur"}
-        </button>
+          >
+            <FaExchangeAlt />
+            Tukar {selectedIds.length > 0 ? `${selectedIds.length} Faktur` : "Faktur"}
+          </button>
+        </div>
       </div>
 
 
@@ -2654,7 +2806,7 @@ const TableTukarFaktur = ({
 
       {showDocumentModal && selectedFaktur && (
         <div className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5" onClick={closeDocument}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-primary px-5 sm:px-6 py-4 text-white shrink-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -2672,65 +2824,312 @@ const TableTukarFaktur = ({
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 overflow-y-auto">
-              <div className={`rounded-xl border p-4 mb-5 ${selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "bg-green-50 border-green-200" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
-                <div className="flex items-start gap-3">
-                  {selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? <FaCheckCircle className="text-green-600 mt-0.5" /> : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? <FaTimesCircle className="text-red-600 mt-0.5" /> : <FaClock className="text-amber-600 mt-0.5" />}
-                  <div className="flex-1">
-                    <p className={`text-sm font-semibold ${selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "text-green-800" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "text-red-800" : "text-amber-800"}`}>
-                      {selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "Tukar Faktur Diterima" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "Tukar Faktur Ditolak" : "Menunggu Verifikasi"}
-                    </p>
-                    {selectedFaktur.tanggal_verifikasi && <p className="text-xs text-gray-600 mt-1">Tanggal Verifikasi: <span className="font-semibold">{selectedFaktur.tanggal_verifikasi}</span></p>}
-                    {selectedFaktur.status_verifikasi_tukar === "DITOLAK" && selectedFaktur.status_keterangan && (
-                      <div className="mt-3 pt-3 border-t border-red-200">
-                        <p className="text-xs font-semibold text-red-700 mb-1">Keterangan Penolakan</p>
-                        <p className="text-sm text-red-700 leading-relaxed">{selectedFaktur.status_keterangan}</p>
-                      </div>
-                    )}
+            <div className="grid min-h-0 grid-cols-1 gap-5 overflow-y-auto p-4 sm:p-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+              <div className="min-w-0">
+                <div className={`rounded-xl border p-4 mb-5 ${selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "bg-green-50 border-green-200" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                  <div className="flex items-start gap-3">
+                    {selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? <FaCheckCircle className="text-green-600 mt-0.5" /> : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? <FaTimesCircle className="text-red-600 mt-0.5" /> : <FaClock className="text-amber-600 mt-0.5" />}
+                    <div className="flex-1">
+                      <p className={`text-sm font-semibold ${selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "text-green-800" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "text-red-800" : "text-amber-800"}`}>
+                        {selectedFaktur.status_verifikasi_tukar === "DITERIMA" ? "Tukar Faktur Diterima" : selectedFaktur.status_verifikasi_tukar === "DITOLAK" ? "Tukar Faktur Ditolak" : "Menunggu Verifikasi"}
+                      </p>
+                      {selectedFaktur.tanggal_verifikasi && <p className="text-xs text-gray-600 mt-1">Tanggal Verifikasi: <span className="font-semibold">{selectedFaktur.tanggal_verifikasi}</span></p>}
+                      {selectedFaktur.status_verifikasi_tukar === "DITOLAK" && selectedFaktur.status_keterangan && (
+                        <div className="mt-3 pt-3 border-t border-red-200">
+                          <p className="text-xs font-semibold text-red-700 mb-1">Keterangan Penolakan</p>
+                          <p className="text-sm text-red-700 leading-relaxed">{selectedFaktur.status_keterangan}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-primary flex items-center justify-center"><FaFileInvoiceDollar /></div>
-                  <div><p className="text-xs text-blue-600">Status Tukar Faktur</p><div className="mt-1">{renderStatus(selectedFaktur.status)}</div></div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  ["No. Faktur", selectedFaktur.no_faktur],
-                  ["No. Billing", selectedFaktur.no_billing],
-                  ["Customer", selectedFaktur.nama_customer],
-                  ["Proses Retur", selectedFaktur.proses_retur],
-                  ["Jatuh Tempo", formatDate(selectedFaktur.jatuh_tempo)],
-                  ["DPP", formatCurrency(selectedFaktur.dpp)],
-                  ["PPN", formatCurrency(selectedFaktur.ppn)],
-                  ["PPh", formatCurrency(selectedFaktur.pph)],
-                  ["Total Invoice", formatCurrency(selectedFaktur.total_invoice)],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-start justify-between gap-4 pb-3 border-b">
-                    <span className="text-sm text-gray-500">{label}</span>
-                    <span className="text-sm font-semibold text-gray-700 text-right break-all">{value || "-"}</span>
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-primary flex items-center justify-center"><FaFileInvoiceDollar /></div>
+                    <div><p className="text-xs text-blue-600">Status Tukar Faktur</p><div className="mt-1">{renderStatus(selectedFaktur.status)}</div></div>
                   </div>
-                ))}
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-sm text-gray-500">Dokumen</span>
-                  <span className="text-sm font-semibold text-gray-700 text-right break-all max-w-[60%]">{selectedFaktur.nama_dokumen_tukar || "Dokumen tersedia"}</span>
                 </div>
+
+                <div className="space-y-3">
+                  {[
+                    ["No. Faktur", selectedFaktur.no_faktur],
+                    ["No. Billing", selectedFaktur.no_billing],
+                    ["Customer", selectedFaktur.nama_customer],
+                    ["Proses Retur", selectedFaktur.proses_retur],
+                    ["Jatuh Tempo", formatDate(selectedFaktur.jatuh_tempo)],
+                    ["DPP", formatCurrency(selectedFaktur.dpp)],
+                    ["PPN", formatCurrency(selectedFaktur.ppn)],
+                    ["PPh", formatCurrency(selectedFaktur.pph)],
+                    ["Total Invoice", formatCurrency(selectedFaktur.total_invoice)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-start justify-between gap-4 pb-3 border-b">
+                      <span className="text-sm text-gray-500">{label}</span>
+                      <span className="text-sm font-semibold text-gray-700 text-right break-all">{value || "-"}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-sm text-gray-500">Dokumen</span>
+                    <span className="text-sm font-semibold text-gray-700 text-right break-all max-w-[60%]">{selectedFaktur.nama_dokumen_tukar || "Dokumen tersedia"}</span>
+                  </div>
+                </div>
+
+                {selectedFaktur.files && (
+                  <a href={typeof selectedFaktur.files === "string" ? selectedFaktur.files : undefined} target="_blank" rel="noopener noreferrer" className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition">
+                    <FaEye />
+                    Buka Dokumen Tukar Faktur
+                  </a>
+                )}
               </div>
 
-              {selectedFaktur.files && (
-                <a href={typeof selectedFaktur.files === "string" ? selectedFaktur.files : undefined} target="_blank" rel="noopener noreferrer" className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition">
-                  <FaEye />
-                  Buka Dokumen Tukar Faktur
-                </a>
-              )}
+              {/* HISTORY PENUGASAN */}
+              <aside className="min-w-0 rounded-2xl border border-gray-200 bg-slate-50 p-4 sm:p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                    <FaClipboardList />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-800">History Penugasan</h4>
+                    <p className="mt-0.5 text-xs text-gray-500">Riwayat penugasan untuk faktur ini</p>
+                  </div>
+                </div>
+
+                {loadingHistoryPenugasan ? (
+                  <div className="flex min-h-[180px] flex-col items-center justify-center text-sm text-gray-500">
+                    <span className="loading loading-spinner loading-md text-primary" />
+                    <span className="mt-3">Memuat history penugasan...</span>
+                  </div>
+                ) : historyPenugasanData.length === 0 ? (
+                  <div className="flex min-h-[140px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 text-center">
+                    <FaInfoCircle className="mb-2 text-2xl text-gray-300" />
+                    <p className="text-sm font-semibold text-gray-600">Belum Ada History</p>
+                  </div>
+                ) : (
+                  <ul className="steps steps-vertical w-full items-start">
+                    {historyPenugasanData.map((history, index) => {
+                      const isActive = String(history?.is_active || "").toUpperCase() === "Y";
+                      const namaPetugas = firstValue(
+                        history,
+                        "nama",
+                        "nama_petugas",
+                        "petugas",
+                        "nama_user",
+                        "user_name",
+                        "nip"
+                      );
+                      const tanggalPenugasan = firstValue(
+                        history,
+                        "assigned_at",
+                        "tanggal",
+                        "created_at",
+                        "tanggal_penugasan",
+                        "updated_at"
+                      );
+
+                      return (
+                        <li
+                          key={history?.id || history?.penugasan_id || `${namaPetugas || "history"}-${index}`}
+                          className={`step ${isActive ? "step-primary" : ""} !grid !w-full !grid-cols-[2rem_minmax(0,1fr)] !items-start !gap-3 !text-left`}
+                          data-content={isActive ? "✓" : ''}
+                        >
+                          <div className="mb-5 min-w-0 w-full rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                  Petugas Tukar Faktur
+                                </p>
+                                <p className="mt-1 break-words text-sm font-bold text-gray-800">
+                                  {namaPetugas || "-"}
+                                </p>
+                              </div>
+                              <span className={`badge badge-sm ${isActive ? "badge-success" : "badge-ghost"}`}>
+                                {isActive ? "Aktif" : "Tidak Aktif"}
+                              </span>
+                            </div>
+                            <div className="mt-3 border-t border-gray-100 pt-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                Tanggal Penugasan
+                              </p>
+                              <p className="mt-1 break-words text-sm text-gray-700">
+                                {tanggalPenugasan || "-"}
+                              </p>
+                            </div>
+                            <div className="mt-3 border-t border-gray-100 pt-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                Alasan Pengembalian
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">
+                                {firstValue(history, "alasan") || "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </aside>
             </div>
 
             <div className="border-t bg-gray-50 px-5 py-4 flex justify-end">
               <button type="button" onClick={closeDocument} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 transition">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
+      {/* MODAL FAKTUR KEMBALI */}
+      {/* ================================================= */}
+
+      {/* MODAL FAKTUR KEMBALI */}
+      {showFakturKembaliModal && (
+        <div
+          className="fixed inset-0 z-[520] flex items-center justify-center overflow-y-auto bg-black/40 p-3 backdrop-blur-sm sm:p-5"
+          onClick={closeFakturKembali}
+        >
+          <div
+            className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* HEADER - TETAP TERLIHAT */}
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-orange-600 px-5 py-4 text-white sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                  <FaUndoAlt />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold">Faktur Kembali</h3>
+                  <p className="mt-0.5 text-xs text-orange-100">
+                    Masukkan alasan pengembalian faktur
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeFakturKembali}
+                disabled={loadingFakturKembali}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-white/10 disabled:opacity-50"
+                title="Tutup"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* CONTENT - SCROLL JIKA MELEBIHI TINGGI MODAL */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
+              {/* DAFTAR FAKTUR */}
+              <div className="min-w-0 rounded-xl border border-orange-100 bg-orange-50 p-3 sm:p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-orange-900">
+                      Daftar Faktur yang Dipilih
+                    </p>
+                    <p className="mt-1 text-xs text-orange-700">
+                      {fakturKembaliList.length} faktur akan diproses untuk Faktur Kembali.
+                    </p>
+                  </div>
+
+                  <span className="badge badge-warning badge-lg shrink-0">
+                    {fakturKembaliList.length} Faktur
+                  </span>
+                </div>
+
+                {/* LIST FAKTUR - SCROLL TERPISAH */}
+                <div className="max-h-48 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain pr-1 sm:max-h-56">
+                  {fakturKembaliList.map((faktur, index) => (
+                    <div
+                      key={getId(faktur) ?? `${getNoBilling(faktur)}-${index}`}
+                      className="min-w-0 rounded-lg border border-orange-100 bg-white p-3"
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
+                          {index + 1}
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-medium text-gray-500">
+                            No. Billing
+                          </p>
+                          <p className="break-all text-sm font-bold text-orange-900">
+                            {getNoBilling(faktur)}
+                          </p>
+
+                          <p className="mt-2 text-[11px] font-medium text-gray-500">
+                            Customer
+                          </p>
+                          <p className="break-words text-sm font-semibold text-gray-800">
+                            {getCustomer(faktur)}
+                          </p>
+
+                          <p className="mt-1 break-words text-xs text-gray-500">
+                            No. Faktur: {getNoFaktur(faktur)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {fakturKembaliList.length > 1 && (
+                  <p className="mt-3 text-xs text-orange-700">
+                    Satu alasan akan diterapkan untuk seluruh{" "}
+                    {fakturKembaliList.length} faktur yang dipilih.
+                  </p>
+                )}
+              </div>
+
+              {/* ALASAN FAKTUR KEMBALI */}
+              <div>
+                <label
+                  htmlFor="alasan-faktur-kembali"
+                  className="mb-2 block text-sm font-semibold text-gray-700"
+                >
+                  Alasan Faktur Kembali <span className="text-red-500">*</span>
+                </label>
+
+                <textarea
+                  id="alasan-faktur-kembali"
+                  rows={4}
+                  value={alasanFakturKembali}
+                  onChange={(e) => setAlasanFakturKembali(e.target.value)}
+                  placeholder="Tuliskan alasan faktur dikembalikan..."
+                  disabled={loadingFakturKembali}
+                  className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
+                />
+              </div>
+            </div>
+
+            {/* FOOTER - TETAP TERLIHAT */}
+            <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <button
+                type="button"
+                onClick={closeFakturKembali}
+                disabled={loadingFakturKembali}
+                className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={handleInsertFakturKembali}
+                disabled={loadingFakturKembali || !alasanFakturKembali.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                {loadingFakturKembali ? (
+                  <>
+                    <span className="loading loading-spinner loading-xs" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <FaUndoAlt />
+                    Submit Faktur Kembali
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -2775,13 +3174,13 @@ const TableTukarFaktur = ({
 
             <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
               {selectedFaktur.latitude !== null &&
-              selectedFaktur.latitude !== undefined &&
-              selectedFaktur.latitude !== "" &&
-              selectedFaktur.longitude !== null &&
-              selectedFaktur.longitude !== undefined &&
-              selectedFaktur.longitude !== "" &&
-              Number.isFinite(Number(selectedFaktur.latitude)) &&
-              Number.isFinite(Number(selectedFaktur.longitude)) ? (
+                selectedFaktur.latitude !== undefined &&
+                selectedFaktur.latitude !== "" &&
+                selectedFaktur.longitude !== null &&
+                selectedFaktur.longitude !== undefined &&
+                selectedFaktur.longitude !== "" &&
+                Number.isFinite(Number(selectedFaktur.latitude)) &&
+                Number.isFinite(Number(selectedFaktur.longitude)) ? (
                 <>
                   <div className="overflow-hidden rounded-xl border border-gray-200">
                     <iframe
@@ -2821,8 +3220,8 @@ const TableTukarFaktur = ({
                       <p className="text-xs font-medium text-gray-500">Accuracy</p>
                       <p className="mt-1 text-sm font-semibold text-gray-800">
                         {selectedFaktur.accuracy !== null &&
-                        selectedFaktur.accuracy !== undefined &&
-                        selectedFaktur.accuracy !== ""
+                          selectedFaktur.accuracy !== undefined &&
+                          selectedFaktur.accuracy !== ""
                           ? `±${selectedFaktur.accuracy} meter`
                           : "Tidak tersedia"}
                       </p>

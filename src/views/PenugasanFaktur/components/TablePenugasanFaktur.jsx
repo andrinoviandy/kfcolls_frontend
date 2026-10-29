@@ -17,6 +17,7 @@ import {
   FaClock,
   FaExclamationCircle,
   FaCheck,
+  FaEye,
 } from "react-icons/fa";
 import ReactPaginate from "react-paginate";
 import Select, { components as selectComponents } from "react-select";
@@ -228,6 +229,13 @@ const TablePenugasanFaktur = ({
   const [showAssignmentPanel, setShowAssignmentPanel] = useState(false);
   const [petugasOptions, setPetugasOptions] = useState([]);
   const [loadingPetugas, setLoadingPetugas] = useState(false);
+
+  // History penugasan Tukar Faktur dan Penagihan
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [loadingHistoryPenugasan, setLoadingHistoryPenugasan] = useState(false);
+  const [historyFaktur, setHistoryFaktur] = useState(null);
+  const [historyTukarFaktur, setHistoryTukarFaktur] = useState([]);
+  const [historyPenagihan, setHistoryPenagihan] = useState([]);
 
   const getReferensi = async () => {
     try {
@@ -531,6 +539,169 @@ const TablePenugasanFaktur = ({
       setLoading(false);
     }
   };
+  const normalizeHistoryList = (response) => {
+    const data = response?.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.list_data)) return data.list_data;
+    if (Array.isArray(data?.history)) return data.history;
+    if (Array.isArray(data?.data)) return data.data;
+    return data ? [data] : [];
+  };
+
+  const openHistoryPenugasan = async (faktur) => {
+    const piutangId = firstValue(faktur, "piutang_id", "id", "faktur_id");
+
+    if (!piutangId) {
+      await swal.error("piutang_id faktur tidak ditemukan.");
+      return;
+    }
+
+    setHistoryFaktur(faktur);
+    setHistoryTukarFaktur([]);
+    setHistoryPenagihan([]);
+    setShowHistoryModal(true);
+    setLoadingHistoryPenugasan(true);
+
+    try {
+      const [resTukarFaktur, resPenagihan] = await Promise.all([
+        storeSchema.actions.historyPenugasan({
+          piutang_id: piutangId,
+          kegiatan: "TUKAR_FAKTUR",
+        }),
+        storeSchema.actions.historyPenugasan({
+          piutang_id: piutangId,
+          kegiatan: "PENAGIHAN",
+        }),
+      ]);
+
+      if (resTukarFaktur?.status !== true) {
+        throw new Error(
+          resTukarFaktur?.message || "Gagal mengambil history penugasan Tukar Faktur."
+        );
+      }
+      if (resPenagihan?.status !== true) {
+        throw new Error(
+          resPenagihan?.message || "Gagal mengambil history penugasan Penagihan."
+        );
+      }
+
+      setHistoryTukarFaktur(normalizeHistoryList(resTukarFaktur));
+      setHistoryPenagihan(normalizeHistoryList(resPenagihan));
+    } catch (error) {
+      console.error("ERROR HISTORY PENUGASAN:", error);
+      await swal.error(error?.message || "Gagal mengambil history penugasan.");
+    } finally {
+      setLoadingHistoryPenugasan(false);
+    }
+  };
+
+  const closeHistoryPenugasan = () => {
+    setShowHistoryModal(false);
+    setHistoryFaktur(null);
+    setHistoryTukarFaktur([]);
+    setHistoryPenagihan([]);
+  };
+
+  const renderHistorySection = (title, kegiatan, histories, Icon, accent) => (
+    <section className="rounded-xl border border-gray-200 bg-white p-4">
+      <div className="mb-4 flex items-center gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent}`}>
+          <Icon />
+        </div>
+        <div>
+          <h4 className="font-bold text-gray-800">{title}</h4>
+          <p className="text-xs text-gray-500">Kegiatan: {kegiatan}</p>
+        </div>
+        <span className="badge badge-ghost ml-auto shrink-0">
+          {histories.length} riwayat
+        </span>
+      </div>
+
+      {loadingHistoryPenugasan ? (
+        <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500">
+          <span className="loading loading-spinner loading-sm text-primary" />
+          Memuat history...
+        </div>
+      ) : histories.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center">
+          <FaClipboardList className="mx-auto mb-2 text-xl text-gray-300" />
+          <p className="text-sm font-medium text-gray-500">Belum ada history penugasan</p>
+        </div>
+      ) : (
+        <ul className="steps steps-vertical w-full">
+          {histories.map((history, index) => {
+            const namaPetugas = firstValue(
+              history,
+              "nama",
+              "nama_petugas",
+              "petugas",
+              "nama_user",
+              "user_name",
+              "nip"
+            ) || "-";
+            const nipPetugas = firstValue(history, "nip", "petugas_nip", "user_nip");
+            const alasanPengembalian = firstValue(history, "alasan");
+            const assignedAt = firstValue(
+              history,
+              "assigned_at",
+              "tanggal_penugasan",
+              "tanggal",
+              "created_at",
+              "updated_at"
+            );
+            const activeValue = String(
+              firstValue(history, "is_active", "aktif", "status_aktif") || ""
+            ).toUpperCase();
+            const isActive = ["Y", "1", "AKTIF", "ACTIVE"].includes(activeValue);
+
+            return (
+              <li
+                key={
+                  history?.id ||
+                  history?.penugasan_id ||
+                  `${kegiatan}-${namaPetugas}-${assignedAt || index}`
+                }
+                className={`step ${isActive ? "step-success" : "step-neutral"}`}
+              >
+                <div className="w-full min-w-0 pb-5 text-left">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="break-words text-sm font-bold text-gray-800">
+                      {namaPetugas}
+                    </p>
+                    <span className={`badge badge-sm ${isActive ? "badge-success" : "badge-ghost"}`}>
+                      {isActive ? "Aktif" : "Tidak Aktif"}
+                    </span>
+                  </div>
+                  {nipPetugas && (
+                    <p className="mt-1 text-xs text-gray-500">NIP: {nipPetugas}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">Tanggal Penugasan</p>
+                  <p className="mt-1 break-words text-sm text-gray-700">
+                    {assignedAt ? formatDate(assignedAt) : "-"}
+                    {assignedAt && !Number.isNaN(new Date(assignedAt).getTime())
+                      ? ` ${new Date(assignedAt).toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`
+                      : ""}
+                  </p>
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Alasan Pengembalian
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">
+                      {alasanPengembalian || "-"}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+
   const renderStatus = (status) => {
     const config = statusConfig[status];
     if (!config) return <span className="text-gray-400">-</span>;
@@ -905,6 +1076,15 @@ const TablePenugasanFaktur = ({
                               <span className="w-4 h-4 rounded border border-current" />
                             )}
                           </label>
+                          <button
+                            type="button"
+                            onClick={() => openHistoryPenugasan(v)}
+                            title="History Penugasan"
+                            aria-label="History Penugasan"
+                            className="mt-2 flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
+                          >
+                            <FaEye />
+                          </button>
                         </td>
                         <td className="px-4 py-3 font-semibold text-gray-700">
                           {(currentPage - 1) * perPage + i + 1}
@@ -1056,6 +1236,67 @@ const TablePenugasanFaktur = ({
           </div>
         </div>
       </div>
+
+      {showHistoryModal && (
+        <div
+          className="fixed inset-0 z-[510] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm sm:p-5"
+          onClick={closeHistoryPenugasan}
+        >
+          <div
+            className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-5 py-4 text-white sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                  <FaEye />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold">History Penugasan</h3>
+                  <p className="mt-1 truncate text-xs text-white/80">
+                    {historyFaktur?.no_faktur || historyFaktur?.nama_customer || "Detail riwayat penugasan"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeHistoryPenugasan}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-white/10"
+                title="Tutup"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+              {renderHistorySection(
+                "History Penugasan Tukar Faktur",
+                "TUKAR_FAKTUR",
+                historyTukarFaktur,
+                FaExchangeAlt,
+                "bg-orange-50 text-orange-600"
+              )}
+              {renderHistorySection(
+                "History Penugasan Penagihan",
+                "PENAGIHAN",
+                historyPenagihan,
+                FaRoute,
+                "bg-blue-50 text-blue-600"
+              )}
+            </div>
+
+            <div className="flex shrink-0 justify-end border-t bg-white px-5 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={closeHistoryPenugasan}
+                className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAssignmentPanel && (
         <div

@@ -54,6 +54,7 @@ import ReportSales from 'views/ReportSales'
 import VerifikasiTukarFaktur from 'views/VerifikasiTukarFaktur'
 import DataCod from 'views/DataCod'
 import KreasiFaktur from 'views/KreasiFaktur'
+import MasterTarget from 'views/MasterTarget'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -141,6 +142,10 @@ const routes = [
   {
     path: '/data-pelanggan',
     component: MasterPelanggan,
+  },
+  {
+    path: '/master-target',
+    component: MasterTarget,
   },
 
 

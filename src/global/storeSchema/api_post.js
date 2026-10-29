@@ -680,6 +680,14 @@ const n2nPostService = {
       return error.response;
     }
   },
+  uploadMasterTarget: async (data) => {
+    try {
+      const response = await api.post("/uploadMasterTarget", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
   insertMasterData: async (data) => {
     try {
       const response = await api.post("/insertMasterData", data);
@@ -780,6 +788,14 @@ const n2nPostService = {
   insertTukarFaktur: async (data) => {
     try {
       const response = await api.post("/insertTukarFaktur", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  insertFakturKembali: async (data) => {
+    try {
+      const response = await api.post("/insertFakturKembali", data);
       return response.data;
     } catch (error) {
       return error.response;

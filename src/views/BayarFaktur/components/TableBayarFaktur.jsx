@@ -28,6 +28,8 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaChevronRight,
+  FaEye,
+  FaUndoAlt,
 } from "react-icons/fa";
 
 import {
@@ -298,6 +300,22 @@ const getHistoryPembayaran = (item) => {
   return result;
 };
 
+const hasAnyPayment = (item) => {
+  const history = getHistoryPembayaran(item);
+  if (history.length > 0) return true;
+
+  const paymentFields = [
+    item?.collections,
+    item?.total_dibayar,
+    item?.total_pembayaran,
+    item?.collections_menunggu_verifikasi,
+    item?.collections_tidak_terverifikasi,
+    item?.collections_terverifikasi,
+  ];
+
+  return paymentFields.some((value) => Number(value || 0) > 0);
+};
+
 const getDisplayInvoiceAmounts = (item) => {
   const dpp = Number(item?.dpp || 0);
   const ppn = Number(item?.ppn || 0);
@@ -503,6 +521,18 @@ const TableBayarFaktur = ({
 
   const [showPaymentModal, setShowPaymentModal] =
     useState(false);
+
+  // State Faktur Kembali
+  const [showFakturKembaliModal, setShowFakturKembaliModal] = useState(false);
+  const [fakturKembaliList, setFakturKembaliList] = useState([]);
+  const [alasanFakturKembali, setAlasanFakturKembali] = useState("");
+  const [loadingFakturKembali, setLoadingFakturKembali] = useState(false);
+
+  // State modal History Penugasan
+  const [showHistoryPenugasanModal, setShowHistoryPenugasanModal] = useState(false);
+  const [selectedHistoryFaktur, setSelectedHistoryFaktur] = useState(null);
+  const [historyPenugasanData, setHistoryPenugasanData] = useState([]);
+  const [loadingHistoryPenugasan, setLoadingHistoryPenugasan] = useState(false);
 
   // State untuk modal Penerimaan Lain
   const [showPenerimaanLainModal, setShowPenerimaanLainModal] = useState(false);
@@ -1379,87 +1409,222 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const handlePayment = async () => {
-  if (!paymentFile) {
-    swal.error("File bukti pembayaran wajib diupload.");
-    return;
-  }
-
-  if (paymentMethod === "PARTIAL_PAYMENT") {
-    if (!canUsePartialPayment) {
-      swal.error(
-        "Partial Payment hanya dapat digunakan untuk faktur dari 1 customer yang sama."
-      );
+    if (!paymentFile) {
+      swal.error("File bukti pembayaran wajib diupload.");
       return;
     }
 
-    const paymentAmount =
-      parseNominal(paymentPartialAmount);
+    if (paymentMethod === "PARTIAL_PAYMENT") {
+      if (!canUsePartialPayment) {
+        swal.error(
+          "Partial Payment hanya dapat digunakan untuk faktur dari 1 customer yang sama."
+        );
+        return;
+      }
 
-    if (paymentAmount <= 0) {
-      swal.error(
-        "Masukkan nominal pembayaran terlebih dahulu."
-      );
-      return;
-    }
+      const paymentAmount =
+        parseNominal(paymentPartialAmount);
 
-    if (!showPaymentAllocation) {
-      swal.error(
-        "Klik Tampilkan Alokasi Pembayaran terlebih dahulu."
-      );
-      return;
-    }
+      if (paymentAmount <= 0) {
+        swal.error(
+          "Masukkan nominal pembayaran terlebih dahulu."
+        );
+        return;
+      }
 
-    if (allocatedPaymentTotal <= 0) {
-      swal.error(
-        "Minimal 1 faktur harus memiliki alokasi pembayaran."
-      );
-      return;
-    }
+      if (!showPaymentAllocation) {
+        swal.error(
+          "Klik Tampilkan Alokasi Pembayaran terlebih dahulu."
+        );
+        return;
+      }
 
-    if (allocatedPaymentTotal > paymentAmount) {
-      swal.error(
-        "Total alokasi tidak boleh melebihi nominal pembayaran."
-      );
-      return;
-    }
+      if (allocatedPaymentTotal <= 0) {
+        swal.error(
+          "Minimal 1 faktur harus memiliki alokasi pembayaran."
+        );
+        return;
+      }
 
-    if (allocatedPaymentTotal > totalSelectedPayment) {
-      swal.error(
-        "Total alokasi tidak boleh melebihi total sisa tagihan."
-      );
-      return;
-    }
+      if (allocatedPaymentTotal > paymentAmount) {
+        swal.error(
+          "Total alokasi tidak boleh melebihi nominal pembayaran."
+        );
+        return;
+      }
 
-    const selectedInvoices =
-      selectedPaymentInvoices.filter(
-        invoice =>
-          Number(
-            paymentAllocation?.[
+      if (allocatedPaymentTotal > totalSelectedPayment) {
+        swal.error(
+          "Total alokasi tidak boleh melebihi total sisa tagihan."
+        );
+        return;
+      }
+
+      const selectedInvoices =
+        selectedPaymentInvoices.filter(
+          invoice =>
+            Number(
+              paymentAllocation?.[
               invoice?.no_faktur
-            ] || 0
-          ) > 0
-      );
+              ] || 0
+            ) > 0
+        );
 
-    if (selectedInvoices.length === 0) {
+      if (selectedInvoices.length === 0) {
+        swal.error(
+          "Minimal 1 faktur harus memiliki alokasi pembayaran."
+        );
+        return;
+      }
+
+      try {
+        const formData =
+          new FormData();
+
+        const payload = {
+          jenis_pembayaran:
+            "PARTIAL_PAYMENT",
+
+          metode_pembayaran:
+            paymentMethod,
+
+          nominal_bayar:
+            paymentAmount,
+
+          keterangan:
+            description || "",
+
+          user_id:
+            loginAccess?.user_id || null,
+
+          nip:
+            loginAccess?.nip || null,
+
+          faktur:
+            selectedInvoices.map(
+              invoice => ({
+                piutang_id:
+                  invoice?.piutang_id ||
+                  invoice?.id ||
+                  null,
+
+                no_faktur:
+                  invoice?.no_faktur ||
+                  null,
+
+                no_billing:
+                  invoice?.no_billing ||
+                  null,
+
+                customer:
+                  invoice?.customer_id ||
+                  invoice?.customer ||
+                  null,
+
+                total_bayar:
+                  Number(
+                    invoice?.saldo_piutang ??
+                    invoice?.sisa_tagihan ??
+                    invoice?.nominal_tagihan ??
+                    0
+                  ),
+
+                saldo_piutang:
+                  Number(
+                    invoice?.saldo_piutang ??
+                    invoice?.sisa_tagihan ??
+                    0
+                  ),
+
+                nominal_pembayaran:
+                  Number(
+                    paymentAllocation?.[
+                    invoice?.no_faktur
+                    ] || 0
+                  ),
+              })
+            ),
+        };
+
+        formData.append(
+          "payload",
+          JSON.stringify(payload)
+        );
+
+        formData.append(
+          "lampiran",
+          paymentFile,
+          paymentFile.name
+        );
+
+        const res =
+          await storeSchema.actions.insertBayarFaktur(
+            formData
+          );
+
+        if (res?.status !== true) {
+          throw new Error(
+            res?.message ||
+            "Gagal menyimpan pembayaran."
+          );
+        }
+
+        swal.success(
+          res?.message ||
+          "Pembayaran berhasil disimpan."
+        );
+
+        closePayment();
+
+        setSelectedIds([]);
+
+        await getDataBayarFaktur();
+
+      } catch (error) {
+
+        console.error(
+          "ERROR INSERT BAYAR FAKTUR:",
+          error
+        );
+
+        swal.error(
+          error?.message ||
+          "Gagal menyimpan pembayaran."
+        );
+      }
+
+      return;
+    }
+
+    const dataToPay =
+      Array.isArray(selectedData)
+        ? selectedData
+        : [selectedData];
+
+    if (
+      !dataToPay.length ||
+      !dataToPay.some(Boolean)
+    ) {
       swal.error(
-        "Minimal 1 faktur harus memiliki alokasi pembayaran."
+        "Tidak ada faktur yang dipilih."
       );
       return;
     }
 
     try {
+
       const formData =
         new FormData();
 
       const payload = {
         jenis_pembayaran:
-          "PARTIAL_PAYMENT",
+          "FULL_PAYMENT",
 
         metode_pembayaran:
           paymentMethod,
 
         nominal_bayar:
-          paymentAmount,
+          totalPayment,
 
         keterangan:
           description || "",
@@ -1471,49 +1636,44 @@ const TableBayarFaktur = ({
           loginAccess?.nip || null,
 
         faktur:
-          selectedInvoices.map(
-            invoice => ({
-              piutang_id:
-                invoice?.piutang_id ||
-                invoice?.id ||
-                null,
+          dataToPay
+            .filter(Boolean)
+            .map(
+              item => ({
+                piutang_id:
+                  item?.piutang_id ||
+                  item?.id ||
+                  null,
 
-              no_faktur:
-                invoice?.no_faktur ||
-                null,
+                no_faktur:
+                  item?.no_faktur ||
+                  null,
 
-              no_billing:
-                invoice?.no_billing ||
-                null,
+                no_billing:
+                  item?.no_billing ||
+                  null,
 
-              customer:
-                invoice?.customer_id ||
-                invoice?.customer ||
-                null,
+                customer:
+                  item?.customer_id ||
+                  item?.customer ||
+                  null,
 
-              total_bayar:
-                Number(
-                  invoice?.saldo_piutang ??
-                  invoice?.sisa_tagihan ??
-                  invoice?.nominal_tagihan ??
-                  0
-                ),
+                total_bayar:
+                  Number(
+                    item?.saldo_piutang ??
+                    item?.sisa_tagihan ??
+                    item?.nominal_tagihan ??
+                    0
+                  ),
 
-              saldo_piutang:
-                Number(
-                  invoice?.saldo_piutang ??
-                  invoice?.sisa_tagihan ??
-                  0
-                ),
-
-              nominal_pembayaran:
-                Number(
-                  paymentAllocation?.[
-                    invoice?.no_faktur
-                  ] || 0
-                ),
-            })
-          ),
+                saldo_piutang:
+                  Number(
+                    item?.saldo_piutang ??
+                    item?.sisa_tagihan ??
+                    0
+                  ),
+              })
+            ),
       };
 
       formData.append(
@@ -1562,137 +1722,7 @@ const TableBayarFaktur = ({
         "Gagal menyimpan pembayaran."
       );
     }
-
-    return;
-  }
-
-  const dataToPay =
-    Array.isArray(selectedData)
-      ? selectedData
-      : [selectedData];
-
-  if (
-    !dataToPay.length ||
-    !dataToPay.some(Boolean)
-  ) {
-    swal.error(
-      "Tidak ada faktur yang dipilih."
-    );
-    return;
-  }
-
-  try {
-
-    const formData =
-      new FormData();
-
-    const payload = {
-      jenis_pembayaran:
-        "FULL_PAYMENT",
-
-      metode_pembayaran:
-        paymentMethod,
-
-      nominal_bayar:
-        totalPayment,
-
-      keterangan:
-        description || "",
-
-      user_id:
-        loginAccess?.user_id || null,
-
-      nip:
-        loginAccess?.nip || null,
-
-      faktur:
-        dataToPay
-          .filter(Boolean)
-          .map(
-            item => ({
-              piutang_id:
-                item?.piutang_id ||
-                item?.id ||
-                null,
-
-              no_faktur:
-                item?.no_faktur ||
-                null,
-
-              no_billing:
-                item?.no_billing ||
-                null,
-
-              customer:
-                item?.customer_id ||
-                item?.customer ||
-                null,
-
-              total_bayar:
-                Number(
-                  item?.saldo_piutang ??
-                  item?.sisa_tagihan ??
-                  item?.nominal_tagihan ??
-                  0
-                ),
-
-              saldo_piutang:
-                Number(
-                  item?.saldo_piutang ??
-                  item?.sisa_tagihan ??
-                  0
-                ),
-            })
-          ),
-    };
-
-    formData.append(
-      "payload",
-      JSON.stringify(payload)
-    );
-
-    formData.append(
-      "lampiran",
-      paymentFile,
-      paymentFile.name
-    );
-
-    const res =
-      await storeSchema.actions.insertBayarFaktur(
-        formData
-      );
-
-    if (res?.status !== true) {
-      throw new Error(
-        res?.message ||
-        "Gagal menyimpan pembayaran."
-      );
-    }
-
-    swal.success(
-      res?.message ||
-      "Pembayaran berhasil disimpan."
-    );
-
-    closePayment();
-
-    setSelectedIds([]);
-
-    await getDataBayarFaktur();
-
-  } catch (error) {
-
-    console.error(
-      "ERROR INSERT BAYAR FAKTUR:",
-      error
-    );
-
-    swal.error(
-      error?.message ||
-      "Gagal menyimpan pembayaran."
-    );
-  }
-};
+  };
 
   // ===================================================
   // PENERIMAAN LAIN
@@ -2575,6 +2605,138 @@ const TableBayarFaktur = ({
 
 
   // ===================================================
+  // FAKTUR KEMBALI
+  // ===================================================
+
+  const openFakturKembali = async (faktur = null) => {
+    const selectedList = faktur
+      ? [faktur]
+      : allData.filter((item) => selectedIds.includes(item.id));
+    const list = selectedList.filter((item) => !hasAnyPayment(item));
+    const invalidList = selectedList.filter((item) => hasAnyPayment(item));
+
+    if (!selectedList.length) {
+      await swal.error("Silakan pilih minimal satu faktur terlebih dahulu.");
+      return;
+    }
+
+    if (invalidList.length > 0) {
+      const pesan = list.length
+        ? `Sebanyak ${invalidList.length} faktur tidak dapat diproses sebagai Faktur Kembali karena sudah memiliki pembayaran. Faktur tersebut otomatis dibatalkan dari pilihan.`
+        : "Faktur Kembali hanya dapat dilakukan jika faktur belum memiliki pembayaran. Faktur yang tidak memenuhi syarat otomatis dibatalkan dari pilihan.";
+
+      // Tampilkan alert dengan ikon warning/attention, lalu lepaskan centang faktur yang tidak memenuhi syarat.
+      await swal.custom('Attention !', pesan, 'warning');
+
+      const invalidIds = invalidList.map((item) => item.id);
+      setSelectedIds((prev) => prev.filter((id) => !invalidIds.includes(id)));
+
+      if (!list.length) return;
+    }
+
+    setFakturKembaliList(list);
+    setAlasanFakturKembali("");
+    setShowFakturKembaliModal(true);
+  };
+
+  const closeFakturKembali = () => {
+    if (loadingFakturKembali) return;
+    setShowFakturKembaliModal(false);
+    setFakturKembaliList([]);
+    setAlasanFakturKembali("");
+  };
+
+  const handleInsertFakturKembali = async () => {
+    if (!fakturKembaliList.length) {
+      await swal.error("Silakan pilih minimal satu faktur terlebih dahulu.");
+      return;
+    }
+
+    if (!alasanFakturKembali.trim()) {
+      await swal.error("Alasan Faktur Kembali wajib diisi.");
+      return;
+    }
+
+    try {
+      setLoadingFakturKembali(true);
+      const payload = {
+        faktur_petugas_id: fakturKembaliList.map((item) => item?.faktur_petugas_id || item?.id).filter(Boolean),
+        alasan: alasanFakturKembali.trim(),
+        kegiatan: 'PENAGIHAN',
+        user_id: loginAccess?.user_id || null,
+        nip: loginAccess?.nip || null,
+      };
+
+      const res = await storeSchema.actions.insertFakturKembali(payload);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal menyimpan Faktur Kembali.");
+      }
+
+      await swal.success(res?.message || "Faktur Kembali berhasil disimpan.");
+      setShowFakturKembaliModal(false);
+      setFakturKembaliList([]);
+      setAlasanFakturKembali("");
+      setSelectedIds([]);
+      await getDataBayarFaktur();
+    } catch (error) {
+      console.error("ERROR INSERT FAKTUR KEMBALI:", error);
+      await swal.error(error?.message || "Gagal menyimpan Faktur Kembali.");
+    } finally {
+      setLoadingFakturKembali(false);
+    }
+  };
+
+  // ===================================================
+  // HISTORY PENUGASAN
+  // ===================================================
+
+  const openHistoryPenugasan = async (faktur) => {
+    setSelectedHistoryFaktur(faktur);
+    setHistoryPenugasanData([]);
+    setShowHistoryPenugasanModal(true);
+
+    const piutangId = faktur?.piutang_id || faktur?.id;
+    if (!piutangId) {
+      await swal.error("ID piutang tidak ditemukan.");
+      return;
+    }
+
+    try {
+      setLoadingHistoryPenugasan(true);
+      const res = await storeSchema.actions.historyPenugasan({
+        piutang_id: piutangId,
+        kegiatan: firstValue(faktur, "kegiatan") || "PENAGIHAN",
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil history penugasan.");
+      }
+
+      const data = res?.data;
+      setHistoryPenugasanData(
+        Array.isArray(data) ? data :
+          Array.isArray(data?.list_data) ? data.list_data :
+            Array.isArray(data?.history) ? data.history :
+              data ? [data] : []
+      );
+    } catch (error) {
+      console.error("ERROR GET HISTORY PENUGASAN:", error);
+      setHistoryPenugasanData([]);
+      await swal.error(error?.message || "Gagal mengambil history penugasan.");
+    } finally {
+      setLoadingHistoryPenugasan(false);
+    }
+  };
+
+  const closeHistoryPenugasan = () => {
+    if (loadingHistoryPenugasan) return;
+    setShowHistoryPenugasanModal(false);
+    setSelectedHistoryFaktur(null);
+    setHistoryPenugasanData([]);
+  };
+
+
+  // ===================================================
   // HEADER TABLE
   // ===================================================
 
@@ -3009,6 +3171,29 @@ const TableBayarFaktur = ({
 
             <button
               type="button"
+              onClick={() => openFakturKembali()}
+              className="
+                inline-flex
+                items-center
+                gap-2
+                px-5
+                py-2
+                rounded-full
+                border border-orange-200
+                bg-orange-50
+                text-orange-700
+                text-sm
+                font-semibold
+                hover:bg-orange-100
+                transition
+              "
+            >
+              <FaUndoAlt />
+              Faktur Kembali ({selectedIds.length})
+            </button>
+
+            <button
+              type="button"
               onClick={() =>
                 openPayment()
               }
@@ -3275,6 +3460,18 @@ const TableBayarFaktur = ({
 
                                     <div className="flex items-center justify-center gap-2">
 
+                                      {!hasAnyPayment(v) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => openFakturKembali(v)}
+                                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-orange-700 transition hover:bg-orange-100"
+                                          title="Faktur Kembali"
+                                          aria-label="Faktur Kembali"
+                                        >
+                                          <FaUndoAlt />
+                                        </button>
+                                      )}
+
                                       <button
                                         type="button"
                                         onClick={() => openPayment(v)}
@@ -3327,9 +3524,11 @@ const TableBayarFaktur = ({
 
                                   ) : (
 
-                                    <span className="text-xs text-gray-400">
-                                      Sudah dibayar
-                                    </span>
+                                    <div className="flex items-center justify-center gap-2">
+                                      <span className="text-xs text-gray-400">
+                                        Sudah dibayar
+                                      </span>
+                                    </div>
 
                                   )
                                 }
@@ -3370,10 +3569,20 @@ const TableBayarFaktur = ({
                                 text-center
                               "
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => toggleHistoryPembayaran(v.id)}
-                                  className="
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => openHistoryPenugasan(v)}
+                                    className="inline-flex w-9 h-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100"
+                                    title="Lihat History Penugasan"
+                                    aria-label="Lihat History Penugasan"
+                                  >
+                                    <FaEye />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleHistoryPembayaran(v.id)}
+                                    className="
                                   inline-flex
                                   items-center
                                   justify-center
@@ -3385,18 +3594,19 @@ const TableBayarFaktur = ({
                                   hover:bg-blue-100
                                   transition
                                 "
-                                  title={
-                                    isHistoryExpanded
-                                      ? "Tutup History Pembayaran"
-                                      : "Lihat History Pembayaran"
-                                  }
-                                >
-                                  {isHistoryExpanded ? (
-                                    <FaChevronUp />
-                                  ) : (
-                                    <FaChevronDown />
-                                  )}
-                                </button>
+                                    title={
+                                      isHistoryExpanded
+                                        ? "Tutup History Pembayaran"
+                                        : "Lihat History Pembayaran"
+                                    }
+                                  >
+                                    {isHistoryExpanded ? (
+                                      <FaChevronUp />
+                                    ) : (
+                                      <FaChevronDown />
+                                    )}
+                                  </button>
+                                </div>
                               </td>
 
                               {/* NO */}
@@ -3748,8 +3958,8 @@ const TableBayarFaktur = ({
                                                   <td className="px-4 py-3 whitespace-nowrap">
                                                     <span
                                                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isVerified
-                                                          ? "bg-green-100 text-green-700"
-                                                          : "bg-amber-100 text-amber-700"
+                                                        ? "bg-green-100 text-green-700"
+                                                        : "bg-amber-100 text-amber-700"
                                                         }`}
                                                     >
                                                       <FaCheckCircle />
@@ -7436,6 +7646,213 @@ const TableBayarFaktur = ({
         )
       }
 
+      {/* ================================================= */}
+      {/* MODAL FAKTUR KEMBALI */}
+      {/* ================================================= */}
+      {showFakturKembaliModal && (
+        <div
+          className="fixed inset-0 z-[650] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm sm:p-5"
+          onClick={closeFakturKembali}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-orange-600 px-5 py-4 text-white">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                  <FaUndoAlt />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Faktur Kembali</h3>
+                  <p className="text-xs text-orange-100">Masukkan alasan pengembalian faktur</p>
+                </div>
+              </div>
+              <button type="button" onClick={closeFakturKembali} disabled={loadingFakturKembali} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-50" title="Tutup">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6">
+              <div className="rounded-xl border border-orange-100 bg-orange-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-orange-700">Detail faktur yang dipilih</p>
+                  <p className="text-sm font-bold text-orange-900">{fakturKembaliList.length} faktur</p>
+                </div>
+
+                <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {fakturKembaliList.map((item, index) => (
+                    <div
+                      key={item?.faktur_petugas_id || item?.id || `${item?.no_faktur || "faktur"}-${index}`}
+                      className="rounded-lg border border-orange-100 bg-white p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-orange-100 px-2 text-xs font-bold text-orange-700">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-500">No. Faktur</p>
+                          <p className="break-all text-sm font-bold text-gray-900">{item?.no_faktur || "-"}</p>
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-gray-500">No. Billing</p>
+                              <p className="break-all text-sm font-semibold text-gray-800">{item?.no_billing || "-"}</p>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-gray-500">Customer</p>
+                              <p className="break-words text-sm text-gray-800">{item?.nama_customer || "-"}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {fakturKembaliList.length > 1 && (
+                  <p className="mt-3 text-xs text-orange-700">Alasan ini akan diterapkan untuk semua faktur yang dipilih.</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="alasan-faktur-kembali-bayar" className="mb-2 block text-sm font-semibold text-gray-700">
+                  Alasan Faktur Kembali <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="alasan-faktur-kembali-bayar"
+                  rows={4}
+                  value={alasanFakturKembali}
+                  onChange={(e) => setAlasanFakturKembali(e.target.value)}
+                  placeholder="Tuliskan alasan faktur dikembalikan..."
+                  disabled={loadingFakturKembali}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
+                />
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={closeFakturKembali} disabled={loadingFakturKembali} className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+                Batal
+              </button>
+              <button type="button" onClick={handleInsertFakturKembali} disabled={loadingFakturKembali || !alasanFakturKembali.trim()} className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300">
+                {loadingFakturKembali ? <><span className="loading loading-spinner loading-xs" /> Menyimpan...</> : <><FaUndoAlt /> Submit Faktur Kembali</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
+      {/* MODAL HISTORY PENUGASAN */}
+      {/* ================================================= */}
+      {showHistoryPenugasanModal && (
+        <div
+          className="fixed inset-0 z-[640] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm sm:p-5"
+          onClick={closeHistoryPenugasan}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-5 py-4 text-white sm:px-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15"><FaClipboardList /></div>
+                <div>
+                  <h3 className="text-lg font-bold">History Penugasan</h3>
+                  <p className="text-xs text-blue-100">{selectedHistoryFaktur?.no_billing || selectedHistoryFaktur?.no_faktur || "Detail riwayat penugasan"}</p>
+                </div>
+              </div>
+              <button type="button" onClick={closeHistoryPenugasan} disabled={loadingHistoryPenugasan} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-50"><FaTimes /></button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+              {loadingHistoryPenugasan ? (
+                <div className="flex min-h-[220px] flex-col items-center justify-center text-sm text-gray-500">
+                  <span className="loading loading-spinner loading-lg text-primary" />
+                  <span className="mt-3">Memuat history penugasan...</span>
+                </div>
+              ) : historyPenugasanData.length === 0 ? (
+                <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-slate-50 px-4 text-center">
+                  <FaInfoCircle className="mb-2 text-2xl text-gray-300" />
+                  <p className="text-sm font-semibold text-gray-600">Belum Ada History</p>
+                </div>
+              ) : (
+                <ul className="steps steps-vertical w-full">
+                  {historyPenugasanData.map((history, index) => {
+                    const namaPetugas = firstValue(
+                      history,
+                      "nama",
+                      "nama_petugas",
+                      "petugas",
+                      "nama_user",
+                      "user_name",
+                      "nip"
+                    ) || "-";
+                    const assignedAt = firstValue(
+                      history,
+                      "assigned_at",
+                      "tanggal_penugasan",
+                      "tanggal",
+                      "created_at",
+                      "updated_at"
+                    );
+                    const isActive = String(firstValue(
+                      history,
+                      "is_active",
+                      "aktif",
+                      "status_aktif"
+                    ) || "").toUpperCase() === "Y";
+
+                    return (
+                      <li
+                        key={history?.id || history?.penugasan_id || `${namaPetugas}-${assignedAt || index}`}
+                        className={`step ${isActive ? "step-primary" : ""} !grid !w-full !grid-cols-[2rem_minmax(0,1fr)] !items-start !gap-3 !text-left`}
+                        data-content={isActive ? "✓" : ''}
+                      >
+                        <div className="w-full pb-6 text-left">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                Petugas Penagihan
+                              </p>
+                              <p className="mt-1 break-words text-sm font-bold text-gray-800">
+                                {namaPetugas || "-"}
+                              </p>
+                            </div>
+                            <span className={`badge badge-sm ${isActive ? "badge-success" : "badge-ghost"}`}>
+                              {isActive ? "Aktif" : "Tidak Aktif"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Tanggal Penugasan
+                          </p>
+                          <p className="mt-1 break-words text-sm text-gray-700">
+                            {assignedAt || "-"}
+                          </p>
+
+                          <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">
+                              Alasan Pengembalian
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">
+                              {firstValue(history, "alasan") || "-"}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex shrink-0 justify-end border-t bg-gray-50 px-5 py-4">
+              <button type="button" onClick={closeHistoryPenugasan} disabled={loadingHistoryPenugasan} className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showRiwayatPenerimaanLain && (
         <div className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowRiwayatPenerimaanLain(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -7475,80 +7892,80 @@ const TableBayarFaktur = ({
                     <thead><tr className="bg-gray-50 text-gray-700"><th>No</th><th>Document Number</th><th>Tanggal Pembayaran</th><th>Metode</th><th>Keterangan</th><th className="text-right">Nominal</th><th className="text-right">Sisa Penerimaan</th><th className="text-center">Lampiran</th><th className="text-center">Aksi</th></tr></thead>
                     <tbody>{riwayatPenerimaanLain.map((item, index) => (
                       <React.Fragment key={item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id ?? index}>
-                      <tr>
-                        <td>{index + 1}</td>
-                        <td className="whitespace-nowrap">{item?.document_number ?? "-"}</td>
-                        <td className="whitespace-nowrap">{formatDate(item?.tanggal_pembayaran ?? item?.tanggal_bayar ?? item?.created_at)}</td>
-                        <td>{item?.metode_pembayaran ?? item?.metode ?? "-"}</td>
-                        <td className="min-w-[180px]">{item?.keterangan ?? "-"}</td>
-                        <td className="text-right font-semibold whitespace-nowrap">{formatRupiah(item?.nominal_bayar ?? item?.nominal_pembayaran ?? item?.nominal ?? 0)}</td>
-                        <td className="text-right font-semibold whitespace-nowrap text-blue-700">{formatRupiah(item?.sisa_penerimaan ?? 0)}</td>
-                        <td className="text-center whitespace-nowrap">
-                          {getPenerimaanFileUrl(item?.files) ? (
-                            <button
-                              type="button"
-                              onClick={() => window.open(getPenerimaanFileUrl(item?.files), "_blank", "noopener,noreferrer")}
-                              className="btn btn-sm btn-outline btn-primary rounded-lg flex-nowrap"
-                              title="Buka lampiran di tab baru"
-                            >
-                              <FaFileUpload /> Lihat
-                            </button>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => toggleRiwayatAlokasi(item)}
-                              className="btn btn-sm btn-ghost border border-gray-200 rounded-lg"
-                              title="Lihat riwayat alokasi"
-                              disabled={Boolean(loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)])}
-                            >
-                              {loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? (
-                                <span className="loading loading-spinner loading-xs" />
-                              ) : expandedRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? <FaChevronUp /> : <FaChevronDown />}
-                            </button>
-                            <button type="button" onClick={() => openModalAlokasiPenerimaanLain(item)} className="btn btn-sm btn-primary rounded-lg">
-                              Alokasi Penerimaan
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {expandedRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] && (
-                        <tr className="bg-blue-50/60">
-                          <td colSpan={9} className="p-4">
-                            <div className="border border-blue-100 bg-white rounded-xl p-4">
-                              <p className="text-sm font-semibold text-gray-700 mb-3">Riwayat Alokasi Penerimaan</p>
-                              {loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? (
-                                <div className="text-sm text-gray-500 py-3"><span className="loading loading-spinner loading-xs mr-2" />Memuat riwayat alokasi...</div>
-                              ) : !(dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] || []).length ? (
-                                <p className="text-sm text-gray-500 py-3">Belum ada riwayat alokasi untuk penerimaan ini.</p>
-                              ) : (
-                                <div className="overflow-x-auto">
-                                  <table className="table table-sm table-zebra w-full">
-                                    <thead className="bg-gray-50"><tr><th>No</th><th>No. Billing</th><th>No. Faktur</th><th>Customer</th><th>Cabang</th><th className="text-right">Total Invoice</th><th className="text-right">Saldo Piutang</th></tr></thead>
-                                    <tbody>
-                                      {dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)].map((alokasi, alokasiIndex) => (
-                                        <tr key={alokasi?.piutang_id ?? alokasi?.id ?? alokasiIndex}>
-                                          <td>{alokasiIndex + 1}</td>
-                                          <td className="whitespace-nowrap">{alokasi?.no_billing ?? "-"}</td>
-                                          <td className="whitespace-nowrap">{alokasi?.no_faktur ?? "-"}</td>
-                                          <td>{alokasi?.nama_customer ?? alokasi?.customer ?? "-"}</td>
-                                          <td>{alokasi?.nama_cabang ?? alokasi?.cabang ?? "-"}</td>
-                                          <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.total_invoice ?? alokasi?.total_tagihan ?? 0)}</td>
-                                          <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.saldo_piutang ?? alokasi?.sisa_tagihan ?? 0)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
+                        <tr>
+                          <td>{index + 1}</td>
+                          <td className="whitespace-nowrap">{item?.document_number ?? "-"}</td>
+                          <td className="whitespace-nowrap">{formatDate(item?.tanggal_pembayaran ?? item?.tanggal_bayar ?? item?.created_at)}</td>
+                          <td>{item?.metode_pembayaran ?? item?.metode ?? "-"}</td>
+                          <td className="min-w-[180px]">{item?.keterangan ?? "-"}</td>
+                          <td className="text-right font-semibold whitespace-nowrap">{formatRupiah(item?.nominal_bayar ?? item?.nominal_pembayaran ?? item?.nominal ?? 0)}</td>
+                          <td className="text-right font-semibold whitespace-nowrap text-blue-700">{formatRupiah(item?.sisa_penerimaan ?? 0)}</td>
+                          <td className="text-center whitespace-nowrap">
+                            {getPenerimaanFileUrl(item?.files) ? (
+                              <button
+                                type="button"
+                                onClick={() => window.open(getPenerimaanFileUrl(item?.files), "_blank", "noopener,noreferrer")}
+                                className="btn btn-sm btn-outline btn-primary rounded-lg flex-nowrap"
+                                title="Buka lampiran di tab baru"
+                              >
+                                <FaFileUpload /> Lihat
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleRiwayatAlokasi(item)}
+                                className="btn btn-sm btn-ghost border border-gray-200 rounded-lg"
+                                title="Lihat riwayat alokasi"
+                                disabled={Boolean(loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)])}
+                              >
+                                {loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? (
+                                  <span className="loading loading-spinner loading-xs" />
+                                ) : expandedRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? <FaChevronUp /> : <FaChevronDown />}
+                              </button>
+                              <button type="button" onClick={() => openModalAlokasiPenerimaanLain(item)} className="btn btn-sm btn-primary rounded-lg">
+                                Alokasi Penerimaan
+                              </button>
                             </div>
                           </td>
                         </tr>
-                      )}
+                        {expandedRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] && (
+                          <tr className="bg-blue-50/60">
+                            <td colSpan={9} className="p-4">
+                              <div className="border border-blue-100 bg-white rounded-xl p-4">
+                                <p className="text-sm font-semibold text-gray-700 mb-3">Riwayat Alokasi Penerimaan</p>
+                                {loadingRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] ? (
+                                  <div className="text-sm text-gray-500 py-3"><span className="loading loading-spinner loading-xs mr-2" />Memuat riwayat alokasi...</div>
+                                ) : !(dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)] || []).length ? (
+                                  <p className="text-sm text-gray-500 py-3">Belum ada riwayat alokasi untuk penerimaan ini.</p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="table table-sm table-zebra w-full">
+                                      <thead className="bg-gray-50"><tr><th>No</th><th>No. Billing</th><th>No. Faktur</th><th>Customer</th><th>Cabang</th><th className="text-right">Total Invoice</th><th className="text-right">Saldo Piutang</th></tr></thead>
+                                      <tbody>
+                                        {dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)].map((alokasi, alokasiIndex) => (
+                                          <tr key={alokasi?.piutang_id ?? alokasi?.id ?? alokasiIndex}>
+                                            <td>{alokasiIndex + 1}</td>
+                                            <td className="whitespace-nowrap">{alokasi?.no_billing ?? "-"}</td>
+                                            <td className="whitespace-nowrap">{alokasi?.no_faktur ?? "-"}</td>
+                                            <td>{alokasi?.nama_customer ?? alokasi?.customer ?? "-"}</td>
+                                            <td>{alokasi?.nama_cabang ?? alokasi?.cabang ?? "-"}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.total_invoice ?? alokasi?.total_tagihan ?? 0)}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.saldo_piutang ?? alokasi?.sisa_tagihan ?? 0)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       </React.Fragment>
                     ))}</tbody>
                   </table>
