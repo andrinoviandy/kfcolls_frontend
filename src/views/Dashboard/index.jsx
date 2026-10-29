@@ -1104,6 +1104,8 @@ const Dashboard = () => {
 
   const applyFilter = () => {
 
+    // Tampilkan indikator loading pada semua card segera setelah filter diterapkan.
+    setDashboardLoading(true);
     setAppliedFilter({
       ...filter,
     });
@@ -1129,6 +1131,7 @@ const Dashboard = () => {
 
 
     setFilter(newDefaultFilter);
+    setDashboardLoading(true);
 
     setAppliedFilter(
       newDefaultFilter
@@ -3241,14 +3244,54 @@ const Dashboard = () => {
 
   return (
 
-    <div className="
+    <div className={`
       min-h-screen
       bg-gradient-to-br
       from-orange-50
       to-yellow-50
       p-4
       md:p-5
-    ">
+      ${(dashboardLoading || detailLoading) ? 'dashboard-cards-loading' : ''}
+    `}>
+      <style>{`
+        .dashboard-cards-loading .bg-white.rounded-2xl {
+          position: relative !important;
+          isolation: isolate;
+        }
+        .dashboard-cards-loading .bg-white.rounded-2xl::before {
+          content: '';
+          position: absolute;
+          z-index: 101;
+          top: calc(50% - 24px);
+          left: calc(50% - 12px);
+          width: 24px;
+          height: 24px;
+          border: 3px solid #dbeafe;
+          border-top-color: #2563eb;
+          border-radius: 9999px;
+          animation: dashboardCardSpin 0.8s linear infinite;
+          pointer-events: none;
+        }
+        .dashboard-cards-loading .bg-white.rounded-2xl::after {
+          content: 'Memuat data...';
+          position: absolute;
+          z-index: 100;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding-top: 38px;
+          border-radius: inherit;
+          background: rgba(255, 255, 255, 0.86);
+          color: #475569;
+          font-size: 12px;
+          font-weight: 700;
+          pointer-events: none;
+        }
+        @keyframes dashboardCardSpin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
       <div className="
         max-w-[1800px]
@@ -3735,6 +3778,7 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={applyFilter}
+              disabled={dashboardLoading || detailLoading}
               className="
                 flex
                 items-center
@@ -3753,9 +3797,13 @@ const Dashboard = () => {
               "
             >
 
-              <FaFilter size={11} />
+              {dashboardLoading || detailLoading ? (
+                <FaSyncAlt size={11} className="animate-spin" />
+              ) : (
+                <FaFilter size={11} />
+              )}
 
-              Terapkan Filter
+              {dashboardLoading || detailLoading ? 'Memuat Data...' : 'Terapkan Filter'}
 
             </button>
 
