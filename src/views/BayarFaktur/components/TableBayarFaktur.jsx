@@ -30,6 +30,8 @@ import {
   FaChevronRight,
   FaEye,
   FaUndoAlt,
+  FaBullseye,
+  FaChartLine,
 } from "react-icons/fa";
 
 import {
@@ -203,6 +205,11 @@ const normalizeBayarFakturRow = (item, index, page = 1, limit = 10) => {
   const status = normalizeStatus(item, saldoPiutang, dpp);
   const statusLunas = saldoPiutang <= 0 ? "SUDAH_LUNAS" : "BELUM_LUNAS";
   const statusLunasLabel = saldoPiutang <= 0 ? "Sudah Lunas" : "Belum Lunas";
+  const collectionsBulanIni = Number(item?.collections_bulan_ini ?? 0) || 0;
+  const targetBulanIni = Number(item?.target_bulan_ini ?? 0) || 0;
+  const persentasePencapaian = targetBulanIni > 0
+    ? (collectionsBulanIni / targetBulanIni) * 100
+    : 0;
 
   return {
     ...item,
@@ -220,6 +227,9 @@ const normalizeBayarFakturRow = (item, index, page = 1, limit = 10) => {
     principle: item?.principle || "",
     nama_principle: item?.nama_principle || "-",
     collections,
+    collections_bulan_ini: collectionsBulanIni,
+    target_bulan_ini: targetBulanIni,
+    persentase_pencapaian: persentasePencapaian,
     collections_menunggu_verifikasi: collectionsMenungguVerifikasi,
     collections_tidak_terverifikasi: collectionsTidakTerverifikasi,
     collections_terverifikasi: collectionsTerverifikasi,
@@ -2805,6 +2815,18 @@ const TableBayarFaktur = ({
       label: "Status",
       icon: <FaInfoCircle />,
     },
+    {
+      label: "Collections Bulan Ini",
+      icon: <FaMoneyBillWave />,
+    },
+    {
+      label: "Target Bulan Ini",
+      icon: <FaBullseye />,
+    },
+    {
+      label: "Persentase Pencapaian",
+      icon: <FaChartLine />,
+    },
   ];
 
 
@@ -3876,9 +3898,39 @@ const TableBayarFaktur = ({
                               {/* STATUS */}
 
                               <td className="px-4 py-3">
-
                                 {renderStatus(v)}
+                              </td>
 
+                              {/* COLLECTIONS BULAN INI */}
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                <span className="font-semibold text-green-700">
+                                  {formatRupiah(v.collections_bulan_ini ?? 0)}
+                                </span>
+                              </td>
+
+                              {/* TARGET BULAN INI */}
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                <span className="font-semibold text-blue-700">
+                                  {formatRupiah(v.target_bulan_ini ?? 0)}
+                                </span>
+                              </td>
+
+                              {/* PERSENTASE PENCAPAIAN */}
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                {(() => {
+                                  const persentase = Number(v?.persentase_pencapaian ?? 0) || 0;
+                                  return (
+                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                                      persentase >= 100
+                                        ? "bg-green-100 text-green-700"
+                                        : persentase > 0
+                                          ? "bg-amber-100 text-amber-700"
+                                          : "bg-gray-100 text-gray-500"
+                                    }`}>
+                                      {persentase.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                                    </span>
+                                  );
+                                })()}
                               </td>
 
                             </tr>
