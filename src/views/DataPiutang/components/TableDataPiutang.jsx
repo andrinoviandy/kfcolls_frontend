@@ -1872,6 +1872,7 @@ const TableDataPiutang = ({
                     {getEndOfCurrentMonthLabel()}
                   </th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">DOAR</th>
                 </tr>
               </thead>
 
@@ -1883,7 +1884,7 @@ const TableDataPiutang = ({
                 {tableData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={26}
+                      colSpan={27}
                       className="text-center py-16 text-gray-500"
                     >
                       <FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" />
@@ -2167,12 +2168,19 @@ const TableDataPiutang = ({
                           <td className="px-4 py-3 whitespace-nowrap text-center">
                             {renderJtoStatus(item)}
                           </td>
+
+                          {/* DOAR */}
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <span className="text-sm font-semibold text-blue-700">
+                              {formatNumber(item?.doar)}
+                            </span>
+                          </td>
                         </tr>
 
                         {/* DETAIL DATA PENJUALAN */}
                         {expandedRows[rowKey] && (
                           <tr className="border-b border-blue-100 bg-slate-50">
-                            <td colSpan={26} className="p-0">
+                            <td colSpan={27} className="p-0">
                               <div className="border-l-4 border-blue-500 px-4 py-4">
                                 <div className="mb-3 flex items-center justify-between gap-3">
                                   <div>
