@@ -105,6 +105,30 @@ const formatShortRupiah = (value) => {
 };
 
 
+// Membuat keterangan perubahan KPI dibandingkan bulan sebelumnya.
+const formatComparisonDelta = (difference, percentage, unit = 'currency') => {
+  if (difference === undefined || difference === null) {
+    return 'Belum ada data pembanding';
+  }
+
+  const numericDifference = Number(difference) || 0;
+  const arrow =
+    numericDifference > 0 ? '▲' :
+    numericDifference < 0 ? '▼' : '●';
+
+  const differenceText = unit === 'currency'
+    ? formatShortRupiah(Math.abs(numericDifference))
+    : `${formatNumber(Math.abs(numericDifference))} ${unit}`;
+
+  const percentageText =
+    percentage === undefined || percentage === null
+      ? 'persentase belum tersedia'
+      : `${Math.abs(Number(percentage)).toFixed(2)}%`;
+
+  return `${arrow} ${differenceText} | ${percentageText} dari bulan lalu`;
+};
+
+
 const getTodayDateString = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -399,7 +423,8 @@ const normalizePiutangDashboardItem = (item, index) => ({
   aging: Number(item?.aging ?? item?.aging_hari ?? item?.umur_piutang ?? 0),
 });
 
-const getDashboardPayload = (filter) => ({
+const getDashboardPayload = (filter = {}) => ({
+  // Seluruh filter dashboard dikirim ke backend.
   cabang: filter.cabang || [],
   principal: filter.principal || [],
   principal_id: filter.principal || [],
@@ -411,6 +436,18 @@ const getDashboardPayload = (filter) => ({
   tanggal_mulai: filter.tanggalMulai || getOneMonthAgoDateString(),
   tanggal_akhir: filter.tanggalAkhir || getTodayDateString(),
 });
+
+// Khusus grafik Trend, rentang tanggal juga dikirim dengan nama parameter
+// Document Date. Filter lainnya tetap ikut dikirim melalui payload utama.
+const getTrendDocumentDatePayload = (filter = {}) => {
+  const payload = getDashboardPayload(filter);
+
+  return {
+    ...payload,
+    document_date_start: payload.tanggal_mulai,
+    document_date_end: payload.tanggal_akhir,
+  };
+};
 
 // Payload khusus Detail Piutang: pastikan kedua parameter periode selalu ikut
 // dikirim, baik untuk tabel berpaginasi maupun data chart.
@@ -499,6 +536,8 @@ const Dashboard = () => {
   // State tiap API dipisah agar mudah ditelusuri saat debugging.
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [summaryApiData, setSummaryApiData] = useState(null);
+  const [dashboardCard1ApiData, setDashboardCard1ApiData] = useState(null);
+  const [dashboardPiutangByCabangApiData, setDashboardPiutangByCabangApiData] = useState(null);
   const [trendApiData, setTrendApiData] = useState(null);
   const [trendPencairanApiData, setTrendPencairanApiData] = useState(null);
   const [salesOpenInvoiceApiData, setSalesOpenInvoiceApiData] = useState(null);
@@ -616,6 +655,9 @@ const Dashboard = () => {
   useEffect(() => {
     let active = true;
     const payload = getDashboardPayload(appliedFilter);
+    // Kedua API Trend menerima seluruh filter dashboard, termasuk rentang
+    // Document Date (document_date_start dan document_date_end).
+    const trendPayload = getTrendDocumentDatePayload(appliedFilter);
 
     const loadSummary = async () => {
       try {
@@ -628,9 +670,50 @@ const Dashboard = () => {
       }
     };
 
+    // KPI utama (Total Piutang sampai Piutang >360 Hari) menggunakan API khusus.
+    const loadDashboardCard1 = async () => {
+      try {
+        const action = storeSchema.actions.getDashboardCard1;
+
+        if (typeof action !== 'function') {
+          throw new Error('Action getDashboardCard1 belum tersedia');
+        }
+
+        const response = await action(payload);
+
+        if (response?.status === false) {
+          throw new Error(response?.message || 'Gagal mengambil Dashboard Card 1');
+        }
+
+        if (active) setDashboardCard1ApiData(response);
+      } catch (error) {
+        console.error('ERROR API getDashboardCard1:', error);
+        if (active) setDashboardCard1ApiData(null);
+      }
+    };
+
+    // Tiga widget: Top Piutang Jatuh Tempo, Peringkat Cabang,
+    // dan Saldo Piutang >360 menggunakan satu API.
+    const loadDashboardPiutangByCabang = async () => {
+      try {
+        const action = storeSchema.actions.getDashboardPiutangByCabang;
+        if (typeof action !== 'function') {
+          throw new Error('Action getDashboardPiutangByCabang belum tersedia');
+        }
+        const response = await action(payload);
+        if (response?.status === false) {
+          throw new Error(response?.message || 'Gagal mengambil Dashboard Piutang per Cabang');
+        }
+        if (active) setDashboardPiutangByCabangApiData(response);
+      } catch (error) {
+        console.error('ERROR API getDashboardPiutangByCabang:', error);
+        if (active) setDashboardPiutangByCabangApiData(null);
+      }
+    };
+
     const loadTrend = async () => {
       try {
-        const response = await storeSchema.actions.getTrendSaldoPiutangDashboard(payload);
+        const response = await storeSchema.actions.getTrendSaldoPiutangDashboard(trendPayload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Trend Saldo Piutang');
         if (active) setTrendApiData(response);
       } catch (error) {
@@ -647,7 +730,7 @@ const Dashboard = () => {
           throw new Error('Action getTrendPencairanPiutang belum tersedia');
         }
 
-        const response = await action(payload);
+        const response = await action(trendPayload);
 
         if (response?.status === false) {
           throw new Error(response?.message || 'Gagal mengambil Trend Pencairan Piutang');
@@ -707,6 +790,8 @@ const Dashboard = () => {
     setDashboardLoading(true);
     Promise.all([
       loadSummary(),
+      loadDashboardCard1(),
+      loadDashboardPiutangByCabang(),
       loadTrend(),
       loadTrendPencairan(),
       loadSalesOpenInvoice(),
@@ -1255,6 +1340,79 @@ const Dashboard = () => {
       }
     );
   }, [salesOpenInvoiceApiData, summaryApiData, filteredData]);
+
+  // Normalisasi respons API khusus KPI Card 1.
+  // Mendukung response array, object, maupun object summary.
+  const dashboardCard1 = useMemo(() => {
+    const responseData =
+      dashboardCard1ApiData?.data?.data ??
+      dashboardCard1ApiData?.data?.summary ??
+      dashboardCard1ApiData?.data ??
+      dashboardCard1ApiData?.summary ??
+      dashboardCard1ApiData;
+
+    const row = Array.isArray(responseData)
+      ? responseData[0] || {}
+      : responseData?.summary ?? responseData ?? {};
+
+    return {
+      // Total Piutang
+      totalPiutang: Number(row?.total_piutang ?? row?.totalPiutang ?? 0),
+      totalPiutangBulanLalu: Number(
+        row?.total_piutang_bulan_lalu ?? row?.totalPiutangBulanLalu ?? 0
+      ),
+      selisihTotalPiutang: row?.selisih_total_piutang ?? row?.selisihTotalPiutang,
+      persentaseTotalPiutang: row?.persentase_total_piutang ?? row?.persentaseTotalPiutang,
+
+      // DOAR
+      doar: Number(row?.doar ?? row?.days_outstanding_average_receivable ?? row?.doar_hari ?? 0),
+      doarBulanLalu: Number(row?.doar_bulan_lalu ?? row?.doarBulanLalu ?? 0),
+      selisihDoar: row?.selisih_doar ?? row?.selisihDoar,
+      persentaseDoar: row?.persentase_doar ?? row?.persentaseDoar,
+
+      // Skor Piutang
+      skorPiutang: Number(row?.skor_piutang ?? row?.skorPiutang ?? row?.score_piutang ?? 0),
+      skorPiutangBulanLalu: Number(
+        row?.skor_piutang_bulan_lalu ?? row?.skorPiutangBulanLalu ?? 0
+      ),
+      selisihSkorPiutang: row?.selisih_skor_piutang ?? row?.selisihSkorPiutang,
+      persentaseSkorPiutang: row?.persentase_skor_piutang ?? row?.persentaseSkorPiutang,
+
+      // Pencairan MTD
+      pencairanMtd: Number(
+        row?.pencairan_mtd ?? row?.pencairanMtd ?? row?.total_pencairan ?? row?.total_collection ?? row?.totalCollection ?? 0
+      ),
+      pencairanMtdBulanLalu: Number(
+        row?.pencairan_mtd_bulan_lalu ?? row?.pencairanMtdBulanLalu ?? 0
+      ),
+      selisihPencairanMtd: row?.selisih_pencairan_mtd ?? row?.selisihPencairanMtd,
+      persentasePencairanMtd: row?.persentase_pencairan_mtd ?? row?.persentasePencairanMtd,
+
+      // Piutang Jatuh Tempo
+      piutangJatuhTempo: Number(
+        row?.piutang_jatuh_tempo ?? row?.piutangJatuhTempo ?? row?.saldo_sudah_jto ?? row?.sudah_jto ?? 0
+      ),
+      piutangJatuhTempoBulanLalu: Number(
+        row?.piutang_jatuh_tempo_bulan_lalu ?? row?.piutangJatuhTempoBulanLalu ?? 0
+      ),
+      selisihPiutangJatuhTempo:
+        row?.selisih_piutang_jatuh_tempo ?? row?.selisihPiutangJatuhTempo,
+      persentasePiutangJatuhTempo:
+        row?.persentase_piutang_jatuh_tempo ?? row?.persentasePiutangJatuhTempo,
+
+      // Piutang lebih dari 360 hari
+      piutangLebih360: Number(
+        row?.piutang_lebih_360_hari ?? row?.piutangLebih360Hari ?? row?.piutang_lebih_360 ?? row?.saldo_aging_360 ?? row?.aging_360 ?? 0
+      ),
+      piutangLebih360BulanLalu: Number(
+        row?.piutang_lebih_360_hari_bulan_lalu ?? row?.piutangLebih360HariBulanLalu ?? 0
+      ),
+      selisihPiutangLebih360:
+        row?.selisih_piutang_lebih_360_hari ?? row?.selisihPiutangLebih360Hari,
+      persentasePiutangLebih360:
+        row?.persentase_piutang_lebih_360_hari ?? row?.persentasePiutangLebih360Hari,
+    };
+  }, [dashboardCard1ApiData]);
 
 
   /* =========================================================
@@ -3147,119 +3305,88 @@ const Dashboard = () => {
      3. SALDO PIUTANG >360 HARI
   ========================================================= */
 
-  const topJatuhTempoChannelData = useMemo(() => {
-    const channelConfig = [
-      {
-        label: 'RS Pemerintah',
-        match: (item) =>
-          item.channel === 'RS Pemerintah',
-      },
-      {
-        label: 'Swasta',
-        match: (item) =>
-          item.channel !== 'RS Pemerintah' &&
-          item.channel !== 'Dinkes' &&
-          item.channel !== 'Puskesmas' &&
-          item.customerGroup !== 'Instansi Pemerintah',
-      },
-      {
-        label: 'Instansi Pemerintah',
-        match: (item) =>
-          item.channel === 'Dinkes' ||
-          item.channel === 'Puskesmas' ||
-          item.customerGroup === 'Instansi Pemerintah',
-      },
-    ];
+  // Tiga widget ini menggunakan satu endpoint dan satu payload filter.
+  const dashboardPiutangByCabang = useMemo(() => {
+    const root =
+      dashboardPiutangByCabangApiData?.data?.data ??
+      dashboardPiutangByCabangApiData?.data ??
+      dashboardPiutangByCabangApiData?.result ??
+      dashboardPiutangByCabangApiData ??
+      {};
 
-    return channelConfig.map((group) => {
-      const rows = filteredData
-        .filter(
-          (item) =>
-            group.match(item) &&
-            Number(item.aging || 0) > 0
-        )
+    const asRows = (value) => {
+      if (Array.isArray(value)) return value;
+      if (Array.isArray(value?.list_data)) return value.list_data;
+      if (Array.isArray(value?.data)) return value.data;
+      if (Array.isArray(value?.rows)) return value.rows;
+      if (Array.isArray(value?.items)) return value.items;
+      return [];
+    };
+
+    const rawTop = root?.top_piutang ?? [];
+    let topGroups = [];
+
+    // Bentuk response dapat berupa array group channel atau array data flat.
+    if (Array.isArray(rawTop) && rawTop.some((item) =>
+      Array.isArray(item?.rows) || Array.isArray(item?.list_data) || Array.isArray(item?.data)
+    )) {
+      topGroups = rawTop.map((group) => ({
+        label: group?.channel ?? group?.nama_channel ?? group?.label ?? group?.customer_group ?? 'Tidak diketahui',
+        rows: asRows(group?.rows ?? group?.list_data ?? group?.data ?? group?.items),
+        total: Number(group?.total_overdue ?? group?.total ?? group?.total_piutang ?? 0),
+      }));
+    } else {
+      const flatRows = asRows(rawTop);
+      const grouped = flatRows.reduce((acc, item) => {
+        const label = String(item?.channel ?? item?.nama_channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? '').trim();
+        if (!label) return acc;
+        if (!acc[label]) acc[label] = [];
+        acc[label].push(item);
+        return acc;
+      }, {});
+      topGroups = Object.entries(grouped).map(([label, rows]) => ({ label, rows }));
+    }
+
+    topGroups = topGroups.map((group) => {
+      const rows = group.rows
         .map((item) => ({
-          customer: item.customer || '-',
-          tahun: String(item.tanggal || '').slice(0, 4) || '-',
-          value: Number(item.outstanding || 0),
-          aging: Number(item.aging || 0),
+          customer: item?.customer ?? item?.nama_customer ?? item?.name_bill_to ?? item?.customer_name ?? '-',
+          tahun: String(item?.tahun ?? item?.tanggal ?? item?.posting_date ?? item?.document_date ?? '').slice(0, 4) || '-',
+          value: Number(item?.saldo_piutang ?? item?.outstanding ?? item?.nominal_overdue ?? item?.total_piutang ?? item?.value ?? 0),
+          aging: Number(item?.aging ?? item?.aging_hari ?? item?.umur_piutang ?? 0),
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
-
-      const total = rows.reduce(
-        (sum, item) => sum + item.value,
-        0
-      );
-
       return {
-        ...group,
+        label: group.label,
         rows,
-        total,
+        total: Number(group.total) || rows.reduce((sum, item) => sum + item.value, 0),
       };
-    });
-  }, [filteredData]);
+    }).filter((group) => group.rows.length > 0);
 
-
-
-  const branchPiutangBaseData = useMemo(() => {
-    const map = {};
-
-    filteredData.forEach((item) => {
-      const branch = item.cabang || item.descSalesOffice;
-      if (!branch) return;
-
-      if (!map[branch]) {
-        map[branch] = {
-          branch,
-          outstanding: 0,
-          overdue: 0,
-          overdue360: 0,
-        };
-      }
-
-      const outstanding = Number(item.outstanding || 0);
-      const aging = Number(item.aging || 0);
-
-      map[branch].outstanding += outstanding;
-
-      if (aging > 0) {
-        map[branch].overdue += outstanding;
-      }
-
-      if (aging > 360) {
-        map[branch].overdue360 += outstanding;
-      }
-    });
-
-    return map;
-  }, [filteredData]);
-
-  const branchScoreData = useMemo(() => {
-    const rows = Object.values(branchPiutangBaseData).map((item) => ({
-      branch: item.branch,
-      overdue: Number(item.overdue || 0),
-      outstanding: Number(item.outstanding || 0),
-    }));
-    const maxOverdue = Math.max(...rows.map((item) => item.overdue), 1);
-    const minOverdue = Math.min(...rows.map((item) => item.overdue), 0);
-    const range = maxOverdue - minOverdue || 1;
-
-    return rows
+    const peringkatCabang = asRows(root?.peringkat_cabang)
       .map((item) => ({
-        ...item,
-        score: Math.round(105 - ((item.overdue - minOverdue) / range) * 88),
+        branch: item?.nama_cabang ?? item?.cabang ?? item?.branch ?? item?.ur_ref ?? item?.desc_s_office ?? '-',
+        score: Number(item?.skor_piutang ?? item?.score ?? item?.skor ?? item?.nilai_skor ?? 0),
       }))
-      .sort((a, b) => b.score - a.score || a.overdue - b.overdue)
+      .filter((item) => item.branch !== '-')
+      .sort((a, b) => b.score - a.score)
       .map((item, index) => ({ ...item, rank: index + 1 }));
-  }, [branchPiutangBaseData]);
 
-  const piutang360BranchData = useMemo(() => (
-    Object.values(branchPiutangBaseData)
-      .map((item) => ({ branch: item.branch, value: Number(item.overdue360 || 0) }))
-      .filter((item) => item.value > 0)
-      .sort((a, b) => b.value - a.value)
-  ), [branchPiutangBaseData]);
+    const saldoPiutang = asRows(root?.saldo_piutang)
+      .map((item) => ({
+        branch: item?.nama_cabang ?? item?.cabang ?? item?.branch ?? item?.ur_ref ?? item?.desc_s_office ?? '-',
+        value: Number(item?.saldo_piutang ?? item?.saldo_lebih_360 ?? item?.piutang_lebih_360_hari ?? item?.outstanding ?? item?.value ?? item?.total ?? 0),
+      }))
+      .filter((item) => item.branch !== '-')
+      .sort((a, b) => b.value - a.value);
+
+    return { topPiutang: topGroups, peringkatCabang, saldoPiutang };
+  }, [dashboardPiutangByCabangApiData]);
+
+  const topJatuhTempoChannelData = dashboardPiutangByCabang.topPiutang;
+  const branchScoreData = dashboardPiutangByCabang.peringkatCabang;
+  const piutang360BranchData = dashboardPiutangByCabang.saldoPiutang;
 
   /* =======================================================
      RENDER
@@ -3836,14 +3963,22 @@ const Dashboard = () => {
 
         {/* =================================================
             KPI PIUTANG - 2 BARIS
+            Perbandingan bulan ini dengan bulan sebelumnya
         ================================================= */}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        {/* BARIS PERTAMA */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
 
           <PiutangKpiSimpleCard
             title="TOTAL PIUTANG"
-            value={formatNumber(summary.totalPiutang)}
-            delta="▼ Rp58 M | 44% dari bulan lalu"
+            value={formatNumber(dashboardCard1.totalPiutang)}
+            delta={formatComparisonDelta(
+              dashboardCard1.selisihTotalPiutang,
+              dashboardCard1.persentaseTotalPiutang
+            )}
+            footer={`Bulan lalu: ${formatShortRupiah(
+              dashboardCard1.totalPiutangBulanLalu
+            )}`}
             icon={<FaMoneyBillWave size={18} />}
             iconBg="bg-blue-50"
             iconColor="text-blue-600"
@@ -3852,82 +3987,89 @@ const Dashboard = () => {
 
           <PiutangKpiSimpleCard
             title="DOAR"
-            value="60"
-            delta="▲ 1 Hari dari bulan lalu"
-            footer="Days Outstanding Average Receivable"
+            value={`${formatNumber(dashboardCard1.doar)} Hari`}
+            delta={formatComparisonDelta(
+              dashboardCard1.selisihDoar,
+              dashboardCard1.persentaseDoar,
+              'Hari'
+            )}
+            footer={`Bulan lalu: ${formatNumber(
+              dashboardCard1.doarBulanLalu
+            )} Hari`}
             icon={<FaClock size={18} />}
             iconBg="bg-indigo-50"
             iconColor="text-indigo-600"
             accentColor="#6366f1"
           />
 
-          {/* <PiutangKpiSimpleCard
-            title="SKOR PIUTANG *"
-            value="103"
-            delta="▲ 1 Point dari bulan lalu"
-            footer="Rank 6/44 Cabang"
+          <PiutangKpiSimpleCard
+            title="SKOR PIUTANG"
+            value={formatNumber(dashboardCard1.skorPiutang)}
+            delta={formatComparisonDelta(
+              dashboardCard1.selisihSkorPiutang,
+              dashboardCard1.persentaseSkorPiutang,
+              'Point'
+            )}
+            footer={`Bulan lalu: ${formatNumber(
+              dashboardCard1.skorPiutangBulanLalu
+            )}`}
             icon={<FaChartLine size={18} />}
             iconBg="bg-purple-50"
             iconColor="text-purple-600"
             accentColor="#8b5cf6"
-          /> */}
+          />
 
         </div>
 
-
+        {/* BARIS KEDUA */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
 
-          <PiutangGaugeCard
+          <PiutangKpiSimpleCard
             title="PENCAIRAN (MTD)"
-            value={formatNumber(summary.totalCollection)}
-            delta="▼ Rp119 M | 59% dari bulan lalu"
-            achievement={133.1}
-            target={100}
-            color="#10b981"
-            targetLabel="% Ach Pencairan Piutang"
+            value={formatNumber(dashboardCard1.pencairanMtd)}
+            delta={formatComparisonDelta(
+              dashboardCard1.selisihPencairanMtd,
+              dashboardCard1.persentasePencairanMtd
+            )}
+            footer={`Bulan lalu: ${formatShortRupiah(
+              dashboardCard1.pencairanMtdBulanLalu
+            )}`}
             icon={<FaMoneyBillWave size={18} />}
             iconBg="bg-emerald-50"
             iconColor="text-emerald-600"
+            accentColor="#10b981"
           />
 
-          <PiutangGaugeCard
+          <PiutangKpiSimpleCard
             title="PIUTANG JATUH TEMPO"
-            value={formatNumber(
-              saldoJatuhTempoData?.find(
-                (item) => item.name === 'Sudah JTO'
-              )?.value || 0
+            value={formatNumber(dashboardCard1.piutangJatuhTempo)}
+            delta={formatComparisonDelta(
+              dashboardCard1.selisihPiutangJatuhTempo,
+              dashboardCard1.persentasePiutangJatuhTempo
             )}
-            delta="▼ Rp01 M | 10% dari bulan lalu"
-            achievement={12.9}
-            target={15}
-            color="#f59e0b"
-            targetLabel="% Piutang Jatuh Tempo"
+            footer={`Bulan lalu: ${formatShortRupiah(
+              dashboardCard1.piutangJatuhTempoBulanLalu
+            )}`}
             icon={<FaExclamationTriangle size={18} />}
             iconBg="bg-orange-50"
             iconColor="text-orange-600"
+            accentColor="#f59e0b"
           />
 
-          <PiutangGaugeCard
+          <PiutangKpiSimpleCard
             title="PIUTANG >360 HARI"
-            value={formatNumber(
-              filteredData.reduce(
-                (sum, item) =>
-                  sum + (
-                    Number(item.aging) > 360
-                      ? Number(item.outstanding || 0)
-                      : 0
-                  ),
-                0
-              )
+            value={formatNumber(dashboardCard1.piutangLebih360)}
+            delta={formatComparisonDelta(
+              dashboardCard1.selisihPiutangLebih360,
+              dashboardCard1.persentasePiutangLebih360
             )}
-            delta="▲ Rp105,019 Jt | 03% dari bulan lalu"
-            achievement={5.7}
-            target={0}
-            color="#ef4444"
-            targetLabel="% Piutang >360 Hari"
+            footer={`Bulan lalu: ${formatShortRupiah(
+              dashboardCard1.piutangLebih360BulanLalu
+            )}`}
             icon={<FaExclamationTriangle size={18} />}
             iconBg="bg-red-50"
             iconColor="text-red-600"
+            accentColor="#ef4444"
           />
 
         </div>
@@ -4660,28 +4802,7 @@ const Dashboard = () => {
 
                     <div className="mx-3 my-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-bold text-red-600">
                       Total Overdue: Rp{' '}
-                      {formatNumber(
-                        group.total / 1000
-                      )}{' '}
-                      ({filteredData.length > 0
-                        ? (
-                          (group.total /
-                            Math.max(
-                              filteredData.reduce(
-                                (sum, item) =>
-                                  sum +
-                                  Number(
-                                    item.outstanding ||
-                                    0
-                                  ),
-                                0
-                              ),
-                              1
-                            )) *
-                          100
-                        ).toFixed(0)
-                        : 0}
-                      % dari total Piutang)
+                      {formatNumber(group.total / 1000)}
                     </div>
 
                     <div className="
@@ -4833,7 +4954,7 @@ const Dashboard = () => {
                       2,
                       Math.min(
                         100,
-                        (row.score / 105) * 100
+                        (row.score / 100) * 100
                       )
                     );
 

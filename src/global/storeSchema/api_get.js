@@ -2835,7 +2835,8 @@ const n2nGetService = {
     channel = [],
     customer = [],
     produk = [],
-    tanggal = null,
+    tanggal_mulai = null,
+    tanggal_akhir = null,
   } = {}) => {
     try {
       const response = await api.get(
@@ -2847,7 +2848,8 @@ const n2nGetService = {
             channel,
             customer,
             produk,
-            tanggal,
+            tanggal_mulai,
+            tanggal_akhir,
           },
           paramsSerializer: {
             indexes: null,
@@ -2872,8 +2874,145 @@ const n2nGetService = {
       );
     }
   },
+  getTrendPencairanPiutang: async ({
+    cabang = [],
+    principal = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getTrendPencairanPiutang",
+        {
+          params: {
+            cabang,
+            principal,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
 
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET TREND SALDO PIUTANG DASHBOARD:",
+        error.response?.data || error.message
+      );
 
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil trend saldo piutang",
+          data: [],
+        }
+      );
+    }
+  },
+  getDashboardCard1: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getDashboardCard1",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DASHBOARD CARD 1:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil data Dashboard Card 1",
+          data: {},
+        }
+      );
+    }
+  },
+  getDashboardPiutangByCabang: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getDashboardPiutangByCabang",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET DASHBOARD CARD 1:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil data Dashboard Card 1",
+          data: {},
+        }
+      );
+    }
+  },
   getDetailPiutangDashboard: async ({
     cabang = [],
     principal = [],
