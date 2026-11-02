@@ -413,9 +413,25 @@ const getDetailCollection = (details, totalCollection, detailIndex) => {
   );
 };
 
-const getPiutangKeterangan = ({ saldoPiutang, ppn, pph }) => {
+const getPiutangKeterangan = ({ saldoPiutang, totalInvoice, ppn, pph }, item = {}) => {
   const isSameAmount = (first, second) =>
     Math.abs(first - second) < 0.01;
+
+  // Jika saldo piutang masih sama dengan total invoice,
+  // berarti belum ada pembayaran dan keterangannya Full.
+  if (isSameAmount(saldoPiutang, totalInvoice)) {
+    return "Full";
+  }
+
+  // Khusus TOP 45 Hari, keterangan outstanding adalah Sisa Komersil.
+  const topValue = item?.TOP ?? item?.top ?? item?.top_days ?? item?.term_of_payment;
+  const topNumber = Number(
+    String(topValue ?? "").match(/-?\\d+(?:[.,]\\d+)?/)?.[0]?.replace(",", ".")
+  );
+
+  if (topNumber === 45) {
+    return "Sisa Komersil";
+  }
 
   if (ppn > 0 && isSameAmount(saldoPiutang, ppn)) {
     return "Sisa PPN";
@@ -1864,13 +1880,15 @@ const TableDataPiutang = ({
                   <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Umur Piutang</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Aging Standar</th>
-                  <th className="px-4 py-3 whitespace-nowrap text-center">
+                  {/* <th className="px-4 py-3 whitespace-nowrap text-center">Aging Standar</th> */}
+                  {/* <th className="px-4 py-3 whitespace-nowrap text-center">
                     {getEndOfCurrentMonthLabel()}
-                  </th>
+                  </th> */}
                   <th className="px-4 py-3 whitespace-nowrap text-center">Aging TOP</th>
-                  <th className="px-4 py-3 whitespace-nowrap text-center">
+                  {/* <th className="px-4 py-3 whitespace-nowrap text-center">Aging TOP</th> */}
+                  {/* <th className="px-4 py-3 whitespace-nowrap text-center">
                     {getEndOfCurrentMonthLabel()}
-                  </th>
+                  </th> */}
                   <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">DOAR</th>
                 </tr>
@@ -1906,7 +1924,7 @@ const TableDataPiutang = ({
                   tableData.map((item, index) => {
                     const rowKey = `${item?.billing_no || item?.no_billing || "billing"}-${item?.customer || "customer"}-${index}`;
                     const invoiceAmounts = getInvoiceAmounts(item);
-                    const keterangan = getPiutangKeterangan(invoiceAmounts);
+                    const keterangan = getPiutangKeterangan(invoiceAmounts, item);
 
                     return (
                       <React.Fragment key={rowKey}>
@@ -2105,7 +2123,7 @@ const TableDataPiutang = ({
                           </td>
 
                           {/* AGING STANDAR: JUMLAH HARI */}
-                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                          {/* <td className="px-4 py-3 whitespace-nowrap text-center">
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
                               {item?.aging_standar === null ||
                               item?.aging_standar === undefined ||
@@ -2113,7 +2131,7 @@ const TableDataPiutang = ({
                                 ? "-"
                                 : `${formatNumber(item.aging_standar)} Hari`}
                             </span>
-                          </td>
+                          </td> */}
 
                           {/* KELOMPOK AGING STANDAR PER AKHIR BULAN */}
                           <td className="px-4 py-3 whitespace-nowrap text-center">
@@ -2127,7 +2145,7 @@ const TableDataPiutang = ({
                           </td>
 
                           {/* AGING TOP: JUMLAH HARI */}
-                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                          {/* <td className="px-4 py-3 whitespace-nowrap text-center">
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                                 Number(item?.aging_top) > 0
@@ -2143,7 +2161,7 @@ const TableDataPiutang = ({
                                 ? "-"
                                 : `${formatNumber(item.aging_top)} Hari`}
                             </span>
-                          </td>
+                          </td> */}
 
                           {/* KELOMPOK AGING TOP PER AKHIR BULAN */}
                           <td className="px-4 py-3 whitespace-nowrap text-center">

@@ -55,6 +55,7 @@ import VerifikasiTukarFaktur from 'views/VerifikasiTukarFaktur'
 import DataCod from 'views/DataCod'
 import KreasiFaktur from 'views/KreasiFaktur'
 import MasterTarget from 'views/MasterTarget'
+import DataDoar from 'views/Doar'
 // import Profile from 'views/ProfileUser'
 
 // const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -147,20 +148,6 @@ const routes = [
     path: '/master-target',
     component: MasterTarget,
   },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   {
     path: '/ubah-password',
     component: UbahPassword,
@@ -291,6 +278,10 @@ const routes = [
   {
     path: '/master-approval',
     component: MasterApproval,
+  },
+  {
+    path: '/doar',
+    component: DataDoar,
   },
   {
     path: '/404',

@@ -500,6 +500,7 @@ const Dashboard = () => {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [summaryApiData, setSummaryApiData] = useState(null);
   const [trendApiData, setTrendApiData] = useState(null);
+  const [trendPencairanApiData, setTrendPencairanApiData] = useState(null);
   const [salesOpenInvoiceApiData, setSalesOpenInvoiceApiData] = useState(null);
   const [analisisApiData, setAnalisisApiData] = useState(null);
   const [collectionByCustomerApiData, setCollectionByCustomerApiData] = useState(null);
@@ -638,6 +639,27 @@ const Dashboard = () => {
       }
     };
 
+    const loadTrendPencairan = async () => {
+      try {
+        const action = storeSchema.actions.getTrendPencairanPiutang;
+
+        if (typeof action !== 'function') {
+          throw new Error('Action getTrendPencairanPiutang belum tersedia');
+        }
+
+        const response = await action(payload);
+
+        if (response?.status === false) {
+          throw new Error(response?.message || 'Gagal mengambil Trend Pencairan Piutang');
+        }
+
+        if (active) setTrendPencairanApiData(response);
+      } catch (error) {
+        console.error('ERROR API getTrendPencairanPiutang:', error);
+        if (active) setTrendPencairanApiData(null);
+      }
+    };
+
     const loadSalesOpenInvoice = async () => {
       try {
         const response = await storeSchema.actions.getSalesOpenInvoiceDashboard(payload);
@@ -686,6 +708,7 @@ const Dashboard = () => {
     Promise.all([
       loadSummary(),
       loadTrend(),
+      loadTrendPencairan(),
       loadSalesOpenInvoice(),
       loadAnalisis(),
       loadCollectionByCustomer(),
@@ -2919,7 +2942,7 @@ const Dashboard = () => {
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={agingLabels.length + 8} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={agingLabels.length + 8} className="px-4 py-[13%] text-center text-gray-400">
                   Tidak ada data Detail Piutang
                 </td>
               </tr>
@@ -3815,7 +3838,7 @@ const Dashboard = () => {
             KPI PIUTANG - 2 BARIS
         ================================================= */}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
 
           <PiutangKpiSimpleCard
             title="TOTAL PIUTANG"
@@ -3838,7 +3861,7 @@ const Dashboard = () => {
             accentColor="#6366f1"
           />
 
-          <PiutangKpiSimpleCard
+          {/* <PiutangKpiSimpleCard
             title="SKOR PIUTANG *"
             value="103"
             delta="▲ 1 Point dari bulan lalu"
@@ -3847,7 +3870,7 @@ const Dashboard = () => {
             iconBg="bg-purple-50"
             iconColor="text-purple-600"
             accentColor="#8b5cf6"
-          />
+          /> */}
 
         </div>
 
@@ -3941,7 +3964,7 @@ const Dashboard = () => {
             <div className="w-full h-[270px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
-                  data={unwrapDashboardResponse(trendApiData).map((x) => ({ ...x, bulan: x.bulan ?? x.month ?? x.periode ?? '', saldoPiutang: Number(x.saldoPiutang ?? x.saldo_piutang ?? x.outstanding ?? 0), saldoOverdue: Number(x.saldoOverdue ?? x.saldo_overdue ?? x.overdue ?? 0), overduePct: Number(x.overduePct ?? x.overdue_pct ?? x.persentase_overdue ?? 0) }))}
+                  data={unwrapDashboardResponse(trendApiData).map((x) => ({ ...x, bulan: x.bulan ?? x.month ?? x.label_periode ?? '', saldoPiutang: Number(x.saldoPiutang ?? x.saldo_piutang ?? x.outstanding ?? 0), saldoOverdue: Number(x.saldoOverdue ?? x.saldo_overdue ?? x.overdue ?? 0), overduePct: Number(x.overduePct ?? x.overdue_pct ?? x.persentase_overdue ?? 0) }))}
                   margin={{
                     top: 22,
                     right: 8,
@@ -4098,7 +4121,7 @@ const Dashboard = () => {
             <div className="w-full h-[270px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
-                  data={unwrapDashboardResponse(salesOpenInvoiceApiData)}
+                  data={unwrapDashboardResponse(trendPencairanApiData)}
                   margin={{
                     top: 22,
                     right: 8,

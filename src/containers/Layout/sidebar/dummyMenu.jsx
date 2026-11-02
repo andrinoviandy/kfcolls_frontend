@@ -13,6 +13,7 @@ import {
     FaUsersCog,
     FaExchangeAlt,
     FaCheckCircle,
+    FaFileAlt,
 } from "react-icons/fa";
 import { FaFileCircleCheck } from "react-icons/fa6";
 import { MdOutlineRequestQuote } from "react-icons/md";
@@ -135,6 +136,14 @@ export const dummyMenu = [
         name: "Kirim Konf. Piutang",
         path: "/konfirmasi-piutang",
         icon: MdOutlineRequestQuote,
+        roles: ['01', '00'],
+        submenu: [],
+    },
+    {
+        id: 10,
+        name: "DOAR",
+        path: "/doar",
+        icon: FaFileAlt,
         roles: ['01', '00'],
         submenu: [],
     },

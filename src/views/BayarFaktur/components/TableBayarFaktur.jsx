@@ -516,6 +516,9 @@ const TableBayarFaktur = ({
   const [paymentMethod, setPaymentMethod] =
     useState("DIRECT_TRANSFER");
 
+  const [nomorParkDokumenSAP, setNomorParkDokumenSAP] = useState("");
+  const [namaBankPembayaran, setNamaBankPembayaran] = useState("");
+
   const [dueDateGiro, setDueDateGiro] =
     useState("");
 
@@ -550,9 +553,25 @@ const TableBayarFaktur = ({
   const [penerimaanDocumentNumber, setPenerimaanDocumentNumber] = useState("");
   const [penerimaanTanggal, setPenerimaanTanggal] = useState(new Date().toISOString().slice(0, 10));
   const [penerimaanMetode, setPenerimaanMetode] = useState("DIRECT_TRANSFER");
+  const [penerimaanNamaBank, setPenerimaanNamaBank] = useState("");
   const [penerimaanBukti, setPenerimaanBukti] = useState(null);
   const [penerimaanKeterangan, setPenerimaanKeterangan] = useState("");
   const [isSubmittingPenerimaan, setIsSubmittingPenerimaan] = useState(false);
+
+  // ===================================================
+  // STATE MODAL BIAYA LAIN
+  // ===================================================
+  const [showBiayaLainModal, setShowBiayaLainModal] = useState(false);
+  const [biayaNomorDokumenSAP, setBiayaNomorDokumenSAP] = useState("");
+  const [biayaNominal, setBiayaNominal] = useState("");
+  const [biayaCabang, setBiayaCabang] = useState(null);
+  const [biayaCustomer, setBiayaCustomer] = useState(null);
+  const [biayaBilling, setBiayaBilling] = useState(null);
+  const [biayaCustomerOptions, setBiayaCustomerOptions] = useState([]);
+  const [biayaBillingOptions, setBiayaBillingOptions] = useState([]);
+  const [loadingBiayaCustomer, setLoadingBiayaCustomer] = useState(false);
+  const [loadingBiayaBilling, setLoadingBiayaBilling] = useState(false);
+  const [isSubmittingBiayaLain, setIsSubmittingBiayaLain] = useState(false);
   const [showRiwayatPenerimaanLain, setShowRiwayatPenerimaanLain] = useState(false);
   const [loadingRiwayatPenerimaanLain, setLoadingRiwayatPenerimaanLain] = useState(false);
   const [riwayatPenerimaanLain, setRiwayatPenerimaanLain] = useState([]);
@@ -576,6 +595,7 @@ const TableBayarFaktur = ({
   const [customerAlokasiPenerimaan, setCustomerAlokasiPenerimaan] = useState([]);
   const [billingOptionsAlokasi, setBillingOptionsAlokasi] = useState([]);
   const [selectedBillingAlokasi, setSelectedBillingAlokasi] = useState([]);
+  const [searchBillingAlokasi, setSearchBillingAlokasi] = useState("");
   const [loadingBillingAlokasi, setLoadingBillingAlokasi] = useState(false);
   const [isSubmittingAlokasiPenerimaanLain, setIsSubmittingAlokasiPenerimaanLain] = useState(false);
 
@@ -611,10 +631,19 @@ const TableBayarFaktur = ({
   // Bukti pembayaran wajib untuk transaksi Partial Payment.
   const [partialPaymentFile, setPartialPaymentFile] = useState(null);
 
+  // Metode pemilihan/alokasi faktur: MANUAL atau SYSTEM.
   const [
     partialPaymentMethod,
     setPartialPaymentMethod
   ] = useState("MANUAL");
+
+  // Metode pembayaran yang dipilih pada modal Partial Payment.
+  const [partialPaymentPaymentMethod, setPartialPaymentPaymentMethod] =
+    useState("DIRECT_TRANSFER");
+
+  const [partialNomorParkDokumenSAP, setPartialNomorParkDokumenSAP] =
+    useState("");
+  const [partialNamaBankPembayaran, setPartialNamaBankPembayaran] = useState("");
 
   const [
     partialSelectedIds,
@@ -897,6 +926,7 @@ const TableBayarFaktur = ({
     setCustomerAlokasiPenerimaan([]);
     setBillingOptionsAlokasi([]);
     setSelectedBillingAlokasi([]);
+    setSearchBillingAlokasi("");
     setShowModalAlokasiPenerimaanLain(true);
   };
 
@@ -911,6 +941,7 @@ const TableBayarFaktur = ({
     setCustomerAlokasiPenerimaan([]);
     setBillingOptionsAlokasi([]);
     setSelectedBillingAlokasi([]);
+    setSearchBillingAlokasi("");
   };
 
   const loadCustomerAlokasiPenerimaan = async (cabangId) => {
@@ -1006,6 +1037,7 @@ const TableBayarFaktur = ({
       const options = Array.from(uniqueBilling.values());
       setBillingOptionsAlokasi(options);
       setSelectedBillingAlokasi([]);
+      setSearchBillingAlokasi("");
       setStepAlokasiPenerimaan(2);
       if (!options.length) await swal.error("Tidak ditemukan billing untuk customer yang dipilih.");
     } catch (error) {
@@ -1016,55 +1048,86 @@ const TableBayarFaktur = ({
     }
   };
 
-  const handleSubmitAlokasiPenerimaanLain = async () => {
-    const pembayaranId = selectedPenerimaanAlokasi?.id ?? selectedPenerimaanAlokasi?.penerimaan_lain_id;
-    const billings = selectedBillingAlokasi
-      .map((item) => ({
-        no_billing: item.no_billing || item.value,
-        nominal: Number(item.saldo_piutang || 0),
-      }))
-      .filter((item) => item.no_billing);
-
+  // =====================================================
+  // HITUNG ALOKASI PENERIMAAN BERDASARKAN URUTAN CHECKLIST
+  // =====================================================
+  const getPerhitunganAlokasiPenerimaan = () => {
     const nominalPenerimaan = Number(
       selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0
     ) || 0;
-    const totalAlokasi = billings.reduce((sum, item) => sum + item.nominal, 0);
-    const sisaPenerimaan = nominalPenerimaan - totalAlokasi;
+
+    let sisaPenerimaan = nominalPenerimaan;
+
+    const hasil = selectedBillingAlokasi.map((item, index) => {
+      const saldoPiutang = Number(item?.saldo_piutang || 0);
+      const nominalAlokasi = Math.min(saldoPiutang, sisaPenerimaan);
+      const sisaPiutang = Math.max(0, saldoPiutang - nominalAlokasi);
+
+      sisaPenerimaan = Math.max(0, sisaPenerimaan - nominalAlokasi);
+
+      return {
+        ...item,
+        urutan: index + 1,
+        saldo_piutang: saldoPiutang,
+        nominal_alokasi: nominalAlokasi,
+        sisa_piutang: sisaPiutang,
+        sisa_penerimaan_setelah: sisaPenerimaan,
+      };
+    });
+
+    return {
+      nominalPenerimaan,
+      totalAlokasi: hasil.reduce((sum, item) => sum + item.nominal_alokasi, 0),
+      sisaPenerimaan,
+      hasil,
+    };
+  };
+
+  const handleSubmitAlokasiPenerimaanLain = async () => {
+    const pembayaranId =
+      selectedPenerimaanAlokasi?.id ??
+      selectedPenerimaanAlokasi?.penerimaan_lain_id;
+
+    const perhitungan = getPerhitunganAlokasiPenerimaan();
+    const billings = perhitungan.hasil.filter(
+      (item) => item.nominal_alokasi > 0
+    );
 
     if (!pembayaranId) {
       await swal.error("ID Penerimaan tidak ditemukan.");
       return;
     }
+
     if (!billings.length) {
       await swal.error("Pilih minimal satu billing untuk dialokasikan.");
-      return;
-    }
-    if (totalAlokasi > nominalPenerimaan) {
-      await swal.error(
-        `Total nominal billing (${formatRupiah(totalAlokasi)}) tidak boleh melebihi nominal penerimaan (${formatRupiah(nominalPenerimaan)}).`
-      );
       return;
     }
 
     try {
       setIsSubmittingAlokasiPenerimaanLain(true);
+
       // Endpoint menerima satu no_billing per request.
-      // sisa_penerimaan dikirim sebagai saldo penerimaan setelah billing ini dialokasikan.
-      let sisaBerjalan = nominalPenerimaan;
+      // Urutan request mengikuti urutan checklist dan sisa penerimaan
+      // dikirim setelah nominal alokasi billing tersebut dikurangkan.
       for (const billing of billings) {
-        sisaBerjalan = Math.max(0, sisaBerjalan - billing.nominal);
         const res = await storeSchema.actions.alokasiPenerimaanLain({
           penerimaan_lain_id: pembayaranId,
-          no_billing: billing.no_billing,
-          sisa_penerimaan: sisaBerjalan,
+          no_billing: billing.no_billing || billing.value,
+          sisa_penerimaan: billing.sisa_penerimaan_setelah,
         });
+
         if (res?.status !== true) {
-          throw new Error(res?.message || `Gagal melakukan alokasi billing ${billing.no_billing}.`);
+          throw new Error(
+            res?.message ||
+            `Gagal melakukan alokasi billing ${billing.no_billing || billing.value}.`
+          );
         }
       }
+
       await swal.success(
-        `${billings.length} billing berhasil diproses. Sisa penerimaan: ${formatRupiah(sisaPenerimaan)}.`
+        `${billings.length} billing berhasil diproses. Sisa penerimaan: ${formatRupiah(perhitungan.sisaPenerimaan)}.`
       );
+
       setShowModalAlokasiPenerimaanLain(false);
       setSelectedPenerimaanAlokasi(null);
       setNoBillingAlokasi("");
@@ -1072,11 +1135,19 @@ const TableBayarFaktur = ({
       setCustomerAlokasiPenerimaan([]);
       setBillingOptionsAlokasi([]);
       setSelectedBillingAlokasi([]);
-      await openRiwayatPenerimaanLain(currentPagePenerimaanLain, perPagePenerimaanLain, false, searchKeywordPenerimaanLain);
+
+      await openRiwayatPenerimaanLain(
+        currentPagePenerimaanLain,
+        perPagePenerimaanLain,
+        false,
+        searchKeywordPenerimaanLain
+      );
       await getDataBayarFaktur();
     } catch (error) {
       console.error("ERROR ALOKASI PENERIMAAN LAIN:", error);
-      await swal.error(error?.message || "Gagal melakukan alokasi penerimaan lain.");
+      await swal.error(
+        error?.message || "Gagal melakukan alokasi penerimaan lain."
+      );
     } finally {
       setIsSubmittingAlokasiPenerimaanLain(false);
     }
@@ -1360,6 +1431,8 @@ const TableBayarFaktur = ({
     setPaymentMethod(
       "DIRECT_TRANSFER"
     );
+    setNomorParkDokumenSAP("");
+    setNamaBankPembayaran("");
 
     setPaymentAllocationMode("MANUAL");
     setPaymentAllocation({});
@@ -1419,6 +1492,16 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const handlePayment = async () => {
+    if (paymentMethod === "DIRECT_TRANSFER" && !String(namaBankPembayaran || "").trim()) {
+      await swal.error("Nama bank wajib diisi untuk metode Direct Transfer.");
+      return;
+    }
+
+    if (paymentMethod === "PEMBEBANAN_AFILIASI" && !String(nomorParkDokumenSAP || "").trim()) {
+      await swal.error("Nomor Park Dokumen SAP wajib diisi untuk metode Pembebanan Afiliasi.");
+      return;
+    }
+
     if (!paymentFile) {
       swal.error("File bukti pembayaran wajib diupload.");
       return;
@@ -1497,6 +1580,15 @@ const TableBayarFaktur = ({
 
           metode_pembayaran:
             paymentMethod,
+
+          nomor_park_dokumen_sap:
+            paymentMethod === "PEMBEBANAN_AFILIASI"
+              ? String(nomorParkDokumenSAP || "").trim()
+              : null,
+          nama_bank:
+            paymentMethod === "DIRECT_TRANSFER"
+              ? String(namaBankPembayaran || "").trim()
+              : null,
 
           nominal_bayar:
             paymentAmount,
@@ -1633,6 +1725,15 @@ const TableBayarFaktur = ({
         metode_pembayaran:
           paymentMethod,
 
+        nomor_park_dokumen_sap:
+          paymentMethod === "PEMBEBANAN_AFILIASI"
+            ? String(nomorParkDokumenSAP || "").trim()
+            : null,
+        nama_bank:
+          paymentMethod === "DIRECT_TRANSFER"
+            ? String(namaBankPembayaran || "").trim()
+            : null,
+
         nominal_bayar:
           totalPayment,
 
@@ -1756,6 +1857,8 @@ const TableBayarFaktur = ({
     setShowPenerimaanLainModal(false);
     setPenerimaanNominal("");
     setPenerimaanDocumentNumber("");
+    setPenerimaanMetode("DIRECT_TRANSFER");
+    setPenerimaanNamaBank("");
     setPenerimaanBukti(null);
     setPenerimaanKeterangan("");
   };
@@ -1780,6 +1883,13 @@ const TableBayarFaktur = ({
       await swal.error("Pilih metode pembayaran.");
       return;
     }
+    if (
+      penerimaanMetode === "DIRECT_TRANSFER" &&
+      !String(penerimaanNamaBank || "").trim()
+    ) {
+      await swal.error("Nama bank wajib diisi untuk metode Direct Transfer.");
+      return;
+    }
     if (!penerimaanBukti) {
       await swal.error("Bukti penerimaan wajib diupload.");
       return;
@@ -1792,6 +1902,9 @@ const TableBayarFaktur = ({
         jenis_pembayaran: "PENERIMAAN_LAIN",
         document_number: documentNumber,
         metode_pembayaran: penerimaanMetode,
+        nama_bank: penerimaanMetode === "DIRECT_TRANSFER"
+          ? String(penerimaanNamaBank || "").trim()
+          : null,
         nominal_bayar: nominal,
         tanggal_pembayaran: penerimaanTanggal,
         keterangan: penerimaanKeterangan || "Penerimaan lain",
@@ -1810,6 +1923,8 @@ const TableBayarFaktur = ({
       setShowPenerimaanLainModal(false);
       setPenerimaanNominal("");
       setPenerimaanDocumentNumber("");
+      setPenerimaanMetode("DIRECT_TRANSFER");
+      setPenerimaanNamaBank("");
       setPenerimaanBukti(null);
       setPenerimaanKeterangan("");
       await getDataBayarFaktur();
@@ -1818,6 +1933,232 @@ const TableBayarFaktur = ({
       swal.error(error?.message || "Gagal menyimpan penerimaan lain.");
     } finally {
       setIsSubmittingPenerimaan(false);
+    }
+  };
+
+
+  // ===================================================
+  // BIAYA LAIN
+  // ===================================================
+
+  const openBiayaLain = () => {
+    setBiayaNomorDokumenSAP("");
+    setBiayaNominal("");
+    setBiayaCabang(null);
+    setBiayaCustomer(null);
+    setBiayaBilling(null);
+    setBiayaCustomerOptions([]);
+    setBiayaBillingOptions([]);
+    setShowBiayaLainModal(true);
+  };
+
+  const closeBiayaLain = () => {
+    if (isSubmittingBiayaLain) return;
+    setShowBiayaLainModal(false);
+    setBiayaNomorDokumenSAP("");
+    setBiayaNominal("");
+    setBiayaCabang(null);
+    setBiayaCustomer(null);
+    setBiayaBilling(null);
+    setBiayaCustomerOptions([]);
+    setBiayaBillingOptions([]);
+  };
+
+  // Customer hanya dimuat setelah cabang dipilih.
+  const loadCustomerBiayaLain = async (cabangId) => {
+    setBiayaCabang(cabangId || null);
+    setBiayaCustomer(null);
+    setBiayaBilling(null);
+    setBiayaCustomerOptions([]);
+    setBiayaBillingOptions([]);
+
+    if (cabangId === null || cabangId === undefined || String(cabangId).trim() === "") {
+      return;
+    }
+
+    try {
+      setLoadingBiayaCustomer(true);
+      const res = await storeSchema.actions.getDataPelanggan({
+        page: 1,
+        limit: 9999,
+        cabang_id: [cabangId],
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil data customer.");
+      }
+
+      const responseData = res?.data;
+      const rows = Array.isArray(responseData)
+        ? responseData
+        : responseData?.list_data || responseData?.data || responseData?.rows || [];
+
+      const unique = new Map();
+      rows.forEach((item) => {
+        const customerId = item?.kode_customer ?? item?.customer ?? item?.customer_id;
+        if (customerId === null || customerId === undefined || String(customerId).trim() === "") return;
+
+        const key = String(customerId);
+        if (unique.has(key)) return;
+
+        const name = item?.name ?? item?.nama_customer ?? item?.nama ?? "";
+        unique.set(key, {
+          value: customerId,
+          customer_id: customerId,
+          nama_customer: name || key,
+          label: `${customerId}${name ? ` - ${name}` : ""}`,
+        });
+      });
+
+      setBiayaCustomerOptions(Array.from(unique.values()));
+    } catch (error) {
+      console.error("ERROR GET CUSTOMER BIAYA LAIN:", error);
+      setBiayaCustomerOptions([]);
+      await swal.error(error?.message || "Gagal mengambil data customer.");
+    } finally {
+      setLoadingBiayaCustomer(false);
+    }
+  };
+
+  // Billing dimuat berdasarkan cabang dan customer yang dipilih.
+  const loadBillingBiayaLain = async (customerOption) => {
+    setBiayaCustomer(customerOption || null);
+    setBiayaBilling(null);
+    setBiayaBillingOptions([]);
+
+    if (!customerOption?.value || !biayaCabang) return;
+
+    try {
+      setLoadingBiayaBilling(true);
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: [biayaCabang],
+        customer: [customerOption.value],
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil data billing.");
+      }
+
+      const rows = Array.isArray(res?.data?.list_data) ? res.data.list_data : [];
+      const uniqueBilling = new Map();
+
+      rows.forEach((item, index) => {
+        const noBilling = String(item?.no_billing ?? "").trim();
+        if (!noBilling || noBilling === "-") return;
+
+        const customerId = item?.customer_id ?? item?.customer;
+        if (String(customerId) !== String(customerOption.value)) return;
+
+        if (!uniqueBilling.has(noBilling)) {
+          const saldo = Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+          uniqueBilling.set(noBilling, {
+            value: noBilling,
+            label: `${noBilling} - ${formatRupiah(saldo)}`,
+            no_billing: noBilling,
+            customer_id: customerId,
+            nama_customer: item?.nama_customer || customerOption.nama_customer,
+            piutang_id: item?.piutang_id ?? item?.id ?? null,
+            no_faktur: item?.no_faktur ?? null,
+            saldo_piutang: saldo,
+            nominal_tagihan: Number(item?.nominal_tagihan ?? item?.total_invoice ?? item?.dpp ?? 0),
+            raw: item,
+            row_index: index,
+          });
+        }
+      });
+
+      setBiayaBillingOptions(Array.from(uniqueBilling.values()));
+    } catch (error) {
+      console.error("ERROR GET BILLING BIAYA LAIN:", error);
+      setBiayaBillingOptions([]);
+      await swal.error(error?.message || "Gagal mengambil data billing.");
+    } finally {
+      setLoadingBiayaBilling(false);
+    }
+  };
+
+  const handleSubmitBiayaLain = async () => {
+    const nomorDokumenSAP = String(biayaNomorDokumenSAP || "").trim();
+    const nominal = parseNominal(biayaNominal);
+
+    if (!nomorDokumenSAP) {
+      await swal.error("Nomor Dokumen SAP wajib diisi.");
+      return;
+    }
+    if (nominal <= 0) {
+      await swal.error("Nominal Biaya harus lebih dari 0.");
+      return;
+    }
+    if (!biayaCabang) {
+      await swal.error("Pilih cabang terlebih dahulu.");
+      return;
+    }
+    if (!biayaCustomer?.value) {
+      await swal.error("Pilih customer terlebih dahulu.");
+      return;
+    }
+    if (!biayaBilling?.value) {
+      await swal.error("Pilih billing terlebih dahulu.");
+      return;
+    }
+
+    try {
+      setIsSubmittingBiayaLain(true);
+      const formData = new FormData();
+      const billingData = biayaBilling.raw || {};
+
+      const payload = {
+        jenis_pembayaran: "Biaya Lain",
+        metode_pembayaran: null,
+        nomor_park_dokumen_sap: nomorDokumenSAP,
+        nama_bank: null,
+        nominal_bayar: nominal,
+        keterangan: "Biaya Lain",
+        user_id: loginAccess?.user_id || null,
+        nip: loginAccess?.nip || null,
+        faktur: [
+          {
+            piutang_id: biayaBilling.piutang_id || billingData?.piutang_id || billingData?.id || null,
+            no_faktur: biayaBilling.no_faktur || billingData?.no_faktur || null,
+            no_billing: biayaBilling.no_billing,
+            customer: biayaCustomer.value,
+            nominal_tagihan: Number(biayaBilling.nominal_tagihan || 0),
+            saldo_piutang: Number(biayaBilling.saldo_piutang || 0),
+            nominal_pembayaran: nominal,
+          },
+        ],
+      };
+
+      // Tidak ada lampiran untuk transaksi Biaya Lain.
+      formData.append("payload", JSON.stringify(payload));
+
+      const res = await storeSchema.actions.insertBayarFaktur(formData);
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal menyimpan Biaya Lain.");
+      }
+
+      await swal.success(res?.message || "Biaya Lain berhasil disimpan.");
+      setShowBiayaLainModal(false);
+      setBiayaNomorDokumenSAP("");
+      setBiayaNominal("");
+      setBiayaCabang(null);
+      setBiayaCustomer(null);
+      setBiayaBilling(null);
+      setBiayaCustomerOptions([]);
+      setBiayaBillingOptions([]);
+      await getDataBayarFaktur();
+    } catch (error) {
+      console.error("ERROR INSERT BIAYA LAIN:", error);
+      await swal.error(error?.message || "Gagal menyimpan Biaya Lain.");
+    } finally {
+      setIsSubmittingBiayaLain(false);
     }
   };
 
@@ -1833,6 +2174,9 @@ const TableBayarFaktur = ({
     setPartialPaymentAmount("");
     setPartialPaymentFile(null);
     setPartialPaymentMethod("MANUAL");
+    setPartialPaymentPaymentMethod("DIRECT_TRANSFER");
+    setPartialNomorParkDokumenSAP("");
+    setPartialNamaBankPembayaran("");
     setPartialSelectedIds([]);
     setPartialAllocation([]);
     setSelectedCustomerId(customerId);
@@ -1888,6 +2232,9 @@ const TableBayarFaktur = ({
     setPartialPaymentMethod(
       "MANUAL"
     );
+    setPartialPaymentPaymentMethod("DIRECT_TRANSFER");
+    setPartialNomorParkDokumenSAP("");
+    setPartialNamaBankPembayaran("");
 
     setPartialSelectedIds([]);
 
@@ -1995,31 +2342,16 @@ const TableBayarFaktur = ({
 
 
     /*
-     * Sistem hanya mengambil faktur
-     * yang masih memiliki sisa tagihan.
-     *
-     * Urutan:
-     * nominal terkecil -> terbesar
+     * Sistem mengambil faktur yang masih memiliki saldo.
+     * Prioritas saldo terbesar -> terkecil.
+     * Dengan demikian billing 60 juta dipenuhi lebih dahulu,
+     * lalu sisa pembayaran masuk ke billing 50 juta.
      */
-
     const payableInvoices =
       getPayableInvoices()
-        .sort(
-          (
-            a,
-            b
-          ) =>
-            Number(
-              a.sisa_tagihan ??
-              a.nominal_tagihan ??
-              0
-            )
-            -
-            Number(
-              b.sisa_tagihan ??
-              b.nominal_tagihan ??
-              0
-            )
+        .sort((a, b) =>
+          Number(b.saldo_piutang ?? b.sisa_tagihan ?? 0) -
+          Number(a.saldo_piutang ?? a.sisa_tagihan ?? 0)
         );
 
 
@@ -2120,8 +2452,8 @@ const TableBayarFaktur = ({
 
 
     // Ambil hanya faktur yang dipilih dan masih memiliki saldo.
-    // Untuk alokasi manual, urutkan dari saldo terkecil ke terbesar,
-    // sehingga pembayaran diprioritaskan ke faktur dengan nominal terkecil.
+    // Alokasi mengikuti saldo terbesar ke terkecil agar sisa dana
+    // otomatis diteruskan ke billing terpilih berikutnya.
     const selectedInvoices =
       partialInvoiceData
         .filter((item) =>
@@ -2141,7 +2473,7 @@ const TableBayarFaktur = ({
             b.saldo_piutang ??
             (Number(b?.dpp || 0) - Number(b?.collections || b?.total_dibayar || 0))
           );
-          return saldoA - saldoB;
+          return saldoB - saldoA;
         });
 
     if (selectedInvoices.length === 0) {
@@ -2264,30 +2596,36 @@ const TableBayarFaktur = ({
 
 
     if (
-      partialPaymentMethod ===
-      "MANUAL"
+      partialPaymentMethod === "MANUAL" &&
+      partialSelectedIds.length === 0
     ) {
+      swal.error("Pilih minimal 1 faktur.");
+      return;
+    }
 
-      if (
-        partialSelectedIds.length ===
-        0
-      ) {
+    const invoicesForAllocation =
+      partialPaymentMethod === "MANUAL"
+        ? getPayableInvoices().filter((item) =>
+            partialSelectedIds.some((id) => String(id) === String(item.id))
+          )
+        : getPayableInvoices();
 
-        swal.error(
-          "Pilih minimal 1 faktur."
-        );
+    const availableBalance = invoicesForAllocation.reduce(
+      (sum, invoice) => sum + Number(invoice.saldo_piutang ?? invoice.sisa_tagihan ?? 0),
+      0
+    );
 
-        return;
+    if (paymentAmount > availableBalance) {
+      swal.error(
+        `Nominal pembayaran (${formatRupiah(paymentAmount)}) melebihi total saldo billing yang dipilih (${formatRupiah(availableBalance)}). Pilih billing tambahan atau kurangi nominal pembayaran.`
+      );
+      return;
+    }
 
-      }
-
-
+    if (partialPaymentMethod === "MANUAL") {
       generateManualAllocation();
-
     } else {
-
       generateSystemAllocation();
-
     }
 
   };
@@ -2319,6 +2657,27 @@ const TableBayarFaktur = ({
       return;
     }
 
+    if (!partialPaymentPaymentMethod) {
+      await swal.error("Pilih metode pembayaran terlebih dahulu.");
+      return;
+    }
+
+    if (
+      partialPaymentPaymentMethod === "DIRECT_TRANSFER" &&
+      !String(partialNamaBankPembayaran || "").trim()
+    ) {
+      await swal.error("Nama bank wajib diisi untuk metode Direct Transfer.");
+      return;
+    }
+
+    if (
+      partialPaymentPaymentMethod === "PEMBEBANAN_AFILIASI" &&
+      !String(partialNomorParkDokumenSAP || "").trim()
+    ) {
+      await swal.error("Nomor Park Dokumen SAP wajib diisi untuk metode Pembebanan Afiliasi.");
+      return;
+    }
+
     const selectedInvoices = partialAllocation.filter(
       (item) => Number(item?.nominal_pembayaran || 0) > 0
     );
@@ -2333,8 +2692,10 @@ const TableBayarFaktur = ({
       return;
     }
 
-    if (allocatedPaymentTotal > paymentAmount) {
-      await swal.error("Total alokasi tidak boleh melebihi nominal pembayaran.");
+    if (allocatedPaymentTotal !== paymentAmount) {
+      await swal.error(
+        `Seluruh dana harus dialokasikan ke billing yang dipilih. Nominal pembayaran ${formatRupiah(paymentAmount)}, sedangkan total alokasi ${formatRupiah(allocatedPaymentTotal)}.`
+      );
       return;
     }
 
@@ -2345,7 +2706,15 @@ const TableBayarFaktur = ({
       // Samakan struktur payload dengan proses Partial Payment di modal Bayar Sekarang.
       const payload = {
         jenis_pembayaran: "PARTIAL_PAYMENT",
-        metode_pembayaran: "PARTIAL_PAYMENT",
+        metode_pembayaran: partialPaymentPaymentMethod,
+        nomor_park_dokumen_sap:
+          partialPaymentPaymentMethod === "PEMBEBANAN_AFILIASI"
+            ? String(partialNomorParkDokumenSAP || "").trim()
+            : null,
+        nama_bank:
+          partialPaymentPaymentMethod === "DIRECT_TRANSFER"
+            ? String(partialNamaBankPembayaran || "").trim()
+            : null,
         nominal_bayar: paymentAmount,
         keterangan: `Partial Payment - ${partialPaymentMethod === "MANUAL" ? "Alokasi Manual" : "Alokasi Sistem"}`,
         user_id: loginAccess?.user_id || null,
@@ -2466,6 +2835,7 @@ const TableBayarFaktur = ({
 
   const resetPaymentMethodState = () => {
     setPaymentMethod("DIRECT_TRANSFER");
+    setNomorParkDokumenSAP("");
     setDueDateGiro("");
     setPlannedPaymentDate("");
     setPaymentAllocationMode("MANUAL");
@@ -2662,8 +3032,8 @@ const TableBayarFaktur = ({
       return;
     }
 
-    if (!alasanFakturKembali.trim()) {
-      await swal.error("Alasan Faktur Kembali wajib diisi.");
+    if (alasanFakturKembali.trim().length < 10) {
+      await swal.error("Alasan Faktur Kembali minimal 10 karakter.");
       return;
     }
 
@@ -2910,11 +3280,10 @@ const TableBayarFaktur = ({
     );
 
 
-  const partialRemainingDana =
-    Math.max(
-      0,
-      partialTotalDana -
-      partialTotalAllocated
+  const partialRemainingTagihan =
+    partialAllocation.reduce(
+      (sum, item) => sum + Number(item.sisa_tagihan_setelah_bayar || 0),
+      0
     );
 
 
@@ -2948,6 +3317,9 @@ const TableBayarFaktur = ({
             </button>
             <button type="button" onClick={openPenerimaanLain} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
               <FaMoneyBillWave /> Penerimaan Lain
+            </button>
+            <button type="button" onClick={openBiayaLain} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+              <FaFileInvoiceDollar /> Biaya Lain
             </button>
           </div>
         </div>
@@ -5147,62 +5519,25 @@ const TableBayarFaktur = ({
 
                     </button>
 
-                    {/* PARTIAL PAYMENT */}
+                    {/* PARTIAL PAYMENT sementara dinonaktifkan dari modal Bayar Sekarang.
                     {canUsePartialPayment && (
                       <button
                         type="button"
-                        onClick={() =>
-                          handleSelectPaymentMethod(
-                            "PARTIAL_PAYMENT"
-                          )
-                        }
-                        className={`
-                          w-full
-                          flex
-                          items-center
-                          justify-between
-                          p-4
-                          rounded-xl
-                          border
-                          mt-3
-                          transition
-                          ${paymentMethod ===
-                            "PARTIAL_PAYMENT"
-                            ? "border-orange-400 bg-orange-50"
-                            : "border-gray-200 bg-white"
-                          }
-                        `}
+                        onClick={() => handleSelectPaymentMethod("PARTIAL_PAYMENT")}
+                        className="w-full flex items-center justify-between p-4 rounded-xl border mt-3"
                       >
                         <div className="flex items-center gap-3">
-                          <div
-                            className="
-                              w-10
-                              h-10
-                              rounded-xl
-                              bg-orange-50
-                              flex
-                              items-center
-                              justify-center
-                            "
-                          >
-                            <FaCreditCard className="text-orange-500" />
-                          </div>
-
+                          <FaCreditCard className="text-orange-500" />
                           <div className="text-left">
-                            <p className="font-semibold text-gray-700">
-                              Partial Payment
-                            </p>
+                            <p className="font-semibold text-gray-700">Partial Payment</p>
                             <p className="text-xs text-gray-400">
                               Pembayaran sebagian untuk customer yang sama
                             </p>
                           </div>
                         </div>
-
-                        {paymentMethod === "PARTIAL_PAYMENT" && (
-                          <FaCheckCircle className="text-orange-500" />
-                        )}
                       </button>
                     )}
+                    */}
 
                     {paymentSelection.length > 1 &&
                       !canUsePartialPayment && (
@@ -5747,6 +6082,40 @@ const TableBayarFaktur = ({
 
                     </div>
 
+
+                    {/* NOMOR PARK DOKUMEN SAP */}
+                    {paymentMethod === "PEMBEBANAN_AFILIASI" && (
+                      <div className="mb-4">
+                        <label className="mb-2 block text-sm font-semibold text-gray-600">
+                          Nomor Park Dokumen SAP <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={nomorParkDokumenSAP}
+                          onChange={(e) => setNomorParkDokumenSAP(e.target.value)}
+                          placeholder="Masukkan Nomor Park Dokumen SAP"
+                          className="input input-bordered w-full rounded-xl bg-white"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    {/* NAMA BANK DIRECT TRANSFER */}
+                    {paymentMethod === "DIRECT_TRANSFER" && (
+                      <div className="mb-4">
+                        <label className="mb-2 block text-sm font-semibold text-gray-600">
+                          Nama Bank <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={namaBankPembayaran}
+                          onChange={(e) => setNamaBankPembayaran(e.target.value)}
+                          placeholder="Masukkan nama bank"
+                          className="input input-bordered w-full rounded-xl bg-white"
+                          required
+                        />
+                      </div>
+                    )}
 
                     {/* GIRO DATE */}
 
@@ -6827,6 +7196,65 @@ const TableBayarFaktur = ({
                   )}
                 </div>
 
+                {/* METODE PEMBAYARAN PARTIAL PAYMENT */}
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 mb-5">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Metode Pembayaran <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={partialPaymentPaymentMethod}
+                    onChange={(e) => {
+                      setPartialPaymentPaymentMethod(e.target.value);
+                      if (e.target.value !== "PEMBEBANAN_AFILIASI") {
+                        setPartialNomorParkDokumenSAP("");
+                      }
+                      if (e.target.value !== "DIRECT_TRANSFER") {
+                        setPartialNamaBankPembayaran("");
+                      }
+                    }}
+                    className="select select-bordered w-full rounded-xl bg-white"
+                    required
+                  >
+                    <option value="DIRECT_TRANSFER">Direct Transfer</option>
+                    <option value="PEMBEBANAN_AFILIASI">Pembebanan Afiliasi</option>
+                    <option value="SSP">Surat Setor Pajak (SSP)</option>
+                    <option value="CASH">Cash</option>
+                    <option value="GIRO">Giro</option>
+                  </select>
+
+                  {partialPaymentPaymentMethod === "DIRECT_TRANSFER" && (
+                    <div className="mt-4">
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                        Nama Bank <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={partialNamaBankPembayaran}
+                        onChange={(e) => setPartialNamaBankPembayaran(e.target.value)}
+                        placeholder="Masukkan nama bank"
+                        className="input input-bordered w-full rounded-xl bg-white"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {partialPaymentPaymentMethod === "PEMBEBANAN_AFILIASI" && (
+                    <div className="mt-4">
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                        Nomor Park Dokumen SAP <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={partialNomorParkDokumenSAP}
+                        onChange={(e) => setPartialNomorParkDokumenSAP(e.target.value)}
+                        placeholder="Masukkan Nomor Park Dokumen SAP"
+                        className="input input-bordered w-full rounded-xl bg-white"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {/* ================================================= */}
                 {/* MANUAL */}
                 {/* ================================================= */}
@@ -7197,10 +7625,10 @@ const TableBayarFaktur = ({
                             mt-1
                           "
                         >
-                          Sistem akan mengurutkan faktur berdasarkan
-                          sisa tagihan paling kecil, kemudian membayar
-                          faktur tersebut terlebih dahulu. Jika masih
-                          ada dana, sistem melanjutkan ke faktur berikutnya.
+                          Sistem akan mengurutkan billing berdasarkan
+                          sisa tagihan terbesar, kemudian membayar
+                          billing tersebut terlebih dahulu. Sisa pembayaran
+                          otomatis diteruskan ke billing terpilih berikutnya.
                         </p>
 
                       </div>
@@ -7586,7 +8014,7 @@ const TableBayarFaktur = ({
                               text-gray-500
                             "
                           >
-                            Sisa Dana
+                            Total Sisa Tagihan
                           </p>
 
                           <p
@@ -7598,7 +8026,7 @@ const TableBayarFaktur = ({
                           >
                             {
                               formatRupiah(
-                                partialRemainingDana
+                                partialRemainingTagihan
                               )
                             }
                           </p>
@@ -7786,7 +8214,7 @@ const TableBayarFaktur = ({
               <button type="button" onClick={closeFakturKembali} disabled={loadingFakturKembali} className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50">
                 Batal
               </button>
-              <button type="button" onClick={handleInsertFakturKembali} disabled={loadingFakturKembali || !alasanFakturKembali.trim()} className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300">
+              <button type="button" onClick={handleInsertFakturKembali} disabled={loadingFakturKembali || alasanFakturKembali.trim().length < 10} className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300">
                 {loadingFakturKembali ? <><span className="loading loading-spinner loading-xs" /> Menyimpan...</> : <><FaUndoAlt /> Submit Faktur Kembali</>}
               </button>
             </div>
@@ -8128,49 +8556,164 @@ const TableBayarFaktur = ({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Billing <span className="text-red-500">*</span></label>
-                    <Select
-                      isMulti
-                      options={billingOptionsAlokasi}
-                      value={selectedBillingAlokasi}
-                      onChange={(value) => setSelectedBillingAlokasi(value || [])}
-                      placeholder="Pilih satu atau beberapa billing..."
-                      noOptionsMessage={() => "Tidak ada billing untuk customer terpilih"}
-                      closeMenuOnSelect={false}
-                      isDisabled={isSubmittingAlokasiPenerimaanLain || loadingBillingAlokasi}
-                      classNamePrefix="alokasi-billing"
-                      styles={{ ...filterSelectStyles, menu: (base) => ({ ...base, zIndex: 700 }) }}
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Pilih Billing <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative mb-3">
+                      <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={searchBillingAlokasi}
+                        onChange={(e) => setSearchBillingAlokasi(e.target.value)}
+                        placeholder="Cari nomor billing..."
+                        disabled={isSubmittingAlokasiPenerimaanLain || loadingBillingAlokasi}
+                        className="input input-bordered w-full rounded-xl bg-white pl-10"
+                      />
+                    </div>
+                    <div className="overflow-x-auto rounded-xl border border-gray-200">
+                      <table className="table table-sm w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="w-12 text-center">Pilih</th>
+                            <th>No. Billing</th>
+                            <th>Customer</th>
+                            <th className="text-right">Saldo Piutang</th>
+                            <th className="text-right">Alokasi</th>
+                            <th className="text-right">Sisa Piutang</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {billingOptionsAlokasi
+                            .filter((item) =>
+                              String(item?.no_billing || item?.value || "")
+                                .toLowerCase()
+                                .includes(searchBillingAlokasi.trim().toLowerCase())
+                            )
+                            .map((item) => {
+                              const billingKey = String(
+                                item.no_billing || item.value
+                              );
+                              const isChecked = selectedBillingAlokasi.some(
+                                (selected) =>
+                                  String(selected.no_billing || selected.value) === billingKey
+                              );
+                              const perhitungan = getPerhitunganAlokasiPenerimaan();
+                              const detailAlokasi = perhitungan.hasil.find(
+                                (selected) =>
+                                  String(selected.no_billing || selected.value) === billingKey
+                              );
+                              const isDisabled =
+                                isSubmittingAlokasiPenerimaanLain ||
+                                loadingBillingAlokasi ||
+                                (!isChecked && perhitungan.sisaPenerimaan <= 0);
+
+                              return (
+                                <tr
+                                  key={billingKey}
+                                  className={isChecked ? "bg-blue-50" : "hover:bg-blue-50"}
+                                >
+                                  <td className="text-center">
+                                    <input
+                                      type="checkbox"
+                                      className="checkbox checkbox-primary checkbox-sm"
+                                      checked={isChecked}
+                                      disabled={isDisabled}
+                                      onChange={(e) => {
+                                        setSelectedBillingAlokasi((prev) => {
+                                          if (e.target.checked) {
+                                            // Item ditambahkan di akhir array sehingga urutan
+                                            // checklist menjadi urutan prioritas alokasi.
+                                            return [...prev, item];
+                                          }
+
+                                          return prev.filter(
+                                            (selected) =>
+                                              String(selected.no_billing || selected.value) !== billingKey
+                                          );
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="font-semibold text-gray-800">
+                                    {item.no_billing}
+                                  </td>
+                                  <td className="text-gray-600">
+                                    {item.nama_customer || "-"}
+                                  </td>
+                                  <td className="text-right font-medium">
+                                    {formatRupiah(item.saldo_piutang)}
+                                  </td>
+                                  <td className="text-right font-semibold text-blue-700">
+                                    {formatRupiah(detailAlokasi?.nominal_alokasi || 0)}
+                                  </td>
+                                  <td className="text-right font-semibold text-orange-600">
+                                    {formatRupiah(
+                                      detailAlokasi?.sisa_piutang ?? item.saldo_piutang
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          {billingOptionsAlokasi.filter((item) =>
+                            String(item?.no_billing || item?.value || "")
+                              .toLowerCase()
+                              .includes(searchBillingAlokasi.trim().toLowerCase())
+                          ).length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-sm text-gray-500">
+                                {loadingBillingAlokasi ? "Memuat billing..." : "Billing tidak ditemukan."}
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                      <span>
+                        {selectedBillingAlokasi.length} billing dipilih dari {billingOptionsAlokasi.length} billing
+                      </span>
+                      <span>
+                        Total alokasi: {formatRupiah(getPerhitunganAlokasiPenerimaan().totalAlokasi)}
+                      </span>
+                    </div>
                     {loadingBillingAlokasi && <p className="text-xs text-blue-600 mt-2">Memuat billing sesuai customer...</p>}
                     <p className="text-xs text-gray-500 mt-2">Billing diambil dari getDataBayarFaktur dan difilter sesuai cabang serta customer yang dipilih.</p>
                   </div>
                   {selectedBillingAlokasi.length > 0 && (() => {
-                    const nominalPenerimaan = Number(
-                      selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0
-                    ) || 0;
-                    const totalAlokasi = selectedBillingAlokasi.reduce(
-                      (sum, item) => sum + Number(item.saldo_piutang || 0),
-                      0
-                    );
-                    const sisaPenerimaan = nominalPenerimaan - totalAlokasi;
-                    const melebihiNominal = sisaPenerimaan < 0;
+                    const perhitungan = getPerhitunganAlokasiPenerimaan();
+                    const exhausted = perhitungan.sisaPenerimaan <= 0;
+
                     return (
-                      <div className={`rounded-xl border p-3 text-sm ${melebihiNominal ? "border-red-200 bg-red-50" : "border-blue-100 bg-blue-50"}`}>
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm space-y-2">
                         <div className="flex justify-between gap-3">
-                          <span className={melebihiNominal ? "text-red-700" : "text-blue-700"}>Jumlah billing dipilih</span>
-                          <strong className={melebihiNominal ? "text-red-900" : "text-blue-900"}>{selectedBillingAlokasi.length}</strong>
+                          <span className="text-gray-600">Jumlah billing dipilih</span>
+                          <strong className="text-gray-900">
+                            {selectedBillingAlokasi.length}
+                          </strong>
                         </div>
-                        <div className="flex justify-between gap-3 mt-1">
-                          <span className={melebihiNominal ? "text-red-700" : "text-blue-700"}>Total saldo billing</span>
-                          <strong className={melebihiNominal ? "text-red-900" : "text-blue-900"}>{formatRupiah(totalAlokasi)}</strong>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-gray-600">Total penerimaan tersedia</span>
+                          <strong className="text-gray-900">
+                            {formatRupiah(perhitungan.nominalPenerimaan)}
+                          </strong>
                         </div>
-                        <div className="flex justify-between gap-3 mt-1">
-                          <span className={melebihiNominal ? "text-red-700" : "text-blue-700"}>Sisa penerimaan</span>
-                          <strong className={melebihiNominal ? "text-red-900" : "text-blue-900"}>{formatRupiah(sisaPenerimaan)}</strong>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-gray-600">Total alokasi</span>
+                          <strong className="text-blue-700">
+                            {formatRupiah(perhitungan.totalAlokasi)}
+                          </strong>
                         </div>
-                        {melebihiNominal && (
-                          <p className="mt-2 text-xs font-semibold text-red-700">
-                            Total saldo billing melebihi sisa penerimaan yang tersedia. Kurangi billing yang dipilih sebelum submit.
+                        <div className="border-t border-blue-200 pt-2 flex justify-between gap-3">
+                          <span className="font-semibold text-gray-700">Sisa penerimaan</span>
+                          <strong className={`text-base ${
+                            exhausted ? "text-red-600" : "text-green-700"
+                          }`}>
+                            {formatRupiah(perhitungan.sisaPenerimaan)}
+                          </strong>
+                        </div>
+                        {exhausted && (
+                          <p className="text-xs text-red-600 font-semibold">
+                            Sisa penerimaan sudah habis. Billing lainnya tidak dapat dipilih.
                           </p>
                         )}
                       </div>
@@ -8186,7 +8729,7 @@ const TableBayarFaktur = ({
                 {stepAlokasiPenerimaan === 1 ? (
                   <button type="button" onClick={loadBillingAlokasiPenerimaan} disabled={!cabangAlokasiPenerimaan || !customerAlokasiPenerimaan.length || loadingCustomerAlokasi || loadingBillingAlokasi} className="btn btn-primary rounded-xl">{loadingBillingAlokasi ? <><span className="loading loading-spinner loading-sm" /> Memuat...</> : <>Next <FaChevronRight /></>}</button>
                 ) : (
-                  <button type="button" onClick={handleSubmitAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain || loadingBillingAlokasi || !selectedBillingAlokasi.length || selectedBillingAlokasi.reduce((sum, item) => sum + Number(item.saldo_piutang || 0), 0) > Number(selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0)} className="btn btn-primary rounded-xl">{isSubmittingAlokasiPenerimaanLain ? <><span className="loading loading-spinner loading-sm" /> Memproses...</> : <><FaCheckCircle /> Submit Alokasi</>}</button>
+                  <button type="button" onClick={handleSubmitAlokasiPenerimaanLain} disabled={isSubmittingAlokasiPenerimaanLain || loadingBillingAlokasi || !selectedBillingAlokasi.length || getPerhitunganAlokasiPenerimaan().totalAlokasi <= 0} className="btn btn-primary rounded-xl">{isSubmittingAlokasiPenerimaanLain ? <><span className="loading loading-spinner loading-sm" /> Memproses...</> : <><FaCheckCircle /> Submit Alokasi</>}</button>
                 )}
               </div>
             </div>
@@ -8253,12 +8796,38 @@ const TableBayarFaktur = ({
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Metode Pembayaran <span className="text-red-500">*</span></label>
-                <select value={penerimaanMetode} onChange={(e) => setPenerimaanMetode(e.target.value)} className="select select-bordered w-full bg-white rounded-xl">
+                <select
+                  value={penerimaanMetode}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPenerimaanMetode(value);
+                    if (value !== "DIRECT_TRANSFER") {
+                      setPenerimaanNamaBank("");
+                    }
+                  }}
+                  className="select select-bordered w-full bg-white rounded-xl"
+                >
                   <option value="DIRECT_TRANSFER">Direct Transfer</option>
                   <option value="SSP">Surat Setor Pajak (SSP)</option>
                   <option value="CASH">Cash</option>
                 </select>
               </div>
+
+              {penerimaanMetode === "DIRECT_TRANSFER" && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Nama Bank <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={penerimaanNamaBank}
+                    onChange={(e) => setPenerimaanNamaBank(e.target.value)}
+                    placeholder="Masukkan nama bank"
+                    required
+                    className="input input-bordered w-full bg-white rounded-xl"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Bukti Penerimaan <span className="text-red-500">*</span></label>
@@ -8290,6 +8859,161 @@ const TableBayarFaktur = ({
               <button type="button" onClick={closePenerimaanLain} disabled={isSubmittingPenerimaan} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 disabled:opacity-50">Batal</button>
               <button type="button" onClick={handleSubmitPenerimaanLain} disabled={isSubmittingPenerimaan} className="px-6 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-md inline-flex items-center gap-2 disabled:opacity-50">
                 <FaCheckCircle /> {isSubmittingPenerimaan ? "Menyimpan..." : "Simpan Penerimaan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* =================================================== */}
+      {/* MODAL BIAYA LAIN */}
+      {/* =================================================== */}
+      {showBiayaLainModal && (
+        <div
+          className="fixed inset-0 z-[510] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={closeBiayaLain}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <FaFileInvoiceDollar />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Biaya Lain</h3>
+                  <p className="text-xs text-blue-100">Input biaya berdasarkan customer dan billing</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeBiayaLain}
+                disabled={isSubmittingBiayaLain}
+                className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center disabled:opacity-50"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nomor Dokumen SAP <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={biayaNomorDokumenSAP}
+                  onChange={(e) => setBiayaNomorDokumenSAP(e.target.value)}
+                  placeholder="Masukkan Nomor Dokumen SAP"
+                  className="input input-bordered w-full bg-white rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nominal Biaya <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={biayaNominal}
+                    onChange={(e) => setBiayaNominal(formatInputNominal(e.target.value))}
+                    placeholder="0"
+                    className="input input-bordered w-full bg-white rounded-xl pl-12"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Cabang <span className="text-red-500">*</span>
+                </label>
+                <Select
+                  options={cabangOptions}
+                  value={cabangOptions.find((item) => String(item.value) === String(biayaCabang)) || null}
+                  onChange={(selected) => loadCustomerBiayaLain(selected?.value || null)}
+                  placeholder="Pilih Cabang"
+                  isClearable
+                  isDisabled={isSubmittingBiayaLain}
+                  styles={filterSelectStyles}
+                  noOptionsMessage={() => "Cabang tidak ditemukan"}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Customer <span className="text-red-500">*</span>
+                </label>
+                <Select
+                  options={biayaCustomerOptions}
+                  value={biayaCustomer}
+                  onChange={loadBillingBiayaLain}
+                  placeholder={!biayaCabang ? "Pilih cabang terlebih dahulu" : loadingBiayaCustomer ? "Memuat customer..." : "Pilih Customer"}
+                  isDisabled={!biayaCabang || loadingBiayaCustomer || isSubmittingBiayaLain}
+                  isLoading={loadingBiayaCustomer}
+                  isClearable
+                  styles={filterSelectStyles}
+                  noOptionsMessage={() => "Customer tidak ditemukan"}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Billing <span className="text-red-500">*</span>
+                </label>
+                <Select
+                  options={biayaBillingOptions}
+                  value={biayaBilling}
+                  onChange={setBiayaBilling}
+                  placeholder={!biayaCustomer ? "Pilih customer terlebih dahulu" : loadingBiayaBilling ? "Memuat billing..." : "Pilih Billing"}
+                  isDisabled={!biayaCustomer || loadingBiayaBilling || isSubmittingBiayaLain}
+                  isLoading={loadingBiayaBilling}
+                  isClearable
+                  styles={filterSelectStyles}
+                  noOptionsMessage={() => "Billing tidak ditemukan untuk customer ini"}
+                />
+              </div>
+
+              {biayaBilling && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 space-y-2">
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-600">Customer</span>
+                    <strong className="text-gray-800 text-right">{biayaCustomer?.nama_customer || "-"}</strong>
+                  </div>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-600">Billing</span>
+                    <strong className="text-gray-800 text-right">{biayaBilling.no_billing}</strong>
+                  </div>
+                  <div className="flex justify-between gap-3 text-sm border-t border-blue-200 pt-2">
+                    <span className="text-gray-600">Saldo Piutang</span>
+                    <strong className="text-blue-700">{formatRupiah(biayaBilling.saldo_piutang)}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={closeBiayaLain}
+                disabled={isSubmittingBiayaLain}
+                className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitBiayaLain}
+                disabled={isSubmittingBiayaLain || loadingBiayaCustomer || loadingBiayaBilling}
+                className="px-6 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-md inline-flex items-center gap-2 disabled:opacity-50"
+              >
+                <FaCheckCircle />
+                {isSubmittingBiayaLain ? "Menyimpan..." : "Simpan Biaya Lain"}
               </button>
             </div>
           </div>

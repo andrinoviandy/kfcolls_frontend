@@ -23,6 +23,7 @@ import {
   FaSpinner,
   FaTimes,
   FaUsers,
+  FaPrint,
 } from "react-icons/fa";
 
 import {
@@ -1698,6 +1699,579 @@ const TableListKonfirmasiPiutang = ({
 
 
   // ===================================================
+  // CETAK SURAT KONFIRMASI PIUTANG
+  // ===================================================
+  // ===================================================
+  // CETAK SURAT KONFIRMASI PIUTANG
+  // ===================================================
+  const handlePrintKonfirmasiPiutang = () => {
+    if (!sendData || !sendItems.length) {
+      swal.error("Data billing belum tersedia untuk dicetak.");
+      return;
+    }
+
+    // Buka tab secara langsung dari event klik agar tidak diblokir popup blocker.
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+      swal.error("Popup diblokir browser. Izinkan popup untuk mencetak dokumen.");
+      return;
+    }
+
+    const escapePrint = (value) => String(value ?? "-")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    const formatPrintDate = (value) => {
+      if (!value) return "-";
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) return "-";
+
+      return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "Asia/Jakarta",
+      });
+    };
+
+    const formatPrintRupiah = (value) => `Rp ${new Intl.NumberFormat("id-ID", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Number(value) || 0)}`;
+
+    const namaCustomer =
+      sendData?.nama_customer ||
+      sendData?.customer_name ||
+      sendData?.name ||
+      "-";
+
+    const kodeCustomer =
+      sendData?.customer_id ||
+      sendData?.customer ||
+      sendData?.kode_customer ||
+      "-";
+
+    const namaCabang =
+      sendData?.nama_cabang ||
+      sendData?.cabang_nama ||
+      sendData?.nama_branch ||
+      sendData?.ur_ref ||
+      "-";
+
+    const tanggalCetak = formatPrintDate(new Date());
+    const tahunSekarang = new Date().getFullYear();
+
+    // Data billing diambil dari sendItems yang sudah dipilih pada modal customer.
+    const printRows = sendItems.map((item) => {
+      const nominalTagihan = Number(
+        item?.nominal_tagihan ??
+        item?.total_invoice ??
+        item?.total_tagihan ??
+        item?.nominal_invoice ??
+        item?.lc_amount ??
+        (
+          Number(item?.dpp ?? item?.DPP ?? 0) +
+          Number(item?.ppn ?? item?.PPN ?? 0)
+        )
+      ) || 0;
+
+      const pembayaran = Number(
+        item?.pembayaran ??
+        item?.jumlah_bayar ??
+        item?.total_bayar ??
+        item?.payment_amount ??
+        item?.paid_amount ??
+        item?.jumlah_pembayaran ??
+        0
+      ) || 0;
+
+      const sisaPiutang = Number(
+        item?.sisa_piutang ??
+        item?.outstanding ??
+        item?.saldo_piutang ??
+        item?.balance ??
+        (nominalTagihan - pembayaran)
+      ) || 0;
+
+      return {
+        noBilling: item?.no_billing || "-",
+
+        tanggalFaktur: formatPrintDate(
+          item?.tanggal_faktur ??
+          item?.tgl_faktur ??
+          item?.doc_date ??
+          item?.posting_date ??
+          item?.tanggal_invoice ??
+          item?.tgl_posting
+        ),
+
+        jatuhTempo: formatPrintDate(
+          item?.jatuh_tempo ??
+          item?.tanggal_jatuh_tempo ??
+          item?.due_date ??
+          item?.net_due_date ??
+          item?.tgl_jatuh_tempo
+        ),
+
+        nominalTagihan,
+        pembayaran,
+        sisaPiutang,
+      };
+    });
+
+    const totalNominal = printRows.reduce(
+      (sum, item) => sum + item.nominalTagihan,
+      0
+    );
+
+    const totalPembayaran = printRows.reduce(
+      (sum, item) => sum + item.pembayaran,
+      0
+    );
+
+    const totalSaldoPiutang = printRows.reduce(
+      (sum, item) => sum + item.sisaPiutang,
+      0
+    );
+
+    const detailRowsHtml = printRows.map((item) => `
+    <tr>
+      <td>${escapePrint(item.noBilling)}</td>
+      <td class="text-center">${escapePrint(item.tanggalFaktur)}</td>
+      <td class="text-center">${escapePrint(item.jatuhTempo)}</td>
+      <td class="text-right">${formatPrintRupiah(item.nominalTagihan)}</td>
+      <td class="text-right">${formatPrintRupiah(item.pembayaran)}</td>
+      <td class="text-right">${formatPrintRupiah(item.sisaPiutang)}</td>
+    </tr>
+  `).join("");
+
+    const html = `
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+      <title>Konfirmasi Piutang - ${escapePrint(namaCustomer)}</title>
+
+      <style>
+        * {
+          box-sizing: border-box;
+        }
+
+        html, body {
+          margin: 0;
+          padding: 0;
+          font-family: Arial, Helvetica, sans-serif;
+          color: #111;
+          font-size: 11px;
+        }
+
+        .page {
+          width: 210mm;
+          min-height: 297mm;
+          padding: 20mm 18mm;
+          margin: 0 auto;
+          background: #fff;
+        }
+
+        .page-break {
+          page-break-after: always;
+          break-after: page;
+        }
+
+        .kop-surat {
+          height: 38px;
+          color: #555;
+          font-size: 10px;
+          padding-top: 5px;
+        }
+
+        .tanggal {
+          margin: 12px 0 18px;
+        }
+
+        .identitas-surat {
+          margin-bottom: 25px;
+          line-height: 1.6;
+        }
+
+        .identitas-surat table,
+        .ringkasan {
+          border-collapse: collapse;
+        }
+
+        .identitas-surat td {
+          padding: 0 5px 0 0;
+          vertical-align: top;
+        }
+
+        .tujuan {
+          line-height: 1.5;
+          margin-bottom: 25px;
+        }
+
+        .perihal {
+          text-align: center;
+          font-weight: bold;
+          text-decoration: underline;
+          margin: 25px 0;
+          font-size: 12px;
+        }
+
+        .isi-surat {
+          font-size: 11px;
+          line-height: 1.65;
+          text-align: justify;
+        }
+
+        .ringkasan {
+          margin: 10px 0 15px 15px;
+        }
+
+        .ringkasan td {
+          padding: 3px 8px;
+        }
+
+        .tanda-tangan {
+          margin-top: 35px;
+          line-height: 1.5;
+        }
+
+        .ttd-nama {
+          margin-top: 55px;
+          font-weight: bold;
+        }
+
+        .tembusan {
+          margin-top: 35px;
+          line-height: 1.8;
+        }
+
+        .garis-atas {
+          border-top: 1px solid #1f2937;
+          margin-bottom: 17px;
+        }
+
+        .judul-lampiran {
+          text-align: center;
+          font-size: 13px;
+          font-weight: bold;
+          margin-bottom: 5px;
+          color: #1f2937;
+        }
+
+        .subjudul-lampiran {
+          text-align: center;
+          color: #64748b;
+          font-size: 10px;
+          margin-bottom: 20px;
+        }
+
+        .identitas-customer {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 12px;
+          font-size: 10px;
+        }
+
+        .identitas-customer td {
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          padding: 8px;
+        }
+
+        .tabel-billing {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 9px;
+        }
+
+        .tabel-billing th {
+          background: #e5e7eb;
+          border: 1px solid #cbd5e1;
+          padding: 9px 5px;
+          text-align: center;
+          font-weight: bold;
+        }
+
+        .tabel-billing td {
+          border: 1px solid #cbd5e1;
+          padding: 8px 5px;
+        }
+
+        .text-center {
+          text-align: center;
+        }
+
+        .text-right {
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        .total-row {
+          font-weight: bold;
+          background: #f8fafc;
+        }
+
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+
+        @media print {
+          html, body {
+            width: 210mm;
+            margin: 0;
+            padding: 0;
+          }
+
+          .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0;
+            padding: 20mm 18mm;
+          }
+
+          .page:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+
+      <!-- HALAMAN 1: SURAT KONFIRMASI PIUTANG -->
+      <section class="page page-break">
+
+        <div class="kop-surat">
+          Kop Surat
+        </div>
+
+        <div class="tanggal">
+          Jakarta, ${escapePrint(tanggalCetak)}
+        </div>
+
+        <div class="identitas-surat">
+          <table>
+            <tr>
+              <td width="75">Nomor</td>
+              <td width="10">:</td>
+              <td>....../....../....../${tahunSekarang}</td>
+            </tr>
+
+            <tr>
+              <td>Lampiran</td>
+              <td>:</td>
+              <td>ada</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="tujuan">
+          <div>Kepada Yth.,</div>
+          <div>Pimpinan</div>
+          <div>${escapePrint(namaCustomer)}</div>
+          <div>di tempat</div>
+        </div>
+
+        <div class="perihal">
+          Perihal : Konfirmasi Piutang
+        </div>
+
+        <div class="isi-surat">
+
+          <p>Dengan hormat,</p>
+
+          <p>
+            Teriring salam dan do’a untuk Bapak/Ibu, semoga senantiasa
+            diberikan kesehatan dan kemudahan di dalam menjalankan
+            aktivitas sehari-hari, serta ucapan terima kasih atas
+            kepercayaan dan kerjasama yang telah terjalin selama ini.
+          </p>
+
+          <p>
+            Selanjutnya, sehubungan dengan kerjasama tersebut, bersama ini
+            kami beritahukan bahwa saat ini piutang dagang
+            ${escapePrint(namaCustomer)} per tanggal
+            ${escapePrint(tanggalCetak)} adalah sebagai berikut:
+          </p>
+
+          <table class="ringkasan">
+            <tr>
+              <td>-</td>
+              <td>Total Saldo Piutang</td>
+              <td>:</td>
+              <td>
+                <strong>${formatPrintRupiah(totalSaldoPiutang)}</strong>
+              </td>
+            </tr>
+          </table>
+
+          <p>
+            Kami lampirkan rincian piutang tersebut, mohon untuk dapat
+            dilakukan peninjauan dan pemeriksaan atas data tersebut.
+            Kemudian untuk dapat dicatat dan ditandatangani sesuai
+            format terlampir.
+          </p>
+
+          <p>
+            Demikian pemberitahuan ini disampaikan. Atas perhatian
+            dan kerjasama yang baik, kami ucapkan terima kasih.
+          </p>
+
+        </div>
+
+        <div class="tanda-tangan">
+          <div>Hormat kami,</div>
+          <div>PT Kimia Farma Trading &amp; Distribution</div>
+
+          <div class="ttd-nama">
+            Branch Manager Cabang ${escapePrint(namaCabang)}
+          </div>
+        </div>
+
+        <div class="tembusan">
+          <div>
+            Tembusan Yth. :
+            <i>
+              - (Instansi/Lembaga/Pejabat terkait – jika ada/diperlukan)
+            </i>
+          </div>
+
+          <div style="margin-left:78px;">
+            - Direksi KFTD
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- HALAMAN 2: LAMPIRAN RINCIAN PIUTANG -->
+      <section class="page">
+
+        <div class="garis-atas"></div>
+
+        <div class="judul-lampiran">
+          LAMPIRAN RINCIAN PIUTANG
+        </div>
+
+        <div class="subjudul-lampiran">
+          Rincian faktur pelanggan per ${escapePrint(tanggalCetak)}
+        </div>
+
+        <table class="identitas-customer">
+          <tr>
+            <td>
+              <strong>Kode Customer:</strong>
+              ${escapePrint(kodeCustomer)}
+            </td>
+
+            <td>
+              <strong>Nama Customer:</strong>
+              ${escapePrint(namaCustomer)}
+            </td>
+          </tr>
+        </table>
+
+        <table class="tabel-billing">
+
+          <thead>
+            <tr>
+              <th>No. Billing</th>
+              <th>Tanggal Faktur</th>
+              <th>Jatuh Tempo</th>
+              <th>Nominal Tagihan</th>
+              <th>Pembayaran</th>
+              <th>Sisa Piutang</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            ${detailRowsHtml}
+
+            <tr class="total-row">
+              <td colspan="3" class="text-right">
+                Total
+              </td>
+
+              <td class="text-right">
+                ${formatPrintRupiah(totalNominal)}
+              </td>
+
+              <td class="text-right">
+                ${formatPrintRupiah(totalPembayaran)}
+              </td>
+
+              <td class="text-right">
+                ${formatPrintRupiah(totalSaldoPiutang)}
+              </td>
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </section>
+
+    </body>
+    </html>
+  `;
+
+    // ===================================================
+    // TULIS DOKUMEN KE TAB BARU
+    // ===================================================
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // ===================================================
+    // OTOMATIS TUTUP TAB SETELAH PRINT / CANCEL
+    // ===================================================
+
+    printWindow.onafterprint = () => {
+      try {
+        if (!printWindow.closed) {
+          printWindow.close();
+        }
+      } catch (error) {
+        console.error("ERROR MENUTUP TAB PRINT:", error);
+      }
+    };
+
+    // ===================================================
+    // JALANKAN PRINT
+    // ===================================================
+
+    window.setTimeout(() => {
+      try {
+        if (printWindow.closed) return;
+
+        printWindow.focus();
+        printWindow.print();
+
+      } catch (error) {
+        console.error("ERROR CETAK KONFIRMASI PIUTANG:", error);
+
+        if (!printWindow.closed) {
+          printWindow.close();
+        }
+      }
+    }, 500);
+  };
+
+
+  // ===================================================
   // EXPORT EXCEL - SELURUH DATA SESUAI FILTER (TANPA PAGING)
   // ===================================================
   const [isExporting, setIsExporting] = useState(false);
@@ -1930,15 +2504,6 @@ const TableListKonfirmasiPiutang = ({
       label: "Tanggal Kirim",
       icon: <FaCalendarAlt />,
     },
-
-    {
-      label:
-        "No. Billing",
-
-      icon:
-        <FaFileAlt />,
-    },
-
     {
       label:
         "Customer",
@@ -5159,6 +5724,31 @@ const TableListKonfirmasiPiutang = ({
 
                 </button>
 
+
+                <button
+                  type="button"
+                  onClick={handlePrintKonfirmasiPiutang}
+                  disabled={isSendingConfirmation || !sendItems.length}
+                  className="
+          px-5
+          py-2.5
+          rounded-full
+          border
+          border-blue-200
+          bg-white
+          text-blue-700
+          text-sm
+          font-semibold
+          hover:bg-blue-50
+          disabled:opacity-40
+          inline-flex
+          items-center
+          gap-2
+        "
+                >
+                  <FaPrint />
+                  Cetak
+                </button>
 
                 {
                   sendResult?.type !==

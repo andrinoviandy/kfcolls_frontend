@@ -274,13 +274,70 @@ const getStatusPengirimanNotifikasi = (item) => {
   if (["BELUM_DIKIRIM", "BELUM", "NOT_SENT", "N"].includes(status)) return "Belum Dikirim";
   return (item?.tgl_kirim_konfirmasi || item?.tanggal_kirim_konfirmasi || item?.k_piutang_id) ? "Sudah Dikirim" : "Belum Dikirim";
 };
+const getPiutangKeterangan = ({
+  saldoPiutang,
+  ppn,
+  pph,
+  totalInvoice,
+  top,
+}) => {
+  const isSameAmount = (first, second) =>
+    Math.abs(first - second) < 0.01;
+
+  // Jika saldo piutang masih sama dengan total invoice,
+  // maka keterangan outstanding adalah Full.
+  if (
+    totalInvoice > 0 &&
+    isSameAmount(saldoPiutang, totalInvoice)
+  ) {
+    return "Full";
+  }
+
+  // Jika TOP 45 Hari, keterangan outstanding adalah Sisa Komersil.
+  const parsedTOP = Number(
+    String(top ?? "")
+      .match(/-?\\d+(?:[.,]\\d+)?/)?.[0]
+      ?.replace(",", ".")
+  );
+
+  if (parsedTOP === 45) {
+    return "Sisa Komersil";
+  }
+
+  if (ppn > 0 && isSameAmount(saldoPiutang, ppn)) {
+    return "Sisa PPN";
+  }
+
+  if (pph > 0 && isSameAmount(saldoPiutang, pph)) {
+    return "Sisa PPh";
+  }
+
+  if (
+    ppn + pph > 0 &&
+    isSameAmount(saldoPiutang, ppn + pph)
+  ) {
+    return "Sisa PPN + PPh";
+  }
+
+  return "Sisa Komersil";
+};
+
 const getInvoiceAmounts = (item) => {
   const dpp = getDpp(item); const ppn = getPpn(item); const pph = getPph(item);
   const collection = getCollection(item); const saldoPiutang = getOutstanding(item);
-  let keterangan = "Sisa Komersil";
-  if (saldoPiutang > 0 && Math.round(saldoPiutang) === Math.round(ppn)) keterangan = "Sisa PPN";
-  else if (saldoPiutang > 0 && Math.round(saldoPiutang) === Math.round(pph)) keterangan = "Sisa PPh";
-  return { dpp, ppn, pph, totalInvoice: dpp + ppn, collection, saldoPiutang, keterangan };
+  const totalInvoice = dpp + ppn;
+  const keterangan = getPiutangKeterangan({
+    saldoPiutang,
+    ppn,
+    pph,
+    totalInvoice,
+    top:
+      item?.TOP ??
+      item?.top ??
+      item?.top_days ??
+      item?.term_of_payment,
+  });
+  return { dpp, ppn, pph, totalInvoice, collection, saldoPiutang, keterangan };
 };
 
 const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setReloadData }) => {

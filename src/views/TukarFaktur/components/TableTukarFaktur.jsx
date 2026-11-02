@@ -690,8 +690,8 @@ const TableTukarFaktur = ({
       return;
     }
 
-    if (!alasanFakturKembali.trim()) {
-      await swal.error("Alasan Faktur Kembali wajib diisi.");
+    if (alasanFakturKembali.trim().length < 10) {
+      await swal.error("Alasan Faktur Kembali minimal 10 karakter.");
       return;
     }
 
@@ -3096,8 +3096,16 @@ const TableTukarFaktur = ({
                   onChange={(e) => setAlasanFakturKembali(e.target.value)}
                   placeholder="Tuliskan alasan faktur dikembalikan..."
                   disabled={loadingFakturKembali}
+                  minLength={10}
                   className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
                 />
+                <p className={`mt-1 text-xs ${
+                  alasanFakturKembali.trim().length < 10
+                    ? "text-gray-500"
+                    : "text-green-600"
+                }`}>
+                  Minimal 10 karakter ({alasanFakturKembali.trim().length}/10)
+                </p>
               </div>
             </div>
 
@@ -3115,7 +3123,7 @@ const TableTukarFaktur = ({
               <button
                 type="button"
                 onClick={handleInsertFakturKembali}
-                disabled={loadingFakturKembali || !alasanFakturKembali.trim()}
+                disabled={loadingFakturKembali || alasanFakturKembali.trim().length < 10}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
                 {loadingFakturKembali ? (

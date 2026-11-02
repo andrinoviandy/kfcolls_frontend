@@ -402,9 +402,35 @@ const getInvoiceAmounts = (item) => {
   };
 };
 
-const getPiutangKeterangan = ({ saldoPiutang, ppn, pph }) => {
+const getPiutangKeterangan = ({
+  saldoPiutang,
+  ppn,
+  pph,
+  totalInvoice,
+  top,
+}) => {
   const isSameAmount = (first, second) =>
     Math.abs(first - second) < 0.01;
+
+  // Jika saldo piutang masih sama dengan total invoice,
+  // maka keterangan outstanding adalah Full.
+  if (
+    totalInvoice > 0 &&
+    isSameAmount(saldoPiutang, totalInvoice)
+  ) {
+    return "Full";
+  }
+
+  // Jika TOP 45 Hari, keterangan outstanding adalah Sisa Komersil.
+  const parsedTOP = Number(
+    String(top ?? "")
+      .match(/-?\d+(?:[.,]\d+)?/)?.[0]
+      ?.replace(",", ".")
+  );
+
+  if (parsedTOP === 45) {
+    return "Sisa Komersil";
+  }
 
   if (ppn > 0 && isSameAmount(saldoPiutang, ppn)) {
     return "Sisa PPN";
@@ -1757,6 +1783,7 @@ const TableKreasiFaktur = ({
                   <th className="whitespace-nowrap px-4 py-3 text-right">
                     Total Invoice
                   </th>
+                  {/*
                   <th className="whitespace-nowrap px-4 py-3 text-right">
                     Collection
                   </th>
@@ -1766,12 +1793,15 @@ const TableKreasiFaktur = ({
                   <th className="whitespace-nowrap px-4 py-3">
                     Keterangan Outstanding
                   </th>
+                  */}
                   <th className="whitespace-nowrap px-4 py-3 text-center">
                     Umur Piutang
                   </th>
+                  {/*
                   <th className="whitespace-nowrap px-4 py-3 text-center">
                     Status
                   </th>
+                  */}
                 </tr>
               </thead>
 
@@ -1779,7 +1809,7 @@ const TableKreasiFaktur = ({
                 {tableData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={24}
+                      colSpan={20}
                       className="py-16 text-center text-gray-500"
                     >
                       <FaFileInvoiceDollar className="mx-auto mb-3 text-4xl text-gray-300" />
@@ -1802,7 +1832,14 @@ const TableKreasiFaktur = ({
 
                     const invoiceAmounts = getInvoiceAmounts(item);
                     const keterangan =
-                      getPiutangKeterangan(invoiceAmounts);
+                      getPiutangKeterangan({
+                        ...invoiceAmounts,
+                        top:
+                          item?.TOP ??
+                          item?.top ??
+                          item?.top_days ??
+                          item?.term_of_payment,
+                      });
 
                     return (
                       <React.Fragment key={rowKey}>
@@ -2027,13 +2064,16 @@ const TableKreasiFaktur = ({
                           </td>
 
                           {/* COLLECTION */}
+                          {/*
                           <td className="whitespace-nowrap px-4 py-3 text-right">
                             <span className="font-bold text-green-600">
                               {formatRupiah(invoiceAmounts.collection)}
                             </span>
                           </td>
+                          */}
 
                           {/* SALDO PIUTANG */}
+                          {/*
                           <td className="whitespace-nowrap px-4 py-3 text-right">
                             <span
                               className={`font-bold ${invoiceAmounts.saldoPiutang > 0
@@ -2044,11 +2084,14 @@ const TableKreasiFaktur = ({
                               {formatRupiah(invoiceAmounts.saldoPiutang)}
                             </span>
                           </td>
+                          */}
 
                           {/* KETERANGAN */}
+                          {/*
                           <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                             {keterangan}
                           </td>
+                          */}
 
                           {/* AGING */}
                           <td className="whitespace-nowrap px-4 py-3 text-center">
@@ -2071,15 +2114,17 @@ const TableKreasiFaktur = ({
                           </td>
 
                           {/* STATUS JTO */}
+                          {/*
                           <td className="whitespace-nowrap px-4 py-3 text-center">
                             {renderJtoStatus(item)}
                           </td>
+                          */}
                         </tr>
 
                         {/* DETAIL PENJUALAN */}
                         {expandedRows[rowKey] && (
                           <tr className="border-b border-blue-100 bg-slate-50">
-                            <td colSpan={24} className="p-0">
+                            <td colSpan={20} className="p-0">
                               <div className="border-l-4 border-blue-500 px-4 py-4">
                                 <div className="mb-3 flex items-center justify-between gap-3">
                                   <div>

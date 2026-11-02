@@ -206,6 +206,8 @@ const TablePenugasanFaktur = ({
     total_faktur: 0,
     belum_ditugaskan: 0,
     sudah_ditugaskan: 0,
+    total_faktur_kembali_tukar_faktur: 0,
+    total_faktur_kembali_penagihan: 0,
   });
   const [totalData, setTotalData] = useState(0);
   const [totalPage, setTotalPage] = useState(0);
@@ -326,10 +328,16 @@ const TablePenugasanFaktur = ({
       const summary = responseData?.summary || {};
       setSummaryData({
         total_faktur: Number(
-          summary?.total_faktur || responseData?.total_data || 0
+          summary?.total_faktur ?? responseData?.total_data ?? 0
         ),
         belum_ditugaskan: Number(summary?.belum_ditugaskan || 0),
         sudah_ditugaskan: Number(summary?.sudah_ditugaskan || 0),
+        total_faktur_kembali_tukar_faktur: Number(
+          summary?.total_faktur_kembali_tukar_faktur || 0
+        ),
+        total_faktur_kembali_penagihan: Number(
+          summary?.total_faktur_kembali_penagihan || 0
+        ),
       });
     } catch (error) {
       console.error("ERROR GET DATA FAKTUR PETUGAS:", error);
@@ -340,6 +348,8 @@ const TablePenugasanFaktur = ({
         total_faktur: 0,
         belum_ditugaskan: 0,
         sudah_ditugaskan: 0,
+        total_faktur_kembali_tukar_faktur: 0,
+        total_faktur_kembali_penagihan: 0,
       });
       await swal.error(error?.message || "Gagal mengambil data faktur petugas");
     } finally {
@@ -826,11 +836,27 @@ const TablePenugasanFaktur = ({
                 { label: "Semua Status", value: "ALL" },
                 { label: "Belum Ditugaskan", value: "BELUM_DITUGASKAN" },
                 { label: "Sudah Ditugaskan", value: "SUDAH_DITUGASKAN" },
+                {
+                  label: "Faktur Kembali - Tukar Faktur",
+                  value: "FAKTUR_KEMBALI_TUKAR_FAKTUR",
+                },
+                {
+                  label: "Faktur Kembali - Penagihan",
+                  value: "FAKTUR_KEMBALI_PENAGIHAN",
+                },
               ]}
               value={[
                 { label: "Semua Status", value: "ALL" },
                 { label: "Belum Ditugaskan", value: "BELUM_DITUGASKAN" },
                 { label: "Sudah Ditugaskan", value: "SUDAH_DITUGASKAN" },
+                {
+                  label: "Faktur Kembali - Tukar Faktur",
+                  value: "FAKTUR_KEMBALI_TUKAR_FAKTUR",
+                },
+                {
+                  label: "Faktur Kembali - Penagihan",
+                  value: "FAKTUR_KEMBALI_PENAGIHAN",
+                },
               ].find((item) => item.value === selectedStatus)}
               onChange={(selected) => {
                 setCurrentPage(1);
@@ -871,7 +897,7 @@ const TablePenugasanFaktur = ({
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
           <div className="flex justify-between">
             <div>
@@ -908,6 +934,32 @@ const TablePenugasanFaktur = ({
             </div>
             <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
               <FaCheckCircle className="text-green-600" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-4">
+          <div className="flex justify-between gap-3">
+            <div>
+              <p className="text-sm text-orange-700">Faktur Kembali - Tukar Faktur</p>
+              <p className="text-2xl font-bold text-orange-900">
+                {formatNumber(summaryData.total_faktur_kembali_tukar_faktur)}
+              </p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-orange-100 flex items-center justify-center">
+              <FaExchangeAlt className="text-orange-600" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4">
+          <div className="flex justify-between gap-3">
+            <div>
+              <p className="text-sm text-purple-700">Faktur Kembali - Penagihan</p>
+              <p className="text-2xl font-bold text-purple-900">
+                {formatNumber(summaryData.total_faktur_kembali_penagihan)}
+              </p>
+            </div>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-purple-100 flex items-center justify-center">
+              <FaRoute className="text-purple-600" />
             </div>
           </div>
         </div>

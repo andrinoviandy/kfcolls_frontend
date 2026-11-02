@@ -2159,7 +2159,6 @@ const n2nGetService = {
       return error.response;
     }
   },
-
   getMasterTarget: async ({
     page = 1,
     limit = 10,
@@ -2171,6 +2170,7 @@ const n2nGetService = {
     start_date = "",
     end_date = "",
     periode = "ALL",
+    jenis_target = "Cabang",
   } = {}) => {
     try {
       const response = await api.get(
@@ -2187,6 +2187,7 @@ const n2nGetService = {
             start_date,
             end_date,
             periode,
+            jenis_target,
           },
         }
       );
@@ -2233,6 +2234,40 @@ const n2nGetService = {
             principle,
             start_date,
             end_date,
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getDataDoar: async ({
+    page,
+    limit,
+    keyword = "",
+    status = "",
+    sales_office = "ALL",
+    customer = "ALL",
+    posting_status = "ALL",
+    customer_group = "ALL",
+    principle = "ALL"
+  }) => {
+    try {
+      const response = await api.get(
+        "/getDataDoar",
+        {
+          params: {
+            page,
+            limit,
+            keyword,
+            status,
+            sales_office,
+            posting_status,
+            customer,
+            customer_group,
+            principle
           }
         }
       );

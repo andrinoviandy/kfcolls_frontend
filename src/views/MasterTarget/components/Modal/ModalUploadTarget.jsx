@@ -17,6 +17,9 @@ import { Modal } from "components/atoms";
 import { setToggleModal } from "../../../../redux/n2n/global";
 import storeSchema from "global/store";
 
+// ============================================================
+// TEMPLATE HEADER EXCEL
+// ============================================================
 const TEMPLATE_HEADERS = [
   "periode",
   "company_code",
@@ -41,11 +44,14 @@ const TEMPLATE_HEADERS = [
   "30/09/2026",
   "Ket Target Cabang",
   "TARGET CABANG",
+
+  // KOLOM BARU
+  "JENIS TARGET",
 ];
 
-// Mapping berdasarkan posisi kolom Excel.
-// Kolom tanggal ke-1 dan ke-2 mempunyai nama yang sama,
-// tetapi disimpan ke field database yang berbeda.
+// ============================================================
+// MAPPING HEADER EXCEL KE FIELD BACKEND
+// ============================================================
 const HEADER_MAPPING = [
   "periode",
   "company_code",
@@ -70,14 +76,23 @@ const HEADER_MAPPING = [
   "nilai_aging_top_periode",
   "ket_target_cabang",
   "target_cabang",
+
+  // FIELD BARU
+  "jenis_target",
 ];
 
+// ============================================================
+// HEADER TANGGAL
+// ============================================================
 const DATE_HEADERS = [
   "posting_date",
   "document_date",
   "net_due_date",
 ];
 
+// ============================================================
+// HEADER NUMERIC
+// ============================================================
 const NUMERIC_HEADERS = [
   "amount",
   "top",
@@ -88,14 +103,23 @@ const NUMERIC_HEADERS = [
   "target_cabang",
 ];
 
+// ============================================================
+// MAX FILE SIZE 25 MB
+// ============================================================
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+// ============================================================
+// NORMALIZE HEADER
+// ============================================================
 const normalizeHeader = (value) =>
   String(value ?? "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
 
+// ============================================================
+// FORMAT PREVIEW
+// ============================================================
 const formatPreviewValue = (value) => {
   if (value === null || value === undefined) return "";
 
@@ -106,6 +130,9 @@ const formatPreviewValue = (value) => {
   return String(value);
 };
 
+// ============================================================
+// PARSE EXCEL DATE
+// ============================================================
 const parseExcelDate = (value) => {
   if (value === null || value === undefined || value === "") {
     return "";
@@ -147,6 +174,9 @@ const parseExcelDate = (value) => {
   return text;
 };
 
+// ============================================================
+// NORMALIZE ROW
+// ============================================================
 const normalizeExcelRow = (row) => {
   const result = {};
 
@@ -168,14 +198,19 @@ const normalizeExcelRow = (row) => {
       }
     }
 
+    // jenis_target merupakan text/string
     result[header] = value ?? "";
   });
 
   return result;
 };
 
+// ============================================================
+// MODAL UPLOAD MASTER TARGET
+// ============================================================
 const ModalUploadTarget = ({ reloadData, setReloadData }) => {
   const dispatch = useDispatch();
+
   const toggleModal = useSelector(
     (state) => state.global?.toggleModal
   );
@@ -190,6 +225,9 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
 
   const isOpen = toggleModal?.modal === "modalUploadTarget";
 
+  // ==========================================================
+  // RESET FORM
+  // ==========================================================
   const resetForm = () => {
     setFileExcel(null);
     setPreviewData([]);
@@ -208,6 +246,9 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
     }
   }, [isOpen]);
 
+  // ==========================================================
+  // HANDLE FILE EXCEL
+  // ==========================================================
   const handleFile = (event) => {
     const file = event.target.files?.[0];
 
@@ -273,6 +314,7 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
         const actualHeaders = excelHeaders.map(normalizeHeader);
         const expectedHeaders = TEMPLATE_HEADERS.map(normalizeHeader);
 
+        // Validasi nama dan urutan seluruh kolom
         const headerValid =
           actualHeaders.length === expectedHeaders.length &&
           expectedHeaders.every(
@@ -282,13 +324,16 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
         if (!headerValid) {
           setErrorMessage(
             "Header Excel tidak sesuai template Master Target. " +
-              "Pastikan nama dan urutan 23 kolom sudah benar."
+              `Pastikan nama dan urutan ${TEMPLATE_HEADERS.length} kolom sudah benar, termasuk kolom JENIS TARGET.`
           );
 
           event.target.value = "";
           return;
         }
 
+        // ====================================================
+        // MAPPING DATA EXCEL
+        // ====================================================
         const normalizedData = rows
           .slice(1)
           .map((row) => {
@@ -354,6 +399,9 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
     reader.readAsArrayBuffer(file);
   };
 
+  // ==========================================================
+  // DOWNLOAD TEMPLATE EXCEL
+  // ==========================================================
   const handleDownloadTemplate = () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
       TEMPLATE_HEADERS,
@@ -375,6 +423,9 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
     XLSX.writeFile(workbook, "template-master-target.xlsx");
   };
 
+  // ==========================================================
+  // CLOSE MODAL
+  // ==========================================================
   const handleClose = () => {
     resetForm();
 
@@ -386,6 +437,9 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
     );
   };
 
+  // ==========================================================
+  // SUBMIT UPLOAD
+  // ==========================================================
   const handleSubmit = async () => {
     if (!fileExcel) {
       Swal.fire({
@@ -411,9 +465,11 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
       setLoading(true);
 
       const formData = new FormData();
+
       formData.append("file", fileExcel);
 
-      // Action ini harus tersedia di global/store.
+      // Action upload tetap menggunakan file Excel asli.
+      // Backend perlu membaca kolom jenis_target.
       const uploadAction = storeSchema.actions?.uploadMasterTarget;
 
       if (typeof uploadAction !== "function") {
@@ -463,6 +519,9 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
     }
   };
 
+  // ==========================================================
+  // RENDER
+  // ==========================================================
   return (
     <Modal
       modal="modalUploadTarget"
@@ -497,6 +556,7 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
       }
     >
       <div className="space-y-5 p-2">
+        {/* HEADER */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="mt-1 text-sm text-slate-500">
@@ -514,6 +574,7 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
           </button>
         </div>
 
+        {/* INPUT FILE */}
         <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6">
           <div className="flex flex-col items-center text-center">
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
@@ -538,6 +599,7 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
           </div>
         </div>
 
+        {/* ERROR MESSAGE */}
         {errorMessage && (
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             <FaExclamationTriangle className="mt-0.5 shrink-0" />
@@ -545,6 +607,7 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
           </div>
         )}
 
+        {/* FILE INFO */}
         {fileExcel && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -581,6 +644,7 @@ const ModalUploadTarget = ({ reloadData, setReloadData }) => {
           </div>
         )}
 
+        {/* PREVIEW DATA */}
         {previewData.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white p-4">
