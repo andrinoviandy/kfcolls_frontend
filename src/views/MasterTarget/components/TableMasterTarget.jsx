@@ -204,9 +204,9 @@ const columns = [
   ["text_information", "Text Information"],
   ["top", "TOP"],
   ["aging_standar", "Aging Standar"],
-  ["nilai_aging_periode", "Nilai Aging Periode"],
+  // ["nilai_aging_periode", "Nilai Aging Periode"],
   ["aging_top", "Aging TOP"],
-  ["nilai_aging_top_periode", "Nilai Aging TOP Periode"],
+  // ["nilai_aging_top_periode", "Nilai Aging TOP Periode"],
   ["ket_target_cabang", "Ket. Target Cabang"],
   ["target_cabang", "Target Cabang"],
 
@@ -711,7 +711,7 @@ const TableMasterTarget = ({
     }
 
     if (
-      ["aging_standar", "aging_top", "top"].includes(key)
+      ["top"].includes(key)
     ) {
       return formatNumber(value);
     }

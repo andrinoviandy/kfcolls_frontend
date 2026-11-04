@@ -103,7 +103,7 @@ const REQUIRED_HEADERS = [
   "Prod. Hierarchy3",
   "Principle",
   "Name Principle",
-  "Desc. Cust. Grp4",
+  "Desc. Cust. Grp3",
   "Salesman",
   "Name Salesman",
   "PO Number",

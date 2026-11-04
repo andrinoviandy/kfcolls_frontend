@@ -3445,7 +3445,7 @@ const TableReportSales = ({
             className="
               fixed
               inset-0
-              z-[9999]
+              z-[400]
               flex
               items-center
               justify-center
@@ -4630,7 +4630,7 @@ const TableReportSales = ({
             className="
               fixed
               inset-0
-              z-[9999]
+              z-[400]
               flex
               items-center
               justify-center

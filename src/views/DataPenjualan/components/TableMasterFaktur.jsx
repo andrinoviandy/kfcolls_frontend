@@ -366,8 +366,8 @@ const mainColumns = [
     icon: <FaBuilding />,
   },
   {
-    key: "Desc. Cust. Grp4",
-    label: "Desc. Cust. Grp4",
+    key: "Desc. Cust. Grp3",
+    label: "Desc. Cust. Grp3",
     icon: <FaBuilding />,
   },
   {
@@ -506,7 +506,7 @@ const detailGroups = [
       ["Prod. Hierarchy3", "Prod. Hierarchy3"],
       ["Principle", "Principle", "plainNumber"],
             ["Name Principle", "Name Principle"],
-      ["Desc. Cust. Grp4", "Lini"],
+      ["Desc. Cust. Grp3", "Lini"],
     ],
   },
   {
@@ -668,7 +668,7 @@ const TableMasterFaktur = ({
         }));
         setOptions((prev) => ({ ...prev, cabang: data }))
       }
-      const refChannel = await storeSchema.actions.getReferensiByJenis("channel_id");
+      const refChannel = await storeSchema.actions.getReferensiByJenis("lini_id");
       if (refChannel?.status === true) {
         const data = (refChannel?.data || []).map((item) => ({
           label: item?.ur_ref,
@@ -747,7 +747,7 @@ const TableMasterFaktur = ({
     "Prod. Hierarchy3": item?.prod_hierarchy3,
     "Principle": item?.principle,
     "Name Principle": item?.name_principle,
-    "Desc. Cust. Grp4": item?.desc_cust_grp4,
+    "Desc. Cust. Grp3": item?.desc_cust_grp3,
     "Salesman": item?.salesman,
     "Name Salesman": item?.name_salesman,
     "PO Number": item?.po_number,

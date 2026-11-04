@@ -222,6 +222,7 @@ const TablePenugasanFaktur = ({
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
   const [customerOptions, setCustomerOptions] = useState([]);
+  const [loadingCustomerOptions, setLoadingCustomerOptions] = useState(false);
   const [cabangOptions, setCabangOptions] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedCabang, setSelectedCabang] = useState(null);
@@ -256,47 +257,105 @@ const TablePenugasanFaktur = ({
       console.error("ERROR GET REFERENSI CABANG:", error);
     }
   };
-  const loadCustomerOptions = async () => {
-    try {
-      if (!storeSchema?.actions?.getDataFakturPetugas) return;
-      const res = await storeSchema.actions.getDataFakturPetugas({
-        page: 1,
-        limit: 9999,
-        keyword: "",
-        sales_office: "ALL",
-        customer: "ALL",
-        status: "ALL",
-        start_date: "",
-        end_date: "",
-        kegiatan: "ALL",
-      });
-      if (res?.status === true) {
-        const list = res?.data?.list_data || [];
-        const unique = [
-          ...new Map(
-            list.map((item) => {
-              const value = firstValue(
-                item,
-                "customer",
-                "nama_customer",
-                "customer_name"
-              );
-              return [
-                String(value || ""),
-                { label: value || "-", value: value || "" },
-              ];
-            })
-          ).values(),
-        ].filter((x) => x.value);
-        setCustomerOptions(unique);
+  // =====================================================
+  // GET CUSTOMER BERDASARKAN CABANG
+  // Customer hanya aktif setelah cabang dipilih.
+  // =====================================================
+  useEffect(() => {
+    let isMounted = true;
+
+    const getDataCustomer = async () => {
+      if (!filterCabang.length) {
+        setCustomerOptions([]);
+        setFilterCustomer([]);
+        setLoadingCustomerOptions(false);
+        return;
       }
-    } catch (error) {
-      console.error("ERROR GET CUSTOMER OPTIONS:", error);
-    }
-  };
+
+      try {
+        setLoadingCustomerOptions(true);
+
+        const res = await storeSchema.actions.getDataPelanggan({
+          page: 1,
+          limit: 9999,
+          cabang_id: filterCabang,
+        });
+
+        if (res?.status !== true) {
+          throw new Error(
+            res?.message || "Gagal mengambil data customer"
+          );
+        }
+
+        const responseData = res?.data;
+        const listData = Array.isArray(responseData)
+          ? responseData
+          : responseData?.list_data ||
+            responseData?.data ||
+            responseData?.rows ||
+            [];
+
+        const mappedCustomerOptions = listData
+          .map((item) => {
+            const kodeCustomer = item?.kode_customer;
+            const namaCustomer = item?.name;
+
+            return {
+              label: `${kodeCustomer ?? ""}${
+                namaCustomer ? ` - ${namaCustomer}` : ""
+              }`,
+              value: kodeCustomer,
+            };
+          })
+          .filter(
+            (item) =>
+              item.value !== null &&
+              item.value !== undefined &&
+              String(item.value).trim() !== ""
+          );
+
+        if (isMounted) {
+          setCustomerOptions(mappedCustomerOptions);
+
+          // Hanya pertahankan customer yang masih sesuai cabang terpilih.
+          setFilterCustomer((prev) =>
+            prev.filter((value) =>
+              mappedCustomerOptions.some(
+                (option) =>
+                  String(option.value) === String(value)
+              )
+            )
+          );
+        }
+      } catch (error) {
+        console.error(
+          "ERROR GET CUSTOMER BERDASARKAN CABANG:",
+          error
+        );
+
+        if (isMounted) {
+          setCustomerOptions([]);
+          setFilterCustomer([]);
+          await swal.error(
+            error?.message || "Gagal mengambil data customer"
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCustomerOptions(false);
+        }
+      }
+    };
+
+    getDataCustomer();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filterCabang]);
+
   useEffect(() => {
     getReferensi();
-    loadCustomerOptions();
   }, []);
 
   const getDataFakturPetugas = async () => {
@@ -820,11 +879,24 @@ const TablePenugasanFaktur = ({
                 setCurrentPage(1);
                 setFilterCustomer((selected || []).map((item) => item.value));
               }}
-              placeholder="Semua Customer"
+              placeholder={
+                !filterCabang.length
+                  ? "Pilih Cabang Dahulu"
+                  : loadingCustomerOptions
+                  ? "Memuat Customer..."
+                  : "Semua Customer"
+              }
+              isDisabled={!filterCabang.length || loadingCustomerOptions}
+              isLoading={loadingCustomerOptions}
               closeMenuOnSelect={false}
               hideSelectedOptions={false}
               components={filterSelectComponents}
               styles={filterSelectStyles}
+              noOptionsMessage={() =>
+                !filterCabang.length
+                  ? "Pilih cabang terlebih dahulu"
+                  : "Customer tidak ditemukan"
+              }
             />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">

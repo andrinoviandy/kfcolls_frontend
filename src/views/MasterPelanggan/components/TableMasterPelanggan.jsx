@@ -114,12 +114,14 @@ const normalizePelanggan = (item = {}) => {
       "-",
 
     cabang:
+      item?.nama_plant ||
       item?.cabang ||
       item?.sales_office_description ||
       item?.sales_office ||
       "-",
 
     alamat:
+      item?.street ||
       item?.alamat ||
       item?.address ||
       "-",
@@ -135,6 +137,7 @@ const normalizePelanggan = (item = {}) => {
       "-",
 
     no_npwp:
+      item?.nik_npwp_16 ||
       item?.no_npwp ||
       "-",
 
@@ -142,12 +145,24 @@ const normalizePelanggan = (item = {}) => {
       item?.nama_npwp ||
       "-",
 
-    status:
-      String(
-        item?.status ||
-        item?.status_outlet ||
-        "NONAKTIF"
-      ).toUpperCase(),
+    status: (() => {
+      const flagAktif = String(
+        item?.flag_aktif ??
+        item?.status ??
+        item?.status_outlet ??
+        "T"
+      ).toUpperCase();
+
+      if (flagAktif === "Y") {
+        return "AKTIF";
+      }
+
+      if (flagAktif === "T") {
+        return "NONAKTIF";
+      }
+
+      return flagAktif;
+    })(),
 
   };
 
@@ -355,7 +370,9 @@ const TableMasterPelanggan = ({
         status:
           selectedStatus === "ALL"
             ? ""
-            : selectedStatus,
+            : selectedStatus === "AKTIF"
+              ? "Y"
+              : "T",
 
         sales_office:
           selectedCabang === "ALL"

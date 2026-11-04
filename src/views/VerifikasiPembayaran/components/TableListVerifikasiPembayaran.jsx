@@ -318,6 +318,9 @@ const TableVerifikasiPembayaran = ({
   const [customerOptions, setCustomerOptions] =
     useState([]);
 
+  const [loadingCustomerOptions, setLoadingCustomerOptions] =
+    useState(false);
+
   const [cabangOptions, setCabangOptions] =
     useState([]);
 
@@ -389,89 +392,99 @@ const TableVerifikasiPembayaran = ({
     }
   };
 
-  const loadCustomerOptions =
-    async () => {
-      try {
-        const res =
-          await storeSchema.actions.getDataVerifikasiPembayaran(
-            {
-              page: 1,
-              limit: 9999,
-              keyword: "",
-              sales_office: "ALL",
-              customer: "ALL",
-              status: "ALL",
-              start_date: "",
-              end_date: "",
-            }
-          );
+  useEffect(() => {
+    let isMounted = true;
 
-        if (
-          res?.status === true
-        ) {
-          const list =
-            res?.data?.list_data ||
+    const getDataCustomer = async () => {
+      if (!filterCabang.length) {
+        setCustomerOptions([]);
+        setFilterCustomer([]);
+        setLoadingCustomerOptions(false);
+        return;
+      }
+
+      try {
+        setLoadingCustomerOptions(true);
+
+        const res = await storeSchema.actions.getDataPelanggan({
+          page: 1,
+          limit: 9999,
+          cabang_id: filterCabang,
+        });
+
+        if (res?.status !== true) {
+          throw new Error(
+            res?.message || "Gagal mengambil data customer"
+          );
+        }
+
+        const responseData = res?.data;
+        const listData = Array.isArray(responseData)
+          ? responseData
+          : responseData?.list_data ||
+            responseData?.data ||
+            responseData?.rows ||
             [];
 
-          const unique = [
-            ...new Map(
-              list.map((item) => {
-                const value =
-                  firstValue(
-                    item,
-                    "customer",
-                    "kode_customer",
-                    "customer_id",
-                    "nama_customer"
-                  );
+        const mappedCustomerOptions = listData
+          .map((item) => {
+            const kodeCustomer = item?.kode_customer;
+            const namaCustomer = item?.name;
 
-                const label =
-                  firstValue(
-                    item,
-                    "nama_customer",
-                    "customer_name",
-                    "customer",
-                    "kode_customer"
-                  );
-
-                return [
-                  String(
-                    value ||
-                    label ||
-                    ""
-                  ),
-                  {
-                    label:
-                      label ||
-                      "-",
-                    value:
-                      value ||
-                      label ||
-                      "",
-                  },
-                ];
-              })
-            ).values(),
-          ].filter(
+            return {
+              label: `${kodeCustomer ?? ""}${
+                namaCustomer ? ` - ${namaCustomer}` : ""
+              }`,
+              value: kodeCustomer,
+            };
+          })
+          .filter(
             (item) =>
-              item.value
+              item.value !== null &&
+              item.value !== undefined &&
+              String(item.value).trim() !== ""
           );
 
-          setCustomerOptions(
-            unique
+        if (isMounted) {
+          setCustomerOptions(mappedCustomerOptions);
+          setFilterCustomer((prev) =>
+            prev.filter((value) =>
+              mappedCustomerOptions.some(
+                (option) =>
+                  String(option.value) === String(value)
+              )
+            )
           );
         }
       } catch (error) {
         console.error(
-          "ERROR GET CUSTOMER OPTIONS:",
+          "ERROR GET CUSTOMER BERDASARKAN CABANG:",
           error
         );
+
+        if (isMounted) {
+          setCustomerOptions([]);
+          setFilterCustomer([]);
+          await swal.error(
+            error?.message || "Gagal mengambil data customer"
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCustomerOptions(false);
+        }
       }
     };
 
+    getDataCustomer();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filterCabang]);
+
   useEffect(() => {
     getReferensi();
-    loadCustomerOptions();
   }, []);
 
   // ===================================================
@@ -1493,7 +1506,25 @@ const TableVerifikasiPembayaran = ({
                   )
                 );
               }}
-              placeholder="Semua Customer"
+              placeholder={
+                !filterCabang.length
+                  ? "Pilih Cabang Dahulu"
+                  : loadingCustomerOptions
+                    ? "Memuat Customer..."
+                    : "Semua Customer"
+              }
+              isDisabled={
+                !filterCabang.length ||
+                loadingCustomerOptions
+              }
+              isLoading={
+                loadingCustomerOptions
+              }
+              noOptionsMessage={() =>
+                !filterCabang.length
+                  ? "Pilih cabang terlebih dahulu"
+                  : "Customer tidak ditemukan"
+              }
               closeMenuOnSelect={
                 false
               }
