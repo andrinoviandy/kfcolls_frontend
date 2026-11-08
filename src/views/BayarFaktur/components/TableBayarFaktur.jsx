@@ -165,9 +165,8 @@ const formatInputNominal = (value) => {
     return "";
   }
 
-  return new Intl.NumberFormat(
-    "id-ID"
-  ).format(nominal);
+  // Format angka Rupiah dengan pemisah ribuan titik (tanpa koma/desimal).
+  return String(Math.floor(Math.abs(nominal))).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 };
 
@@ -518,6 +517,7 @@ const TableBayarFaktur = ({
 
   const [nomorParkDokumenSAP, setNomorParkDokumenSAP] = useState("");
   const [namaBankPembayaran, setNamaBankPembayaran] = useState("");
+  const [paymentNominalByInvoice, setPaymentNominalByInvoice] = useState({});
 
   const [dueDateGiro, setDueDateGiro] =
     useState("");
@@ -1405,28 +1405,26 @@ const TableBayarFaktur = ({
     data = null
   ) => {
 
+    const selectedPaymentData = data
+      ? [data]
+      : allData.filter((item) => selectedIds.includes(item.id));
+
     if (data) {
-
-      setSelectedData(
-        data
-      );
-
+      setSelectedData(data);
     } else {
-
-      const selected =
-        allData.filter(
-          item =>
-            selectedIds.includes(
-              item.id
-            )
-        );
-
-      setSelectedData(
-        selected
-      );
-
+      setSelectedData(selectedPaymentData);
     }
 
+    const initialPaymentNominals = {};
+    selectedPaymentData.forEach((item, index) => {
+      const key = String(
+        item?.piutang_id ?? item?.id ?? item?.no_billing ?? item?.no_faktur ?? index
+      );
+      initialPaymentNominals[key] = Number(
+        item?.saldo_piutang ?? item?.sisa_tagihan ?? item?.nominal_tagihan ?? 0
+      ) || 0;
+    });
+    setPaymentNominalByInvoice(initialPaymentNominals);
 
     setPaymentMethod(
       "DIRECT_TRANSFER"
@@ -1750,7 +1748,7 @@ const TableBayarFaktur = ({
           dataToPay
             .filter(Boolean)
             .map(
-              item => ({
+              (item, index) => ({
                 piutang_id:
                   item?.piutang_id ||
                   item?.id ||
@@ -1769,8 +1767,18 @@ const TableBayarFaktur = ({
                   item?.customer ||
                   null,
 
+                nominal_pembayaran:
+                  Number(
+                    paymentNominalByInvoice[getPaymentItemKey(item, index)] ??
+                    item?.saldo_piutang ??
+                    item?.sisa_tagihan ??
+                    item?.nominal_tagihan ??
+                    0
+                  ),
+
                 total_bayar:
                   Number(
+                    paymentNominalByInvoice[getPaymentItemKey(item, index)] ??
                     item?.saldo_piutang ??
                     item?.sisa_tagihan ??
                     item?.nominal_tagihan ??
@@ -3228,34 +3236,37 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const paymentItems =
-    Array.isArray(
-      selectedData
-    )
+    Array.isArray(selectedData)
       ? selectedData
       : selectedData
-        ? [
-          selectedData,
-        ]
+        ? [selectedData]
         : [];
 
+  const getPaymentItemKey = (item, index = 0) =>
+    String(item?.piutang_id ?? item?.id ?? item?.no_billing ?? item?.no_faktur ?? index);
 
-  const totalPayment =
-    paymentItems.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        Number(
-          item.saldo_piutang ??
-          Math.max(0, Number(item?.dpp || 0) - Number(item?.collections || item?.total_dibayar || 0)) ??
-          0
-        ),
-      0
-    );
+  const handleChangePaymentNominal = (item, value, index = 0) => {
+    // Ambil seluruh digit saja agar nominal selalu berupa bilangan bulat,
+    // tidak berubah menjadi desimal saat input diformat dengan titik ribuan.
+    const digitOnly = String(value ?? "").replace(/[^0-9]/g, "");
+    const nominal = digitOnly === "" ? 0 : Number(digitOnly);
+    const saldoMaksimal = Math.max(0, Math.floor(Number(
+      item?.saldo_piutang ?? item?.sisa_tagihan ?? item?.nominal_tagihan ?? 0
+    ) || 0));
+
+    setPaymentNominalByInvoice((prev) => ({
+      ...prev,
+      [getPaymentItemKey(item, index)]: Math.min(nominal, saldoMaksimal),
+    }));
+  };
+
+  const totalPayment = paymentItems.reduce(
+    (total, item, index) =>
+      total + (Number(paymentNominalByInvoice[getPaymentItemKey(item, index)]) || 0),
+    0
+  );
 
 
-  // ===================================================
   // PARTIAL SUMMARY
   // ===================================================
 
@@ -5092,6 +5103,46 @@ const TableBayarFaktur = ({
 
                       )
                     }
+
+                    <div className="mt-4 space-y-3 border-t border-gray-200 pt-4">
+                      <p className="text-sm font-semibold text-gray-700">
+                        Nominal Pembayaran per Billing
+                      </p>
+                      {paymentItems.map((item, index) => {
+                        const itemKey = getPaymentItemKey(item, index);
+                        const nominal = paymentNominalByInvoice[itemKey] ?? 0;
+                        return (
+                          <div key={itemKey} className="rounded-xl border border-gray-200 bg-white p-3">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <span className="text-xs font-medium text-gray-500">
+                                Billing: {item?.no_billing || item?.no_faktur || "-"}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Sisa: {formatRupiah(item?.saldo_piutang ?? item?.sisa_tagihan ?? item?.nominal_tagihan ?? 0)}
+                              </span>
+                            </div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-600">
+                              Nominal Pembayaran
+                            </label>
+                            <div className="relative">
+                              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-semibold text-gray-500">
+                                Rp
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formatInputNominal(nominal)}
+                                onChange={(e) =>
+                                  handleChangePaymentNominal(item, e.target.value, index)
+                                }
+                                placeholder="0"
+                                className="input input-bordered input-sm w-full rounded-lg bg-white pl-10 text-right font-semibold"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
 
                   </div>
 
