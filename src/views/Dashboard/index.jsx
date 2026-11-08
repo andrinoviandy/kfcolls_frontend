@@ -83,27 +83,32 @@ const formatRupiah = (value) => {
 
 
 const formatShortRupiah = (value) => {
+  const numericValue = Number(value) || 0;
 
-  if (value >= 1000000000000) {
-    return `Rp ${(value / 1000000000000).toFixed(1)} T`;
+  const formatDecimal = (number) =>
+    new Intl.NumberFormat('id-ID', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(number);
+
+  if (numericValue >= 1000000000000) {
+    return `Rp ${formatDecimal(numericValue / 1000000000000)} T`;
   }
 
-  if (value >= 1000000000) {
-    return `Rp ${(value / 1000000000).toFixed(1)} M`;
+  if (numericValue >= 1000000000) {
+    return `Rp ${formatDecimal(numericValue / 1000000000)} M`;
   }
 
-  if (value >= 1000000) {
-    return `Rp ${(value / 1000000).toFixed(1)} Jt`;
+  if (numericValue >= 1000000) {
+    return `Rp ${formatDecimal(numericValue / 1000000)} JT`;
   }
 
-  if (value >= 1000) {
-    return `Rp ${(value / 1000).toFixed(1)} Rb`;
+  if (numericValue >= 1000) {
+    return `Rp ${formatDecimal(numericValue / 1000)} Rb`;
   }
 
-  return `Rp ${formatNumber(value)}`;
-
+  return `Rp ${formatNumber(numericValue)}`;
 };
-
 
 // Membuat keterangan perubahan KPI dibandingkan bulan sebelumnya.
 const formatComparisonDelta = (difference, percentage, unit = 'currency') => {
@@ -114,7 +119,7 @@ const formatComparisonDelta = (difference, percentage, unit = 'currency') => {
   const numericDifference = Number(difference) || 0;
   const arrow =
     numericDifference > 0 ? '▲' :
-    numericDifference < 0 ? '▼' : '●';
+      numericDifference < 0 ? '▼' : '●';
 
   const differenceText = unit === 'currency'
     ? formatShortRupiah(Math.abs(numericDifference))
@@ -1458,7 +1463,7 @@ const Dashboard = () => {
 
       detailChartRows.forEach((item) => {
         const value = (Number(item?.[`aging_${agingIndex}`]) || 0) / 1000000;
-        if (value <= 0) return;
+        // if (value <= 0) return;
 
         const channel =
           String(item?.channel || 'Tidak diketahui').trim() || 'Tidak diketahui';
@@ -1901,26 +1906,49 @@ const Dashboard = () => {
   const topPiutangPrincipalData = useMemo(() => {
     const grouped = {};
 
-    filteredData.forEach((item) => {
-      if (!item.principal) {
-        return;
+    detailChartRows.forEach((item) => {
+      const principal = String(
+        item?.principal ??
+        item?.nama_principle ??
+        item?.principal_name ??
+        item?.principle ??
+        ''
+      ).trim();
+
+      if (!principal) return;
+
+      const outstanding = Number(
+        item?.outstanding ??
+        item?.total_piutang ??
+        0
+      ) || 0;
+
+      if (!grouped[principal]) {
+        grouped[principal] = 0;
       }
 
-      grouped[item.principal] =
-        (grouped[item.principal] || 0) + item.outstanding;
+      grouped[principal] += outstanding;
     });
 
     const data = Object.entries(grouped)
-      .map(([name, value]) => ({ name, value }))
-      .sort((first, second) => second.value - first.value);
+      .map(([name, value]) => ({
+        name,
+        value,
+      }))
+      .sort((a, b) => b.value - a.value);
 
-    const total = data.reduce((sum, item) => sum + item.value, 0);
+    const total = data.reduce(
+      (sum, item) => sum + item.value,
+      0
+    );
 
     return data.map((item) => ({
       ...item,
-      percentage: total > 0 ? (item.value / total) * 100 : 0,
+      percentage: total > 0
+        ? (item.value / total) * 100
+        : 0,
     }));
-  }, [filteredData]);
+  }, [detailChartRows]);
 
 
   /* =======================================================
@@ -4081,6 +4109,7 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
 
+
           {/* TREND SALDO PIUTANG & SALDO OVERDUE */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
 
@@ -4089,6 +4118,7 @@ const Dashboard = () => {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                   <FaChartLine size={17} />
                 </div>
+
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
                     Trend Saldo Piutang &amp; Saldo Overdue
@@ -4098,145 +4128,168 @@ const Dashboard = () => {
                   </p>
                 </div>
               </div>
+
               <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[9px] font-semibold text-slate-500">
                 Rp Juta
               </span>
             </div>
 
-            <div className="w-full h-[270px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={unwrapDashboardResponse(trendApiData).map((x) => ({ ...x, bulan: x.bulan ?? x.month ?? x.label_periode ?? '', saldoPiutang: Number(x.saldoPiutang ?? x.saldo_piutang ?? x.outstanding ?? 0), saldoOverdue: Number(x.saldoOverdue ?? x.saldo_overdue ?? x.overdue ?? 0), overduePct: Number(x.overduePct ?? x.overdue_pct ?? x.persentase_overdue ?? 0) }))}
-                  margin={{
-                    top: 22,
-                    right: 8,
-                    left: 0,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#e5e7eb"
-                  />
-
-                  <XAxis
-                    dataKey="bulan"
-                    tick={{ fontSize: 10, fill: '#6b7280' }}
-                    axisLine={{ stroke: '#d1d5db' }}
-                    tickLine={false}
-                  />
-
-                  <YAxis
-                    yAxisId="nominal"
-                    orientation="left"
-                    tick={{ fontSize: 9, fill: '#6b7280' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(value) =>
-                      new Intl.NumberFormat('id-ID').format(value)
-                    }
-                  />
-
-                  <YAxis
-                    yAxisId="percentage"
-                    orientation="right"
-                    domain={[0, 14]}
-                    tick={{ fontSize: 9, fill: '#6b7280' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(value) => `${value},0%`}
-                  />
-
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === '% overdue') {
-                        return [`${value}%`, name];
-                      }
-
-                      return [
-                        `${new Intl.NumberFormat('id-ID').format(value)} juta`,
-                        name,
-                      ];
+            {/* Chart dengan horizontal scroll */}
+            <div className="w-full overflow-x-auto">
+              <div
+                style={{
+                  width: `${Math.max(
+                    unwrapDashboardResponse(trendApiData).length * 120,
+                    800
+                  )}px`,
+                  height: '270px',
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={unwrapDashboardResponse(trendApiData).map((x) => ({
+                      ...x,
+                      bulan: x.bulan ?? x.month ?? x.label_periode ?? '',
+                      saldoPiutang: Number(
+                        x.saldoPiutang ?? x.saldo_piutang ?? x.outstanding ?? 0
+                      ),
+                      saldoOverdue: Number(
+                        x.saldoOverdue ?? x.saldo_overdue ?? x.overdue ?? 0
+                      ),
+                      overduePct: Number(
+                        x.overduePct ?? x.overdue_pct ?? x.persentase_overdue ?? 0
+                      ),
+                    }))}
+                    margin={{
+                      top: 22,
+                      right: 8,
+                      left: 0,
+                      bottom: 5,
                     }}
-                  />
-
-                  <Legend
-                    verticalAlign="bottom"
-                    height={28}
-                    iconType="rect"
-                    wrapperStyle={{ fontSize: 10 }}
-                  />
-
-                  <Bar
-                    yAxisId="nominal"
-                    dataKey="saldoPiutang"
-                    name="Saldo Piutang"
-                    fill="#2563eb"
-                    barSize={28}
                   >
-                    <LabelList
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#e5e7eb"
+                    />
+
+                    <XAxis
+                      dataKey="bulan"
+                      tick={{ fontSize: 10, fill: '#6b7280' }}
+                      axisLine={{ stroke: '#d1d5db' }}
+                      tickLine={false}
+                    />
+
+                    <YAxis
+                      yAxisId="nominal"
+                      orientation="left"
+                      tick={{ fontSize: 9, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) =>
+                        new Intl.NumberFormat('id-ID').format(value)
+                      }
+                    />
+
+                    <YAxis
+                      yAxisId="percentage"
+                      orientation="right"
+                      domain={[0, 14]}
+                      tick={{ fontSize: 9, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `${value},0%`}
+                    />
+
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === '% overdue') {
+                          return [`${value}%`, name];
+                        }
+
+                        return [
+                          `${new Intl.NumberFormat('id-ID').format(value)} juta`,
+                          name,
+                        ];
+                      }}
+                    />
+
+                    <Legend
+                      verticalAlign="bottom"
+                      height={28}
+                      iconType="rect"
+                      wrapperStyle={{ fontSize: 10 }}
+                    />
+
+                    <Bar
+                      yAxisId="nominal"
                       dataKey="saldoPiutang"
-                      position="top"
-                      formatter={(value) =>
-                        new Intl.NumberFormat('id-ID').format(value)
-                      }
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 600,
-                        fill: '#374151',
-                      }}
-                    />
-                  </Bar>
+                      name="Saldo Piutang"
+                      fill="#2563eb"
+                      barSize={28}
+                    >
+                      <LabelList
+                        dataKey="saldoPiutang"
+                        position="top"
+                        formatter={(value) =>
+                          new Intl.NumberFormat('id-ID').format(value)
+                        }
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          fill: '#374151',
+                        }}
+                      />
+                    </Bar>
 
-                  <Bar
-                    yAxisId="nominal"
-                    dataKey="saldoOverdue"
-                    name="Saldo Overdue"
-                    fill="#ef4444"
-                    barSize={28}
-                  >
-                    <LabelList
+                    <Bar
+                      yAxisId="nominal"
                       dataKey="saldoOverdue"
-                      position="top"
-                      formatter={(value) =>
-                        new Intl.NumberFormat('id-ID').format(value)
-                      }
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 600,
-                        fill: '#374151',
-                      }}
-                    />
-                  </Bar>
+                      name="Saldo Overdue"
+                      fill="#ef4444"
+                      barSize={28}
+                    >
+                      <LabelList
+                        dataKey="saldoOverdue"
+                        position="top"
+                        formatter={(value) =>
+                          new Intl.NumberFormat('id-ID').format(value)
+                        }
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          fill: '#374151',
+                        }}
+                      />
+                    </Bar>
 
-                  <Line
-                    yAxisId="percentage"
-                    type="monotone"
-                    dataKey="overduePct"
-                    name="% overdue"
-                    stroke="#f59e0b"
-                    strokeWidth={2.5}
-                    dot={{ r: 4, fill: '#f59e0b' }}
-                    activeDot={{ r: 5 }}
-                  >
-                    <LabelList
+                    <Line
+                      yAxisId="percentage"
+                      type="monotone"
                       dataKey="overduePct"
-                      position="top"
-                      offset={8}
-                      formatter={(value) => `${value}%`}
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 700,
-                        fill: '#92400e',
-                      }}
-                    />
-                  </Line>
-                </ComposedChart>
-              </ResponsiveContainer>
+                      name="% overdue"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: '#f59e0b' }}
+                      activeDot={{ r: 5 }}
+                    >
+                      <LabelList
+                        dataKey="overduePct"
+                        position="top"
+                        offset={8}
+                        formatter={(value) => `${value}%`}
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          fill: '#92400e',
+                        }}
+                      />
+                    </Line>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
-
 
           {/* TREND PENCAIRAN PIUTANG */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
@@ -4484,8 +4537,8 @@ const Dashboard = () => {
                         formatter={(value) =>
                           value > 0
                             ? new Intl.NumberFormat('id-ID', {
-                                maximumFractionDigits: 0,
-                              }).format(value)
+                              maximumFractionDigits: 0,
+                            }).format(value)
                             : ''
                         }
                         style={{
@@ -7084,14 +7137,14 @@ const Dashboard = () => {
                 />
 
                 <p className="text-sm font-semibold text-slate-500">
-                  Data metode pembayaran belum tersedia
+                  Data belum tersedia
                 </p>
 
-                <p className="text-xs text-slate-400 mt-1 max-w-lg">
+                {/* <p className="text-xs text-slate-400 mt-1 max-w-lg">
                   Periksa respons API Detail Piutang.
                   Data harus berisi collections_per_metode
                   dengan nama metode pembayaran dan nominal collection.
-                </p>
+                </p> */}
 
               </div>
 
