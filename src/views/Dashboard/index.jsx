@@ -394,6 +394,15 @@ const PiutangKpiSimpleCard = ({
 };
 
 
+const DashboardCardLoading = ({ loading }) => (
+  loading ? (
+    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center rounded-2xl bg-white/85 backdrop-blur-[1px]">
+      <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-blue-100 border-t-blue-600" />
+      <span className="mt-2 text-xs font-bold text-slate-600">Memuat Data...</span>
+    </div>
+  ) : null
+);
+
 const unwrapDashboardResponse = (response) => {
   if (Array.isArray(response?.data)) return response.data;
   const data = response?.data;
@@ -539,7 +548,23 @@ const Dashboard = () => {
     useState(defaultFilter);
 
   // State tiap API dipisah agar mudah ditelusuri saat debugging.
-  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [cardLoading, setCardLoading] = useState({
+    card1: true,
+    trend: true,
+    trendPencairan: true,
+    piutangCabang: true,
+    salesSummary: true,
+    summaryFallback: true,
+    analisis: true,
+    collectionCustomer: true,
+    performaProduk: true,
+    detailChart: true,
+    saldoJatuhTempo: true,
+    agingPiutang: true,
+  });
+  const updateCardLoading = (key, loading) => {
+    setCardLoading((prev) => ({ ...prev, [key]: loading }));
+  };
   const [summaryApiData, setSummaryApiData] = useState(null);
   const [dashboardCard1ApiData, setDashboardCard1ApiData] = useState(null);
   const [dashboardPiutangByCabangApiData, setDashboardPiutangByCabangApiData] = useState(null);
@@ -665,18 +690,25 @@ const Dashboard = () => {
     const trendPayload = getTrendDocumentDatePayload(appliedFilter);
 
     const loadSummary = async () => {
+      updateCardLoading("summaryFallback", true);
       try {
         const response = await storeSchema.actions.getSummaryPiutangDashboard(payload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Summary Piutang');
-        if (active) setSummaryApiData(response);
+        if (active) {
+          setSummaryApiData(response);
+          updateCardLoading("salesSummary", false);
+        }
       } catch (error) {
         console.error('ERROR API getSummaryPiutangDashboard:', error);
         if (active) setSummaryApiData(null);
+      } finally {
+        if (active) updateCardLoading("summaryFallback", false);
       }
     };
 
     // KPI utama (Total Piutang sampai Piutang >360 Hari) menggunakan API khusus.
     const loadDashboardCard1 = async () => {
+      updateCardLoading("card1", true);
       try {
         const action = storeSchema.actions.getDashboardCard1;
 
@@ -694,12 +726,15 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getDashboardCard1:', error);
         if (active) setDashboardCard1ApiData(null);
+      } finally {
+        if (active) updateCardLoading("card1", false);
       }
     };
 
     // Tiga widget: Top Piutang Jatuh Tempo, Peringkat Cabang,
     // dan Saldo Piutang >360 menggunakan satu API.
     const loadDashboardPiutangByCabang = async () => {
+      updateCardLoading("piutangCabang", true);
       try {
         const action = storeSchema.actions.getDashboardPiutangByCabang;
         if (typeof action !== 'function') {
@@ -713,10 +748,13 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getDashboardPiutangByCabang:', error);
         if (active) setDashboardPiutangByCabangApiData(null);
+      } finally {
+        if (active) updateCardLoading("piutangCabang", false);
       }
     };
 
     const loadTrend = async () => {
+      updateCardLoading("trend", true);
       try {
         const response = await storeSchema.actions.getTrendSaldoPiutangDashboard(trendPayload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Trend Saldo Piutang');
@@ -724,10 +762,13 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getTrendSaldoPiutangDashboard:', error);
         if (active) setTrendApiData(null);
+      } finally {
+        if (active) updateCardLoading("trend", false);
       }
     };
 
     const loadTrendPencairan = async () => {
+      updateCardLoading("trendPencairan", true);
       try {
         const action = storeSchema.actions.getTrendPencairanPiutang;
 
@@ -745,10 +786,13 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getTrendPencairanPiutang:', error);
         if (active) setTrendPencairanApiData(null);
+      } finally {
+        if (active) updateCardLoading("trendPencairan", false);
       }
     };
 
     const loadSalesOpenInvoice = async () => {
+      updateCardLoading("salesSummary", true);
       try {
         const response = await storeSchema.actions.getSalesOpenInvoiceDashboard(payload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Sales & Open Invoice');
@@ -756,10 +800,13 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getSalesOpenInvoiceDashboard:', error);
         if (active) setSalesOpenInvoiceApiData(null);
+      } finally {
+        if (active) updateCardLoading("salesSummary", false);
       }
     };
 
     const loadAnalisis = async () => {
+      updateCardLoading("analisis", true);
       try {
         const response = await storeSchema.actions.getAnalisisPiutangDashboard(payload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Analisis Piutang');
@@ -767,10 +814,13 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getAnalisisPiutangDashboard:', error);
         if (active) setAnalisisApiData(null);
+      } finally {
+        if (active) updateCardLoading("analisis", false);
       }
     };
 
     const loadCollectionByCustomer = async () => {
+      updateCardLoading("collectionCustomer", true);
       try {
         const response = await storeSchema.actions.getCollectionByCustomerDashboard(payload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Collection per Customer');
@@ -778,10 +828,13 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getCollectionByCustomerDashboard:', error);
         if (active) setCollectionByCustomerApiData(null);
+      } finally {
+        if (active) updateCardLoading("collectionCustomer", false);
       }
     };
 
     const loadPerformaProduk = async () => {
+      updateCardLoading("performaProduk", true);
       try {
         const response = await storeSchema.actions.getPerformaPiutangProdukDashboard(payload);
         if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Performa Piutang Produk');
@@ -789,10 +842,11 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR API getPerformaPiutangProdukDashboard:', error);
         if (active) setPerformaProdukApiData(null);
+      } finally {
+        if (active) updateCardLoading("performaProduk", false);
       }
     };
 
-    setDashboardLoading(true);
     Promise.all([
       loadSummary(),
       loadDashboardCard1(),
@@ -803,9 +857,7 @@ const Dashboard = () => {
       loadAnalisis(),
       loadCollectionByCustomer(),
       loadPerformaProduk(),
-    ]).finally(() => {
-      if (active) setDashboardLoading(false);
-    });
+    ]);
 
     return () => { active = false; };
   }, [appliedFilter]);
@@ -817,10 +869,12 @@ const Dashboard = () => {
     let active = true;
 
     const loadDetailPiutangForCharts = async () => {
+      updateCardLoading("detailChart", true);
       const action = storeSchema.actions.getDetailPiutangDashboard;
 
       if (typeof action !== 'function') {
         setDetailChartRows([]);
+        updateCardLoading("detailChart", false);
         return;
       }
 
@@ -872,6 +926,8 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR GET DETAIL PIUTANG UNTUK CHART:', error);
         if (active) setDetailChartRows([]);
+      } finally {
+        if (active) updateCardLoading("detailChart", false);
       }
     };
 
@@ -884,6 +940,7 @@ const Dashboard = () => {
     let active = true;
 
     const loadSaldoJatuhTempo = async () => {
+      updateCardLoading("saldoJatuhTempo", true);
       const action = storeSchema.actions.getSaldoAkhirJatuhTempoDashboard;
 
       if (typeof action !== 'function') {
@@ -893,6 +950,7 @@ const Dashboard = () => {
           { name: 'Segera JTO', value: 0 },
           { name: 'Sudah JTO', value: 0 },
         ]);
+        updateCardLoading("saldoJatuhTempo", false);
         return;
       }
 
@@ -960,6 +1018,8 @@ const Dashboard = () => {
             { name: 'Sudah JTO', value: 0 },
           ]);
         }
+      } finally {
+        if (active) updateCardLoading("saldoJatuhTempo", false);
       }
     };
 
@@ -972,6 +1032,7 @@ const Dashboard = () => {
     let active = true;
 
     const loadAgingPiutang = async () => {
+      updateCardLoading("agingPiutang", true);
       const action = storeSchema.actions.getAgingPiutangDashboard;
 
       if (typeof action !== 'function') {
@@ -979,6 +1040,7 @@ const Dashboard = () => {
         setAgingPiutangApiData(
           agingLabels.map((label) => ({ label, value: 0, percentage: 0 }))
         );
+        updateCardLoading("agingPiutang", false);
         return;
       }
 
@@ -1032,6 +1094,8 @@ const Dashboard = () => {
             agingLabels.map((label) => ({ label, value: 0, percentage: 0 }))
           );
         }
+      } finally {
+        if (active) updateCardLoading("agingPiutang", false);
       }
     };
 
@@ -1217,8 +1281,6 @@ const Dashboard = () => {
 
   const applyFilter = () => {
 
-    // Tampilkan indikator loading pada semua card segera setelah filter diterapkan.
-    setDashboardLoading(true);
     setAppliedFilter({
       ...filter,
     });
@@ -1244,8 +1306,6 @@ const Dashboard = () => {
 
 
     setFilter(newDefaultFilter);
-    setDashboardLoading(true);
-
     setAppliedFilter(
       newDefaultFilter
     );
@@ -3429,47 +3489,7 @@ const Dashboard = () => {
       to-yellow-50
       p-4
       md:p-5
-      ${(dashboardLoading || detailLoading) ? 'dashboard-cards-loading' : ''}
     `}>
-      <style>{`
-        .dashboard-cards-loading .bg-white.rounded-2xl {
-          position: relative !important;
-          isolation: isolate;
-        }
-        .dashboard-cards-loading .bg-white.rounded-2xl::before {
-          content: '';
-          position: absolute;
-          z-index: 101;
-          top: calc(50% - 24px);
-          left: calc(50% - 12px);
-          width: 24px;
-          height: 24px;
-          border: 3px solid #dbeafe;
-          border-top-color: #2563eb;
-          border-radius: 9999px;
-          animation: dashboardCardSpin 0.8s linear infinite;
-          pointer-events: none;
-        }
-        .dashboard-cards-loading .bg-white.rounded-2xl::after {
-          content: 'Memuat data...';
-          position: absolute;
-          z-index: 100;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding-top: 38px;
-          border-radius: inherit;
-          background: rgba(255, 255, 255, 0.86);
-          color: #475569;
-          font-size: 12px;
-          font-weight: 700;
-          pointer-events: none;
-        }
-        @keyframes dashboardCardSpin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
 
       <div className="
         max-w-[1800px]
@@ -3956,7 +3976,7 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={applyFilter}
-              disabled={dashboardLoading || detailLoading}
+              
               className="
                 flex
                 items-center
@@ -3975,13 +3995,8 @@ const Dashboard = () => {
               "
             >
 
-              {dashboardLoading || detailLoading ? (
-                <FaSyncAlt size={11} className="animate-spin" />
-              ) : (
-                <FaFilter size={11} />
-              )}
-
-              {dashboardLoading || detailLoading ? 'Memuat Data...' : 'Terapkan Filter'}
+              <FaFilter size={11} />
+              Terapkan Filter
 
             </button>
 
@@ -3995,7 +4010,8 @@ const Dashboard = () => {
         ================================================= */}
 
         {/* BARIS PERTAMA */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <DashboardCardLoading loading={cardLoading.card1} />
 
           <PiutangKpiSimpleCard
             title="TOTAL PIUTANG"
@@ -4050,7 +4066,8 @@ const Dashboard = () => {
         </div>
 
         {/* BARIS KEDUA */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <DashboardCardLoading loading={cardLoading.card1} />
 
           <PiutangKpiSimpleCard
             title="PENCAIRAN (MTD)"
@@ -4111,7 +4128,8 @@ const Dashboard = () => {
 
 
           {/* TREND SALDO PIUTANG & SALDO OVERDUE */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <div className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+            <DashboardCardLoading loading={cardLoading.trend} />
 
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -4292,7 +4310,8 @@ const Dashboard = () => {
           </div>
 
           {/* TREND PENCAIRAN PIUTANG */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <div className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+            <DashboardCardLoading loading={cardLoading.trendPencairan} />
 
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -4440,7 +4459,8 @@ const Dashboard = () => {
               SALDO PIUTANG BY AGING & CHANNEL
           =============================================== */}
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px]">
+          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px]">
+            <DashboardCardLoading loading={cardLoading.detailChart} />
 
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -4560,7 +4580,8 @@ const Dashboard = () => {
               TBODY SAJA YANG SCROLL
           =============================================== */}
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px] flex flex-col">
+          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px] flex flex-col">
+            <DashboardCardLoading loading={cardLoading.detailChart} />
 
             <div className="mb-3 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -4826,6 +4847,7 @@ const Dashboard = () => {
           =============================================== */}
 
           <div className="
+            relative
             bg-white
             rounded-2xl
             border
@@ -4836,6 +4858,7 @@ const Dashboard = () => {
             flex
             flex-col
           ">
+            <DashboardCardLoading loading={cardLoading.piutangCabang} />
 
             <div className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3 flex-shrink-0">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500">
@@ -4978,6 +5001,7 @@ const Dashboard = () => {
           =============================================== */}
 
           <div className="
+            relative
             bg-white
             rounded-2xl
             border
@@ -4988,6 +5012,7 @@ const Dashboard = () => {
             flex
             flex-col
           ">
+            <DashboardCardLoading loading={cardLoading.piutangCabang} />
 
             <div className="mb-3 flex items-center gap-3 flex-shrink-0">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
@@ -5067,6 +5092,7 @@ const Dashboard = () => {
           =============================================== */}
 
           <div className="
+            relative
             bg-white
             rounded-2xl
             border
@@ -5077,6 +5103,7 @@ const Dashboard = () => {
             flex
             flex-col
           ">
+            <DashboardCardLoading loading={cardLoading.piutangCabang} />
 
             <div className="mb-3 flex items-center gap-3 flex-shrink-0">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500">
@@ -5159,6 +5186,7 @@ const Dashboard = () => {
         ================================================= */}
 
         <div className="
+          relative
           grid
           grid-cols-1
           sm:grid-cols-2
@@ -5166,6 +5194,7 @@ const Dashboard = () => {
           gap-4
           mb-5
         ">
+          <DashboardCardLoading loading={cardLoading.salesSummary} />
 
           <SummaryCard
             title="Total Penjualan"
@@ -5316,6 +5345,7 @@ const Dashboard = () => {
               {/* SALDO AKHIR BY JATUH TEMPO */}
 
               <div className="
+                relative
                 xl:col-span-2
                 bg-white
                 rounded-2xl
@@ -5324,6 +5354,7 @@ const Dashboard = () => {
                 shadow-sm
                 p-5
               ">
+                <DashboardCardLoading loading={cardLoading.saldoJatuhTempo} />
 
                 <div className="
                   flex
@@ -5665,6 +5696,7 @@ const Dashboard = () => {
               {/* AGING */}
 
               <div className="
+                relative
                 bg-gradient-to-br
                 from-blue-500
                 via-indigo-500
@@ -5675,6 +5707,7 @@ const Dashboard = () => {
                 shadow-md
                 p-5
               ">
+                <DashboardCardLoading loading={cardLoading.agingPiutang} />
 
                 <div className="
                   flex
@@ -5817,6 +5850,7 @@ const Dashboard = () => {
               {/* PERFORMA PIUTANG DINAMIS */}
 
               <div className="
+                relative
                 bg-white
                 rounded-2xl
                 border
@@ -5825,6 +5859,7 @@ const Dashboard = () => {
                 p-5
                 xl:col-span-2
               ">
+                <DashboardCardLoading loading={cardLoading.performaProduk} />
 
                 <div className="
                   flex

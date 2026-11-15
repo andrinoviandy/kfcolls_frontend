@@ -2,6 +2,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from "react";
 
 import {
@@ -529,16 +530,23 @@ const TableBayarFaktur = ({
   const [paymentFile, setPaymentFile] =
     useState(null);
 
+  // Bukti serah terima kasir, khusus untuk metode pembayaran Cash.
+  const [paymentKasirFile, setPaymentKasirFile] = useState(null);
+
   const [description, setDescription] =
     useState("");
 
   const [showPaymentModal, setShowPaymentModal] =
     useState(false);
 
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const paymentSubmitLock = useRef(false);
+
   // State Faktur Kembali
   const [showFakturKembaliModal, setShowFakturKembaliModal] = useState(false);
   const [fakturKembaliList, setFakturKembaliList] = useState([]);
   const [alasanFakturKembali, setAlasanFakturKembali] = useState("");
+  const [metodeFakturKembali, setMetodeFakturKembali] = useState("");
   const [loadingFakturKembali, setLoadingFakturKembali] = useState(false);
 
   // State modal History Penugasan
@@ -1113,6 +1121,7 @@ const TableBayarFaktur = ({
         const res = await storeSchema.actions.alokasiPenerimaanLain({
           penerimaan_lain_id: pembayaranId,
           no_billing: billing.no_billing || billing.value,
+          nominal_bayar: billing.nominal_alokasi,
           sisa_penerimaan: billing.sisa_penerimaan_setelah,
         });
 
@@ -1446,6 +1455,7 @@ const TableBayarFaktur = ({
     setPaymentFile(
       null
     );
+    setPaymentKasirFile(null);
 
     setDescription(
       ""
@@ -1481,6 +1491,7 @@ const TableBayarFaktur = ({
     setPaymentAllocation({});
     setShowPaymentAllocation(false);
     setPaymentAllocationMode("MANUAL");
+    setPaymentKasirFile(null);
 
   };
 
@@ -1490,6 +1501,8 @@ const TableBayarFaktur = ({
   // ===================================================
 
   const handlePayment = async () => {
+    if (paymentSubmitLock.current) return;
+
     if (paymentMethod === "DIRECT_TRANSFER" && !String(namaBankPembayaran || "").trim()) {
       await swal.error("Nama bank wajib diisi untuk metode Direct Transfer.");
       return;
@@ -1502,6 +1515,11 @@ const TableBayarFaktur = ({
 
     if (!paymentFile) {
       swal.error("File bukti pembayaran wajib diupload.");
+      return;
+    }
+
+    if (paymentMethod === "CASH" && !paymentKasirFile) {
+      await swal.error("Bukti serah terima dari kasir wajib diupload untuk metode Cash.");
       return;
     }
 
@@ -1567,6 +1585,9 @@ const TableBayarFaktur = ({
         );
         return;
       }
+
+      paymentSubmitLock.current = true;
+      setIsSubmittingPayment(true);
 
       try {
         const formData =
@@ -1657,6 +1678,14 @@ const TableBayarFaktur = ({
           paymentFile.name
         );
 
+        if (paymentMethod === "CASH" && paymentKasirFile) {
+          formData.append(
+            "files_kasir",
+            paymentKasirFile,
+            paymentKasirFile.name
+          );
+        }
+
         const res =
           await storeSchema.actions.insertBayarFaktur(
             formData
@@ -1691,6 +1720,9 @@ const TableBayarFaktur = ({
           error?.message ||
           "Gagal menyimpan pembayaran."
         );
+      } finally {
+        paymentSubmitLock.current = false;
+        setIsSubmittingPayment(false);
       }
 
       return;
@@ -1710,6 +1742,9 @@ const TableBayarFaktur = ({
       );
       return;
     }
+
+    paymentSubmitLock.current = true;
+    setIsSubmittingPayment(true);
 
     try {
 
@@ -1806,6 +1841,14 @@ const TableBayarFaktur = ({
         paymentFile.name
       );
 
+      if (paymentMethod === "CASH" && paymentKasirFile) {
+        formData.append(
+          "files_kasir",
+          paymentKasirFile,
+          paymentKasirFile.name
+        );
+      }
+
       const res =
         await storeSchema.actions.insertBayarFaktur(
           formData
@@ -1840,6 +1883,9 @@ const TableBayarFaktur = ({
         error?.message ||
         "Gagal menyimpan pembayaran."
       );
+    } finally {
+      paymentSubmitLock.current = false;
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -3024,6 +3070,7 @@ const TableBayarFaktur = ({
 
     setFakturKembaliList(list);
     setAlasanFakturKembali("");
+    setMetodeFakturKembali("");
     setShowFakturKembaliModal(true);
   };
 
@@ -3032,11 +3079,17 @@ const TableBayarFaktur = ({
     setShowFakturKembaliModal(false);
     setFakturKembaliList([]);
     setAlasanFakturKembali("");
+    setMetodeFakturKembali("");
   };
 
   const handleInsertFakturKembali = async () => {
     if (!fakturKembaliList.length) {
       await swal.error("Silakan pilih minimal satu faktur terlebih dahulu.");
+      return;
+    }
+
+    if (!metodeFakturKembali) {
+      await swal.error("Silakan pilih metode pengembalian faktur terlebih dahulu.");
       return;
     }
 
@@ -3050,6 +3103,7 @@ const TableBayarFaktur = ({
       const payload = {
         faktur_petugas_id: fakturKembaliList.map((item) => item?.faktur_petugas_id || item?.id).filter(Boolean),
         alasan: alasanFakturKembali.trim(),
+        kd_status: metodeFakturKembali,
         kegiatan: 'PENAGIHAN',
         user_id: loginAccess?.user_id || null,
         nip: loginAccess?.nip || null,
@@ -3064,6 +3118,7 @@ const TableBayarFaktur = ({
       setShowFakturKembaliModal(false);
       setFakturKembaliList([]);
       setAlasanFakturKembali("");
+      setMetodeFakturKembali("");
       setSelectedIds([]);
       await getDataBayarFaktur();
     } catch (error) {
@@ -3837,6 +3892,9 @@ const TableBayarFaktur = ({
                           getHistoryPembayaran(v);
                         const isHistoryExpanded =
                           !!expandedRows[v.id];
+                        const hasPenagih =
+                          String(v?.petugas || "").trim() !== "" &&
+                          String(v?.petugas || "").trim() !== "-";
 
                         return (
                           <React.Fragment key={v.id}>
@@ -3865,15 +3923,16 @@ const TableBayarFaktur = ({
 
                                     <div className="flex items-center justify-center gap-2">
 
-                                      {!hasAnyPayment(v) && (
+                                      {hasPenagih && !hasAnyPayment(v) && (
                                         <button
                                           type="button"
                                           onClick={() => openFakturKembali(v)}
-                                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-orange-700 transition hover:bg-orange-100"
+                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
                                           title="Faktur Kembali"
                                           aria-label="Faktur Kembali"
                                         >
                                           <FaUndoAlt />
+                                          <span>Faktur Kembali</span>
                                         </button>
                                       )}
 
@@ -6371,6 +6430,103 @@ const TableBayarFaktur = ({
 
                     </label>
 
+                    {/* BUKTI SERAH TERIMA KASIR - KHUSUS CASH */}
+                    {paymentMethod === "CASH" && (
+                      <div className="mt-4">
+                        <label className="mb-2 block text-sm font-semibold text-gray-700">
+                          Bukti Serah Terima Dari Kasir <span className="text-red-500">*</span>
+                        </label>
+
+                        <label
+                          className="
+                            border-2
+                            border-dashed
+                            border-orange-300
+                            rounded-xl
+                            min-h-[160px]
+                            flex
+                            flex-col
+                            items-center
+                            justify-center
+                            cursor-pointer
+                            hover:bg-orange-50
+                            hover:border-orange-400
+                            transition
+                            p-4
+                          "
+                        >
+                          {paymentKasirFile ? (
+                            <>
+                              <FaFileUpload className="text-3xl text-orange-500 mb-3" />
+                              <p className="font-semibold text-gray-700 text-center break-all">
+                                {paymentKasirFile.name}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Klik untuk mengganti file
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center mb-3">
+                                <FaCamera className="text-lg text-orange-500" />
+                              </div>
+                              <p className="font-semibold text-gray-600">
+                                Upload bukti serah terima kasir
+                              </p>
+                              <p className="text-xs text-gray-400 text-center mt-2">
+                                Upload foto atau dokumen bukti serah terima dari kasir.
+                              </p>
+                            </>
+                          )}
+
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              if (!file) {
+                                setPaymentKasirFile(null);
+                                return;
+                              }
+
+                              const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+                              const allowedExtensions = /\.(pdf|jpe?g|png)$/i;
+                              if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
+                                swal.error("Format bukti serah terima kasir harus PDF, JPG, JPEG, atau PNG.");
+                                e.target.value = "";
+                                setPaymentKasirFile(null);
+                                return;
+                              }
+
+                              if (file.size > 25 * 1024 * 1024) {
+                                swal.error("Ukuran bukti serah terima kasir maksimal 25 MB.");
+                                e.target.value = "";
+                                setPaymentKasirFile(null);
+                                return;
+                              }
+
+                              setPaymentKasirFile(file);
+                            }}
+                          />
+                        </label>
+
+                        <p className="text-xs text-gray-500 mt-2">
+                          Format PDF, JPG, JPEG, atau PNG. Maksimal 25 MB.
+                        </p>
+
+                        {paymentKasirFile && (
+                          <button
+                            type="button"
+                            className="mt-2 text-xs font-semibold text-red-600 hover:text-red-700"
+                            onClick={() => setPaymentKasirFile(null)}
+                          >
+                            Hapus bukti serah terima kasir
+                          </button>
+                        )}
+                      </div>
+                    )}
+
 
                     {/* DESCRIPTION */}
 
@@ -6442,6 +6598,7 @@ const TableBayarFaktur = ({
                   onClick={
                     closePayment
                   }
+                  disabled={isSubmittingPayment}
                   className="
                     px-5
                     py-2.5
@@ -6464,6 +6621,7 @@ const TableBayarFaktur = ({
                   onClick={
                     handlePayment
                   }
+                  disabled={isSubmittingPayment}
                   className="
                     px-6
                     py-2.5
@@ -6477,17 +6635,26 @@ const TableBayarFaktur = ({
                     inline-flex
                     items-center
                     gap-2
+                    disabled:opacity-60
+                    disabled:cursor-not-allowed
                   "
                 >
 
-                  <FaMoneyBillWave />
-
-                  {
-                    paymentItems.length >
-                      1
-                      ? `Bayar ${paymentItems.length} Faktur`
-                      : "Bayar Sekarang"
-                  }
+                  {isSubmittingPayment ? (
+                    <>
+                      <FaSyncAlt className="animate-spin" />
+                      Memproses Pembayaran...
+                    </>
+                  ) : (
+                    <>
+                      <FaMoneyBillWave />
+                      {
+                        paymentItems.length > 1
+                          ? `Bayar ${paymentItems.length} Faktur`
+                          : "Bayar Sekarang"
+                      }
+                    </>
+                  )}
 
                 </button>
 
@@ -8246,6 +8413,55 @@ const TableBayarFaktur = ({
               </div>
 
               <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Metode Pengembalian Faktur <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                    metodeFakturKembali === "K"
+                      ? "border-orange-500 bg-orange-50 ring-2 ring-orange-100"
+                      : "border-gray-200 bg-white hover:border-orange-300"
+                  }`}>
+                    <input
+                      type="radio"
+                      name="metode-faktur-kembali-bayar"
+                      value="K"
+                      checked={metodeFakturKembali === "K"}
+                      onChange={(e) => setMetodeFakturKembali(e.target.value)}
+                      disabled={loadingFakturKembali}
+                      className="radio radio-warning radio-sm mt-0.5"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-gray-800">Kendala Customer</span>
+                      <span className="mt-1 block text-xs text-gray-500">Pengembalian faktur karena kendala dari customer</span>
+                    </span>
+                  </label>
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                    metodeFakturKembali === "C"
+                      ? "border-orange-500 bg-orange-50 ring-2 ring-orange-100"
+                      : "border-gray-200 bg-white hover:border-orange-300"
+                  }`}>
+                    <input
+                      type="radio"
+                      name="metode-faktur-kembali-bayar"
+                      value="C"
+                      checked={metodeFakturKembali === "C"}
+                      onChange={(e) => setMetodeFakturKembali(e.target.value)}
+                      disabled={loadingFakturKembali}
+                      className="radio radio-warning radio-sm mt-0.5"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-gray-800">Pembatalan Penugasan</span>
+                      <span className="mt-1 block text-xs text-gray-500">Pengembalian faktur karena penugasan dibatalkan</span>
+                    </span>
+                  </label>
+                </div>
+                {!metodeFakturKembali && (
+                  <p className="mt-2 text-xs text-red-500">Metode pengembalian faktur wajib dipilih.</p>
+                )}
+              </div>
+
+              <div>
                 <label htmlFor="alasan-faktur-kembali-bayar" className="mb-2 block text-sm font-semibold text-gray-700">
                   Alasan Faktur Kembali <span className="text-red-500">*</span>
                 </label>
@@ -8265,7 +8481,7 @@ const TableBayarFaktur = ({
               <button type="button" onClick={closeFakturKembali} disabled={loadingFakturKembali} className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50">
                 Batal
               </button>
-              <button type="button" onClick={handleInsertFakturKembali} disabled={loadingFakturKembali || alasanFakturKembali.trim().length < 10} className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300">
+              <button type="button" onClick={handleInsertFakturKembali} disabled={loadingFakturKembali || !metodeFakturKembali || alasanFakturKembali.trim().length < 10} className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300">
                 {loadingFakturKembali ? <><span className="loading loading-spinner loading-xs" /> Menyimpan...</> : <><FaUndoAlt /> Submit Faktur Kembali</>}
               </button>
             </div>
@@ -8860,7 +9076,7 @@ const TableBayarFaktur = ({
                 >
                   <option value="DIRECT_TRANSFER">Direct Transfer</option>
                   <option value="SSP">Surat Setor Pajak (SSP)</option>
-                  <option value="CASH">Cash</option>
+                  {/* <option value="CASH">Cash</option> */}
                 </select>
               </div>
 

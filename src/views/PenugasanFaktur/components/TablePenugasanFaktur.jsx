@@ -291,9 +291,9 @@ const TablePenugasanFaktur = ({
         const listData = Array.isArray(responseData)
           ? responseData
           : responseData?.list_data ||
-            responseData?.data ||
-            responseData?.rows ||
-            [];
+          responseData?.data ||
+          responseData?.rows ||
+          [];
 
         const mappedCustomerOptions = listData
           .map((item) => {
@@ -301,9 +301,8 @@ const TablePenugasanFaktur = ({
             const namaCustomer = item?.name;
 
             return {
-              label: `${kodeCustomer ?? ""}${
-                namaCustomer ? ` - ${namaCustomer}` : ""
-              }`,
+              label: `${kodeCustomer ?? ""}${namaCustomer ? ` - ${namaCustomer}` : ""
+                }`,
               value: kodeCustomer,
             };
           })
@@ -467,14 +466,14 @@ const TablePenugasanFaktur = ({
         "tukar_faktur_id",
         "faktur_petugas_tukar_faktur_id"
       ) &&
-        firstValue(
-          item,
-          "penagihan_nama",
-          "penagihan_nip",
-          "penagihan_assigned_at",
-          "penagihan_id",
-          "faktur_petugas_penagihan_id"
-        )
+      firstValue(
+        item,
+        "penagihan_nama",
+        "penagihan_nip",
+        "penagihan_assigned_at",
+        "penagihan_id",
+        "faktur_petugas_penagihan_id"
+      )
     );
   const isSelectable = (item) => Boolean(getId(item)) && !isFullyAssigned(item);
   const currentPageSelectableRows = tableData.filter(
@@ -506,7 +505,7 @@ const TablePenugasanFaktur = ({
     setSelectedRowData((prev) => ({ ...prev, [id]: item }));
     setSelectedIds((prev) => [...prev, id]);
   };
-  const handleSelectAll = () => {};
+  const handleSelectAll = () => { };
   const getListPetugas = async (rows = []) => {
     try {
       setLoadingPetugas(true);
@@ -730,38 +729,54 @@ const TablePenugasanFaktur = ({
                   history?.penugasan_id ||
                   `${kegiatan}-${namaPetugas}-${assignedAt || index}`
                 }
-                className={`step ${isActive ? "step-success" : "step-neutral"}`}
+                className={`step ${isActive ? "step-success" : "step-neutral"} !grid !w-full !grid-cols-[2rem_minmax(0,1fr)] !items-start !gap-3 !text-left`}
+                data-content={isActive ? "✓" : ""}
               >
-                <div className="w-full min-w-0 pb-5 text-left">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="break-words text-sm font-bold text-gray-800">
-                      {namaPetugas}
-                    </p>
+                <div className="mb-5 min-w-0 w-full rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        {kegiatan === "PENAGIHAN" ? "Petugas Penagihan" : "Petugas Tukar Faktur"}
+                      </p>
+                      <p className="mt-1 break-words text-sm font-bold text-gray-800">
+                        {namaPetugas}
+                      </p>
+                      {nipPetugas && (
+                        <p className="mt-1 text-xs text-gray-500">NIP: {nipPetugas}</p>
+                      )}
+                    </div>
                     <span className={`badge badge-sm ${isActive ? "badge-success" : "badge-ghost"}`}>
                       {isActive ? "Aktif" : "Tidak Aktif"}
                     </span>
                   </div>
-                  {nipPetugas && (
-                    <p className="mt-1 text-xs text-gray-500">NIP: {nipPetugas}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">Tanggal Penugasan</p>
-                  <p className="mt-1 break-words text-sm text-gray-700">
-                    {assignedAt ? formatDate(assignedAt) : "-"}
-                    {assignedAt && !Number.isNaN(new Date(assignedAt).getTime())
-                      ? ` ${new Date(assignedAt).toLocaleTimeString("id-ID", {
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Tanggal Penugasan
+                    </p>
+                    <p className="mt-1 break-words text-sm text-gray-700">
+                      {assignedAt ? formatDate(assignedAt) : "-"}
+                      {assignedAt && !Number.isNaN(new Date(assignedAt).getTime())
+                        ? ` ${new Date(assignedAt).toLocaleTimeString("id-ID", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}`
-                      : ""}
-                  </p>
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-semibold text-amber-800">
-                      Alasan Pengembalian
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">
-                      {alasanPengembalian || "-"}
+                        : ""}
                     </p>
                   </div>
+                  {alasanPengembalian !== null && (
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        {String(firstValue(history, "kd_status") || "").toUpperCase() === "C"
+                          ? "Alasan Pengembalian - Pembatalan Penugasan"
+                          : String(firstValue(history, "kd_status") || "").toUpperCase() === "K"
+                            ? "Alasan Pengembalian - Kendala Customer"
+                            : "Alasan Pengembalian"}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">
+                        {alasanPengembalian}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </li>
             );
@@ -883,8 +898,8 @@ const TablePenugasanFaktur = ({
                 !filterCabang.length
                   ? "Pilih Cabang Dahulu"
                   : loadingCustomerOptions
-                  ? "Memuat Customer..."
-                  : "Semua Customer"
+                    ? "Memuat Customer..."
+                    : "Semua Customer"
               }
               isDisabled={!filterCabang.length || loadingCustomerOptions}
               isLoading={loadingCustomerOptions}
@@ -1161,54 +1176,54 @@ const TablePenugasanFaktur = ({
                     return (
                       <tr
                         key={id || i}
-                        className={`transition duration-200 border-b ${
-                          selectedIds.includes(id)
+                        className={`transition duration-200 border-b ${selectedIds.includes(id)
                             ? "bg-blue-50"
                             : "hover:bg-blue-50"
-                        }`}
+                          }`}
                       >
                         <td className="px-4 py-3">
-                          <label
-                            className={`flex items-center justify-center w-9 h-9 rounded-full border transition ${
-                              selectedIds.includes(id)
-                                ? "bg-blue-50 border-primary text-primary cursor-pointer"
-                                : isSelectable(v)
-                                  ? "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary cursor-pointer"
-                                  : "bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed"
-                            }`}
-                            title={
-                              isFullyAssigned(v)
-                                ? "Petugas Tukar Faktur dan Penagihan sudah ditugaskan"
-                                : selectedIds.length > 0 &&
+                          <div className="flex flex-row items-center gap-1 justify-center">
+                            <label
+                              className={`flex items-center justify-center w-9 h-9 rounded-full border transition ${selectedIds.includes(id)
+                                  ? "bg-blue-50 border-primary text-primary cursor-pointer"
+                                  : isSelectable(v)
+                                    ? "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary cursor-pointer"
+                                    : "bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed"
+                                }`}
+                              title={
+                                isFullyAssigned(v)
+                                  ? "Petugas Tukar Faktur dan Penagihan sudah ditugaskan"
+                                  : selectedIds.length > 0 &&
                                     getCabang(v) !== selectedCabang
-                                  ? `Cabang harus sama dengan ${selectedCabang}`
-                                  : selectedIds.includes(id)
-                                    ? "Batalkan pilihan"
-                                    : "Pilih faktur"
-                            }
-                          >
-                            <input
-                              type="checkbox"
-                              className="hidden"
-                              checked={selectedIds.includes(id)}
-                              disabled={!isSelectable(v) || (selectedIds.length > 0 && getCabang(v) !== selectedCabang)}
-                              onChange={() => handleSelectOne(id)}
-                            />
-                            {selectedIds.includes(id) ? (
-                              <FaCheck />
-                            ) : (
-                              <span className="w-4 h-4 rounded border border-current" />
-                            )}
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => openHistoryPenugasan(v)}
-                            title="History Penugasan"
-                            aria-label="History Penugasan"
-                            className="mt-2 flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
-                          >
-                            <FaEye />
-                          </button>
+                                    ? `Cabang harus sama dengan ${selectedCabang}`
+                                    : selectedIds.includes(id)
+                                      ? "Batalkan pilihan"
+                                      : "Pilih faktur"
+                              }
+                            >
+                              <input
+                                type="checkbox"
+                                className="hidden"
+                                checked={selectedIds.includes(id)}
+                                disabled={!isSelectable(v) || (selectedIds.length > 0 && getCabang(v) !== selectedCabang)}
+                                onChange={() => handleSelectOne(id)}
+                              />
+                              {selectedIds.includes(id) ? (
+                                <FaCheck />
+                              ) : (
+                                <span className="w-4 h-4 rounded border border-current" />
+                              )}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => openHistoryPenugasan(v)}
+                              title="History Penugasan"
+                              aria-label="History Penugasan"
+                              className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
+                            >
+                              <FaEye />
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-3 font-semibold text-gray-700">
                           {(currentPage - 1) * perPage + i + 1}
@@ -1367,7 +1382,7 @@ const TablePenugasanFaktur = ({
           onClick={closeHistoryPenugasan}
         >
           <div
-            className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="flex max-h-[90dvh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between gap-3 bg-primary px-5 py-4 text-white sm:px-6">
@@ -1392,21 +1407,27 @@ const TablePenugasanFaktur = ({
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 sm:p-6">
-              {renderHistorySection(
-                "History Penugasan Tukar Faktur",
-                "TUKAR_FAKTUR",
-                historyTukarFaktur,
-                FaExchangeAlt,
-                "bg-orange-50 text-orange-600"
-              )}
-              {renderHistorySection(
-                "History Penugasan Penagihan",
-                "PENAGIHAN",
-                historyPenagihan,
-                FaRoute,
-                "bg-blue-50 text-blue-600"
-              )}
+            <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+              <div className="flex flex-row items-start gap-4">
+                <div className="min-w-0 flex-1">
+                  {renderHistorySection(
+                    "History Penugasan Tukar Faktur",
+                    "TUKAR_FAKTUR",
+                    historyTukarFaktur,
+                    FaExchangeAlt,
+                    "bg-orange-50 text-orange-600"
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  {renderHistorySection(
+                    "History Penugasan Penagihan",
+                    "PENAGIHAN",
+                    historyPenagihan,
+                    FaRoute,
+                    "bg-blue-50 text-blue-600"
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="flex shrink-0 justify-end border-t bg-white px-5 py-4 sm:px-6">

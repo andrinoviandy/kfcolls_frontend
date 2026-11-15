@@ -432,7 +432,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
       setSummaryData({
         total_data: firstNumber(summary?.total_data, responseData?.total_data, list.length),
         total_nominal: firstNumber(summary?.total_nominal, summary?.total_piutang, summary?.total_dpp, rows.reduce((sum, item) => sum + getDpp(item), 0)),
-        total_collection: firstNumber(summary?.total_collection, summary?.total_dibayar, summary?.collection, rows.reduce((sum, item) => sum + getCollection(item), 0)),
+        total_collection: firstNumber(summary?.sudah_dibayar),
         lunas_count: firstNumber(summary?.lunas_count, summary?.sudah_lunas, rows.filter((item) => getStatusLunas(item) === "LUNAS").length),
         belum_lunas_count: firstNumber(summary?.belum_lunas_count, summary?.belum_lunas, rows.filter((item) => getStatusLunas(item) !== "LUNAS").length),
         tukar_menunggu: firstNumber(summary?.tukar_menunggu, summary?.menunggu_verifikasi, rows.filter((item) => getTukarFakturStatus(item) === "MENUNGGU_VERIFIKASI").length),

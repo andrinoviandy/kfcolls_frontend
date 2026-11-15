@@ -639,9 +639,9 @@ const TableVerifikasiPembayaran = ({
               sales:
                 firstValue(
                   item,
-                  "sales",
-                  "nama_sales",
-                  "sales_name"
+                  "nama_penagih",
+                  "sales_name",
+                  "sales"
                 ) || "-",
               create_document_number:
                 firstValue(
@@ -2454,6 +2454,32 @@ const TableVerifikasiPembayaran = ({
                                   Lihat Bukti
                                 </button>
                               </div>
+
+                              {/* BUKTI SERAH TERIMA KASIR - KHUSUS CASH */}
+                              {String(item?.metode_pembayaran || "").toUpperCase() === "CASH" && (
+                                <div>
+                                  <p className="text-xs text-gray-400 mb-1">
+                                    Bukti Serah Terima Kasir
+                                  </p>
+
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+                                    onClick={() => {
+                                      const filesKasir = item?.files_kasir;
+
+                                      if (filesKasir) {
+                                        window.open(filesKasir, "_blank");
+                                      } else {
+                                        swal.error("File bukti serah terima kasir tidak tersedia.");
+                                      }
+                                    }}
+                                  >
+                                    <FaFileAlt />
+                                    Lihat Bukti
+                                  </button>
+                                </div>
+                              )}
 
                               {/* SALES */}
                               <div>

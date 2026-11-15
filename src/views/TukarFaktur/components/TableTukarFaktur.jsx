@@ -272,6 +272,7 @@ const TableTukarFaktur = ({
   const [bulkFile, setBulkFile] = useState(null);
   const [showFakturKembaliModal, setShowFakturKembaliModal] = useState(false);
   const [alasanFakturKembali, setAlasanFakturKembali] = useState("");
+  const [metodeFakturKembali, setMetodeFakturKembali] = useState("");
   const [loadingFakturKembali, setLoadingFakturKembali] = useState(false);
   const [fakturKembaliList, setFakturKembaliList] = useState([]);
   const [historyPenugasanData, setHistoryPenugasanData] = useState([]);
@@ -730,6 +731,7 @@ const TableTukarFaktur = ({
     setFakturKembaliList(list);
     setSelectedFaktur(list[0]);
     setAlasanFakturKembali("");
+    setMetodeFakturKembali("");
     setShowFakturKembaliModal(true);
   };
 
@@ -737,6 +739,7 @@ const TableTukarFaktur = ({
     if (loadingFakturKembali) return;
     setShowFakturKembaliModal(false);
     setAlasanFakturKembali("");
+    setMetodeFakturKembali("");
     setFakturKembaliList([]);
   };
 
@@ -757,6 +760,11 @@ const TableTukarFaktur = ({
       return;
     }
 
+    if (!metodeFakturKembali) {
+      await swal.error("Silakan pilih metode pengembalian faktur terlebih dahulu.");
+      return;
+    }
+
     if (alasanFakturKembali.trim().length < 10) {
       await swal.error("Alasan Faktur Kembali minimal 10 karakter.");
       return;
@@ -767,6 +775,7 @@ const TableTukarFaktur = ({
       const payload = {
         faktur_petugas_id: fakturTerpilih.map((item) => getPetugasId(item)),
         alasan: alasanFakturKembali.trim(),
+        kd_status: metodeFakturKembali,
         kegiatan: 'TUKAR_FAKTUR',
         user_id: loginAccess?.user_id || null,
         nip: loginAccess?.nip || null,
@@ -780,6 +789,7 @@ const TableTukarFaktur = ({
       await swal.success(res?.message || "Faktur Kembali berhasil disimpan.");
       setShowFakturKembaliModal(false);
       setAlasanFakturKembali("");
+      setMetodeFakturKembali("");
       setFakturKembaliList([]);
       setSelectedIds([]);
       setSelectedRowData({});
@@ -3160,6 +3170,81 @@ const TableTukarFaktur = ({
                 )}
               </div>
 
+              {/* METODE PENGEMBALIAN FAKTUR */}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Metode Pengembalian Faktur <span className="text-red-500">*</span>
+                </label>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* KENDALA CUSTOMER */}
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                      metodeFakturKembali === "K"
+                        ? "border-orange-500 bg-orange-50 ring-2 ring-orange-100"
+                        : "border-gray-200 bg-white hover:border-orange-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="metodeFakturKembali"
+                      value="K"
+                      checked={metodeFakturKembali === "K"}
+                      onChange={(e) => setMetodeFakturKembali(e.target.value)}
+                      disabled={loadingFakturKembali}
+                      className="radio radio-warning radio-sm mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        Kendala Customer
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Faktur dikembalikan karena customer menolak, tidak menerima, atau terdapat kendala dalam proses penagihan.
+                      </p>
+                      <span className="mt-2 inline-block rounded-full bg-orange-100 px-2 py-1 text-[10px] font-bold text-orange-700">
+                        K
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* PEMBATALAN PENUGASAN */}
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                      metodeFakturKembali === "C"
+                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100"
+                        : "border-gray-200 bg-white hover:border-blue-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="metodeFakturKembali"
+                      value="C"
+                      checked={metodeFakturKembali === "C"}
+                      onChange={(e) => setMetodeFakturKembali(e.target.value)}
+                      disabled={loadingFakturKembali}
+                      className="radio radio-primary radio-sm mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        Pembatalan Penugasan
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Faktur dikembalikan karena penugasan dibatalkan dan perlu dikembalikan ke antrean penugasan.
+                      </p>
+                      <span className="mt-2 inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700">
+                        C
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {!metodeFakturKembali && (
+                  <p className="mt-2 text-xs text-red-500">
+                    Metode pengembalian faktur wajib dipilih.
+                  </p>
+                )}
+              </div>
+
               {/* ALASAN FAKTUR KEMBALI */}
               <div>
                 <label
@@ -3203,7 +3288,11 @@ const TableTukarFaktur = ({
               <button
                 type="button"
                 onClick={handleInsertFakturKembali}
-                disabled={loadingFakturKembali || alasanFakturKembali.trim().length < 10}
+                disabled={
+                  loadingFakturKembali ||
+                  !metodeFakturKembali ||
+                  alasanFakturKembali.trim().length < 10
+                }
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
                 {loadingFakturKembali ? (
