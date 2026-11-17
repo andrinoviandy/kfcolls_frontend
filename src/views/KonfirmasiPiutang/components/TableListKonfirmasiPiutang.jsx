@@ -3796,7 +3796,7 @@ const TableListKonfirmasiPiutang = ({
                                   "
                                 >
                                   {
-                                    (v.nama_sales ?? v.sales ?? "-")
+                                    (v.nama_salesman ?? v.sales ?? "-")
                                   }
                                 </span>
 

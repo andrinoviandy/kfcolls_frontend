@@ -696,7 +696,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                     <td className="px-4 py-2 min-w-[220px]"><div className="flex items-center gap-2"><FaBuilding className="text-blue-500 shrink-0" /><span className="font-medium text-gray-700">{displayValue(item?.nama_customer || item?.customer_name || item?.name || item?.customer)}</span></div></td>
                     <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.sales || item?.salesman || item?.kode_salesman || item?.sales_code)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.nama_sales || item?.nama_salesman || item?.sales_name || getSalesman(item))}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.profit_center || item?.profit_center_name)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(item?.cabang || item?.profit_center)}</td>
                     <td className="px-4 py-2 whitespace-nowrap"><div className="flex items-center gap-2"><FaStore className="text-orange-500" />{displayValue(item?.nama_cabang || item?.cabang || item?.sales_office_name)}</div></td>
                     <td className="px-4 py-2 whitespace-nowrap">{formatDate(postingDate)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{formatDate(item?.jatuh_tempo || item?.due_date)}</td>
