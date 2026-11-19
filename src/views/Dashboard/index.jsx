@@ -40,6 +40,7 @@ import {
   FaChartLine,
   FaWarehouse,
   FaClipboardList,
+  FaFolderOpen,
 } from 'react-icons/fa';
 
 
@@ -414,6 +415,28 @@ const unwrapDashboardResponse = (response) => {
   return [];
 };
 
+// Normalisasi respons endpoint dashboard agregat.
+// Mendukung response array langsung maupun wrapper { data: { list_data } }.
+const getDashboardRows = (response) => {
+  const body = response?.data?.data ?? response?.data ?? response;
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.list_data)) return body.list_data;
+  if (Array.isArray(body?.data)) return body.data;
+  if (Array.isArray(body?.rows)) return body.rows;
+  if (Array.isArray(body?.items)) return body.items;
+  return [];
+};
+
+const getDashboardNumber = (row, keys, fallback = 0) => {
+  for (const key of keys) {
+    if (row?.[key] !== undefined && row?.[key] !== null && row?.[key] !== '') {
+      const value = Number(row[key]);
+      return Number.isFinite(value) ? value : fallback;
+    }
+  }
+  return fallback;
+};
+
 const normalizePiutangDashboardItem = (item, index) => ({
   ...item,
   id: item?.id ?? item?.billing_no ?? item?.billingNo ?? item?.no_invoice ?? index,
@@ -547,6 +570,13 @@ const Dashboard = () => {
   const [appliedFilter, setAppliedFilter] =
     useState(defaultFilter);
 
+  /* =======================================================
+     PERFORMANCE & COLLECTION CHART DIMENSION
+  ======================================================= */
+
+  const [performanceDimension, setPerformanceDimension] = useState('produk');
+  const [collectionDimension, setCollectionDimension] = useState('customer');
+
   // State tiap API dipisah agar mudah ditelusuri saat debugging.
   const [cardLoading, setCardLoading] = useState({
     card1: true,
@@ -556,14 +586,19 @@ const Dashboard = () => {
     salesSummary: true,
     summaryFallback: true,
     analisis: true,
-    collectionCustomer: true,
     performaProduk: true,
     detailChart: true,
+    performaDimension: true,
+    outstandingChannel: true,
+    collectionDimension: true,
+    topPiutangPrincipal: true,
     saldoJatuhTempo: true,
     agingPiutang: true,
   });
   const updateCardLoading = (key, loading) => {
-    setCardLoading((prev) => ({ ...prev, [key]: loading }));
+    setCardLoading((prev) => (
+      prev[key] === loading ? prev : { ...prev, [key]: loading }
+    ));
   };
   const [summaryApiData, setSummaryApiData] = useState(null);
   const [dashboardCard1ApiData, setDashboardCard1ApiData] = useState(null);
@@ -572,12 +607,20 @@ const Dashboard = () => {
   const [trendPencairanApiData, setTrendPencairanApiData] = useState(null);
   const [salesOpenInvoiceApiData, setSalesOpenInvoiceApiData] = useState(null);
   const [analisisApiData, setAnalisisApiData] = useState(null);
-  const [collectionByCustomerApiData, setCollectionByCustomerApiData] = useState(null);
   const [performaProdukApiData, setPerformaProdukApiData] = useState(null);
   const [detailPage, setDetailPage] = useState(1);
   const [detailPageSize, setDetailPageSize] = useState(10);
   const [detailRows, setDetailRows] = useState([]);
-  const [detailChartRows, setDetailChartRows] = useState([]);
+  // Data chart Card 2 diambil dari endpoint agregat masing-masing,
+  // bukan lagi dari getDetailPiutangDashboard limit 1.000.000.
+  const [saldoPiutangAgingChannelApiData, setSaldoPiutangAgingChannelApiData] = useState([]);
+  const [performaPiutangDimensionApiData, setPerformaPiutangDimensionApiData] = useState([]);
+  const [outstandingChannelApiData, setOutstandingChannelApiData] = useState([]);
+  const [collectionDimensionApiData, setCollectionDimensionApiData] = useState([]);
+  // Data Collections By Metode Pembayaran diambil dari API tersendiri.
+  const [collectionByMetodeApiData, setCollectionByMetodeApiData] = useState([]);
+  const [collectionByMetodeLoading, setCollectionByMetodeLoading] = useState(false);
+  const [topPiutangPrincipalApiData, setTopPiutangPrincipalApiData] = useState([]);
   const [detailTotal, setDetailTotal] = useState(0);
   const [detailTotalPages, setDetailTotalPages] = useState(0);
   const [detailSummary, setDetailSummary] = useState({ aging: agingLabels.map(() => 0), total_outstanding: 0 });
@@ -668,9 +711,16 @@ const Dashboard = () => {
           label: x?.produk ?? x?.nama_produk ?? x?.namaProduk ?? x?.text_material ?? x?.material_desc ?? '',
           value: x?.produk_id ?? x?.material_id ?? x?.material ?? x?.produk ?? x?.nama_produk ?? x?.text_material ?? '',
         })).filter((x) => x.label && x.value !== '');
-        if (active) setApiProductOptions(
-          options.filter((item, index, all) => all.findIndex((other) => String(other.value) === String(item.value)) === index)
-        );
+        if (active) {
+          const seenProductValues = new Set();
+          const uniqueOptions = options.filter((item) => {
+            const key = String(item.value);
+            if (seenProductValues.has(key)) return false;
+            seenProductValues.add(key);
+            return true;
+          });
+          setApiProductOptions(uniqueOptions);
+        }
       } catch (error) {
         console.error('ERROR GET PRODUK FILTER DASHBOARD:', error);
         if (active) setApiProductOptions([]);
@@ -819,20 +869,6 @@ const Dashboard = () => {
       }
     };
 
-    const loadCollectionByCustomer = async () => {
-      updateCardLoading("collectionCustomer", true);
-      try {
-        const response = await storeSchema.actions.getCollectionByCustomerDashboard(payload);
-        if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Collection per Customer');
-        if (active) setCollectionByCustomerApiData(response);
-      } catch (error) {
-        console.error('ERROR API getCollectionByCustomerDashboard:', error);
-        if (active) setCollectionByCustomerApiData(null);
-      } finally {
-        if (active) updateCardLoading("collectionCustomer", false);
-      }
-    };
-
     const loadPerformaProduk = async () => {
       updateCardLoading("performaProduk", true);
       try {
@@ -855,83 +891,157 @@ const Dashboard = () => {
       loadTrendPencairan(),
       loadSalesOpenInvoice(),
       loadAnalisis(),
-      loadCollectionByCustomer(),
       loadPerformaProduk(),
     ]);
 
     return () => { active = false; };
   }, [appliedFilter]);
 
-  // Data chart Saldo Piutang by Aging dan Channel diambil dari endpoint
-  // getDetailPiutangDashboard yang sama, tanpa membuat API baru.
-  // Ambil seluruh baris untuk agregasi chart agar tidak hanya menghitung halaman tabel aktif.
+  // CARD 2: setiap widget menggunakan endpoint agregat masing-masing.
+  // Seluruh endpoint menerima filter dashboard yang sama.
   useEffect(() => {
     let active = true;
+    const payload = getDashboardPayload(appliedFilter);
 
-    const loadDetailPiutangForCharts = async () => {
-      updateCardLoading("detailChart", true);
-      const action = storeSchema.actions.getDetailPiutangDashboard;
-
-      if (typeof action !== 'function') {
-        setDetailChartRows([]);
-        updateCardLoading("detailChart", false);
-        return;
-      }
-
+    const loadSaldoPiutangAgingChannel = async () => {
+      updateCardLoading('detailChart', true);
       try {
-        const response = await action({
-          ...getDetailPiutangPayload(appliedFilter),
-          page: 1,
-          limit: 1000000,
-        });
-
-        if (response?.status === false) {
-          throw new Error(response?.message || 'Gagal mengambil Detail Piutang untuk chart');
-        }
-
-        const body = response?.data?.data ?? response?.data ?? response;
-        const rows = Array.isArray(body?.list_data)
-          ? body.list_data
-          : Array.isArray(body?.data)
-            ? body.data
-            : Array.isArray(body?.rows)
-              ? body.rows
-              : Array.isArray(body)
-                ? body
-                : [];
-
-        if (active) {
-          setDetailChartRows(rows.map((item, index) => ({
-            ...normalizePiutangDashboardItem(item, index),
-            id: item?.id ?? item?.penjualan_id ?? `${item?.billing_no ?? 'row'}-${index}`,
-            billingNo: item?.billing_no ?? item?.billingNo ?? '',
-            tanggal: item?.tanggal ?? item?.document_date ?? item?.posting_date ?? item?.tanggal_dokumen ?? '',
-            channel: item?.channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? item?.desc_customer_group ?? 'Tidak diketahui',
-            // Simpan ID dan nama produk/customer dari field API yang sesuai.
-            produkId: item?.produk_id ?? item?.product_id ?? item?.material_id ?? item?.material ?? '',
-            produk: item?.nama_produk ?? item?.produk ?? item?.namaProduk ?? item?.text_material ?? item?.material_desc ?? item?.material ?? 'Tidak diketahui',
-            principal: item?.nama_principle ?? item?.name_principle ?? item?.principal_name ?? item?.principal ?? item?.principle ?? item?.principal_id ?? 'Tidak diketahui',
-            customerId: item?.customer_id ?? item?.kode_customer ?? item?.bill_to ?? '',
-            customer: item?.name_bill_to ?? item?.customer ?? item?.nama_customer ?? item?.customer_name ?? item?.name ?? 'Tidak diketahui',
-            cabang: item?.nama_cabang ?? item?.name_cabang ?? item?.desc_s_office ?? item?.ur_ref ?? item?.cabang ?? item?.sales_office ?? item?.kode_cabang ?? item?.cabang_id ?? 'Tidak diketahui',
-            totalPiutang: Number(item?.total_piutang ?? item?.totalPiutang ?? item?.piutang ?? 0),
-            totalCollections: Number(item?.total_collections ?? item?.total_collection ?? item?.totalCollections ?? item?.totalCollection ?? item?.collection ?? item?.pembayaran ?? 0),
-            piutang: Number(item?.total_piutang ?? item?.totalPiutang ?? item?.piutang ?? 0),
-            collection: Number(item?.total_collections ?? item?.total_collection ?? item?.totalCollections ?? item?.totalCollection ?? item?.collection ?? item?.pembayaran ?? 0),
-            outstanding: Number(item?.total_piutang ?? item?.totalPiutang ?? item?.piutang ?? 0) - Number(item?.total_collections ?? item?.total_collection ?? item?.totalCollections ?? item?.totalCollection ?? item?.collection ?? item?.pembayaran ?? 0),
-            statusJTO: item?.status_jto ?? item?.statusJTO ?? '',
-            aging: Number(item?.aging_hari ?? item?.aging ?? 0),
-          })));
-        }
+        const action = storeSchema.actions.getSaldoPiutangByAgingChannelDashboard;
+        if (typeof action !== 'function') throw new Error('Action getSaldoPiutangByAgingChannelDashboard belum tersedia');
+        const response = await action(payload);
+        if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Saldo Piutang by Aging & Channel');
+        if (active) setSaldoPiutangAgingChannelApiData(getDashboardRows(response));
       } catch (error) {
-        console.error('ERROR GET DETAIL PIUTANG UNTUK CHART:', error);
-        if (active) setDetailChartRows([]);
+        console.error('ERROR API getSaldoPiutangByAgingChannelDashboard:', error);
+        if (active) setSaldoPiutangAgingChannelApiData([]);
       } finally {
-        if (active) updateCardLoading("detailChart", false);
+        if (active) updateCardLoading('detailChart', false);
       }
     };
 
-    loadDetailPiutangForCharts();
+    const loadOutstandingByChannel = async () => {
+      updateCardLoading('outstandingChannel', true);
+      try {
+        const action = storeSchema.actions.getOutstandingByChannelDashboard;
+        if (typeof action !== 'function') throw new Error('Action getOutstandingByChannelDashboard belum tersedia');
+        const response = await action(payload);
+        if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Outstanding per Channel');
+        if (active) setOutstandingChannelApiData(getDashboardRows(response));
+      } catch (error) {
+        console.error('ERROR API getOutstandingByChannelDashboard:', error);
+        if (active) setOutstandingChannelApiData([]);
+      } finally {
+        if (active) updateCardLoading('outstandingChannel', false);
+      }
+    };
+
+    const loadTopPiutangPrincipal = async () => {
+      updateCardLoading('topPiutangPrincipal', true);
+      try {
+        const action = storeSchema.actions.getTopPiutangByPrincipalDashboard;
+        if (typeof action !== 'function') throw new Error('Action getTopPiutangByPrincipalDashboard belum tersedia');
+        const response = await action(payload);
+        if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Top Piutang by Principal');
+        if (active) setTopPiutangPrincipalApiData(getDashboardRows(response));
+      } catch (error) {
+        console.error('ERROR API getTopPiutangByPrincipalDashboard:', error);
+        if (active) setTopPiutangPrincipalApiData([]);
+      } finally {
+        if (active) updateCardLoading('topPiutangPrincipal', false);
+      }
+    };
+
+    loadSaldoPiutangAgingChannel();
+    loadOutstandingByChannel();
+    loadTopPiutangPrincipal();
+
+    return () => { active = false; };
+  }, [appliedFilter]);
+
+  // Performa piutang dipanggil ulang hanya ketika filter atau dimensi berubah.
+  useEffect(() => {
+    let active = true;
+    const loadPerformaPiutangDimension = async () => {
+      updateCardLoading('performaDimension', true);
+      try {
+        const action = storeSchema.actions.getPerformaPiutangByDimensionDashboard;
+        if (typeof action !== 'function') throw new Error('Action getPerformaPiutangByDimensionDashboard belum tersedia');
+        const response = await action({
+          ...getDashboardPayload(appliedFilter),
+          group_by: performanceDimension,
+        });
+        if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Performa Piutang');
+        if (active) setPerformaPiutangDimensionApiData(getDashboardRows(response));
+      } catch (error) {
+        console.error('ERROR API getPerformaPiutangByDimensionDashboard:', error);
+        if (active) setPerformaPiutangDimensionApiData([]);
+      } finally {
+        if (active) updateCardLoading('performaDimension', false);
+      }
+    };
+    loadPerformaPiutangDimension();
+    return () => { active = false; };
+  }, [appliedFilter, performanceDimension]);
+
+  // Collection dipanggil ulang ketika filter atau dimensi dropdown berubah.
+  useEffect(() => {
+    let active = true;
+    const loadCollectionByDimension = async () => {
+      updateCardLoading('collectionDimension', true);
+      try {
+        const action = storeSchema.actions.getCollectionByDimensionDashboard;
+        if (typeof action !== 'function') throw new Error('Action getCollectionByDimensionDashboard belum tersedia');
+        const response = await action({
+          ...getDashboardPayload(appliedFilter),
+          group_by: collectionDimension,
+        });
+        if (response?.status === false) throw new Error(response?.message || 'Gagal mengambil Collection by Dimension');
+        if (active) setCollectionDimensionApiData(getDashboardRows(response));
+      } catch (error) {
+        console.error('ERROR API getCollectionByDimensionDashboard:', error);
+        if (active) setCollectionDimensionApiData([]);
+      } finally {
+        if (active) updateCardLoading('collectionDimension', false);
+      }
+    };
+    loadCollectionByDimension();
+    return () => { active = false; };
+  }, [appliedFilter, collectionDimension]);
+
+  // Collections By Metode Pembayaran menggunakan API tersendiri.
+  // API dipanggil ulang ketika filter dashboard diterapkan.
+  useEffect(() => {
+    let active = true;
+
+    const loadCollectionByMetode = async () => {
+      setCollectionByMetodeLoading(true);
+
+      try {
+        const action = storeSchema.actions.getCollectionByMetodePembayaranDashboard;
+
+        if (typeof action !== 'function') {
+          throw new Error('Action getCollectionByMetodePembayaranDashboard belum tersedia');
+        }
+
+        const response = await action(getDashboardPayload(appliedFilter));
+
+        if (response?.status === false) {
+          throw new Error(response?.message || 'Gagal mengambil Collections By Metode Pembayaran');
+        }
+
+        if (active) {
+          setCollectionByMetodeApiData(getDashboardRows(response));
+        }
+      } catch (error) {
+        console.error('ERROR API getCollectionByMetodePembayaranDashboard:', error);
+        if (active) setCollectionByMetodeApiData([]);
+      } finally {
+        if (active) setCollectionByMetodeLoading(false);
+      }
+    };
+
+    loadCollectionByMetode();
+
     return () => { active = false; };
   }, [appliedFilter]);
 
@@ -1211,33 +1321,8 @@ const Dashboard = () => {
     return () => { active = false; };
   }, [appliedFilter, detailPage, detailPageSize]);
 
-  // Kembali ke halaman pertama ketika filter diterapkan.
-  useEffect(() => {
-    setDetailPage(1);
-  }, [appliedFilter, detailPageSize]);
-
   const [activeTable, setActiveTable] =
     useState('principal');
-
-
-  /* =======================================================
-     PERFORMANCE CHART DIMENSION
-  ======================================================= */
-
-  const [
-    performanceDimension,
-    setPerformanceDimension
-  ] = useState('produk');
-
-
-  /* =======================================================
-     COLLECTION CHART DIMENSION
-  ======================================================= */
-
-  const [
-    collectionDimension,
-    setCollectionDimension
-  ] = useState('customer');
 
 
   /* =======================================================
@@ -1249,9 +1334,11 @@ const Dashboard = () => {
 
   // Tampilkan label pilihan filter, bukan value/ID yang dikirim ke API.
   const getSelectedFilterLabels = (options = [], values = []) => {
-    const selectedValues = Array.isArray(values) ? values : [];
+    const selectedValues = new Set(
+      (Array.isArray(values) ? values : []).map((value) => String(value))
+    );
     return options
-      .filter((option) => selectedValues.some((value) => String(value) === String(option.value)))
+      .filter((option) => selectedValues.has(String(option.value)))
       .map((option) => option.label)
       .filter(Boolean)
       .join(', ');
@@ -1280,11 +1367,10 @@ const Dashboard = () => {
   ======================================================= */
 
   const applyFilter = () => {
-
-    setAppliedFilter({
-      ...filter,
-    });
-
+    // Reset halaman sebelum filter baru memicu request detail.
+    // Ini mencegah request ganda (halaman lama lalu halaman pertama).
+    setDetailPage(1);
+    setAppliedFilter({ ...filter });
   };
 
 
@@ -1484,181 +1570,59 @@ const Dashboard = () => {
      GRAFIK SALDO PIUTANG BY AGING & CHANNEL
   ========================================================= */
 
-  const channelNames = useMemo(() => {
-    return Array.from(
-      new Set(
-        detailChartRows.map((item) =>
-          String(item?.channel || 'Tidak diketahui').trim() || 'Tidak diketahui'
-        )
-      )
-    ).sort((a, b) => a.localeCompare(b, 'id'));
-  }, [detailChartRows]);
-
-  const agingChannelData = useMemo(() => {
-    const agingKeys = [
-      '0 - 30 Hari',
-      '31 - 45 Hari',
-      '46 - 60 Hari',
-      '61 - 90 Hari',
-      '91 - 180 Hari',
-      '181 - 360 Hari',
-      '> 360 Hari',
-    ];
-
-    return agingKeys.map((agingLabel, agingIndex) => {
-      const row = {
-        aging: agingLabel
-          .replace(' Hari', '')
-          .replace('0 - 30', '0-30')
-          .replace('31 - 45', '31-45')
-          .replace('46 - 60', '46-60')
-          .replace('61 - 90', '61-90')
-          .replace('91 - 180', '91-180')
-          .replace('181 - 360', '181-360'),
-      };
-
-      channelNames.forEach((channel) => {
-        row[channel] = 0;
-      });
-
-      detailChartRows.forEach((item) => {
-        const value = (Number(item?.[`aging_${agingIndex}`]) || 0) / 1000000;
-        // if (value <= 0) return;
-
-        const channel =
-          String(item?.channel || 'Tidak diketahui').trim() || 'Tidak diketahui';
-        row[channel] = (row[channel] || 0) + value;
-      });
-
-      return row;
-    });
-  }, [detailChartRows, channelNames]);
-
-  /* =========================================================
-     RINGKASAN CHANNEL UNTUK TABEL
-     Dibuat menyerupai tabel pada desain:
-     Channel | Total | % | 2026 BLM JTO | SDH JTO |
-     2025 BLM JTO | SDH JTO | < 2024 SDH JTO | % SDH JTO
-  ========================================================= */
+  // Data tabel Channel langsung dari endpoint getSaldoPiutangByAgingChannelDashboard.
+  const channelNames = useMemo(() => (
+    saldoPiutangAgingChannelApiData
+      .map((item) => String(item?.channel ?? item?.name ?? item?.nama_channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? '').trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'id'))
+  ), [saldoPiutangAgingChannelApiData]);
 
   const channelSummaryData = useMemo(() => {
-    // Buat satu baris untuk setiap channel aktual dari getDetailPiutangDashboard.
-    // Tidak lagi mengelompokkan channel menjadi RS Pemerintah, Instansi Pemerintah, dan Swasta.
-    // Gunakan daftar channel yang SAMA dengan card "Saldo Piutang by Aging & Channel".
-    // Dengan begitu nama dan urutan channel di tabel ini selalu sinkron dengan legend grafik aging.
-    const groups = channelNames.map((channelName) => ({
-      label: channelName,
-      match: (item) =>
-        (String(item?.channel || 'Tidak diketahui').trim() ||
-          'Tidak diketahui') === channelName,
+    const rows = saldoPiutangAgingChannelApiData.map((item) => ({
+      channel: String(item?.channel ?? item?.name ?? item?.nama_channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? 'Tidak diketahui'),
+      total: getDashboardNumber(item, ['total', 'total_outstanding', 'outstanding', 'saldo_piutang']),
+      percentage: getDashboardNumber(item, ['percentage', 'persentase', 'persentase_total']),
+      blmJto2026: getDashboardNumber(item, ['blm_jto_2026', 'blmJto2026', 'belum_jto_2026']),
+      sdhJto2026: getDashboardNumber(item, ['sdh_jto_2026', 'sdhJto2026', 'sudah_jto_2026']),
+      blmJto2025: getDashboardNumber(item, ['blm_jto_2025', 'blmJto2025', 'belum_jto_2025']),
+      sdhJto2025: getDashboardNumber(item, ['sdh_jto_2025', 'sdhJto2025', 'sudah_jto_2025']),
+      sdhJtoBefore2025: getDashboardNumber(item, ['sdh_jto_before_2025', 'sdhJtoBefore2025', 'sdh_jto_sebelum_2025']),
+      percentageSdhJto: getDashboardNumber(item, ['percentage_sdh_jto', 'percentageSdhJto', 'persentase_sdh_jto']),
     }));
 
-    const totalOutstanding = detailChartRows.reduce(
-      (sum, item) => sum + Number(item.outstanding || 0),
-      0
+    const apiTotal = saldoPiutangAgingChannelApiData.find((item) =>
+      String(item?.channel ?? item?.name ?? item?.nama_channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? '').trim().toUpperCase() === 'TOTAL'
     );
-
-    const getRow = (group) => {
-      const items = detailChartRows.filter(group.match);
-
-      const total = items.reduce(
-        (sum, item) => sum + Number(item.outstanding || 0),
-        0
-      );
-
-      const currentYear = 2026;
-
-      const blmJto2026 = items
-        .filter((item) => Number(item.aging || 0) <= 0)
-        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
-
-      const sdhJto2026 = items
-        .filter((item) => Number(item.aging || 0) > 0)
-        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
-
-      const blmJto2025 = items
-        .filter((item) => {
-          const year = Number(
-            String(item.tanggal || '').slice(0, 4)
-          );
-          return year === 2025 && Number(item.aging || 0) <= 0;
-        })
-        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
-
-      const sdhJto2025 = items
-        .filter((item) => {
-          const year = Number(
-            String(item.tanggal || '').slice(0, 4)
-          );
-          return year === 2025 && Number(item.aging || 0) > 0;
-        })
-        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
-
-      const sdhJtoBefore2025 = items
-        .filter((item) => {
-          const year = Number(
-            String(item.tanggal || '').slice(0, 4)
-          );
-          return year < currentYear - 1 && Number(item.aging || 0) > 0;
-        })
-        .reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
-
-      return {
-        channel: group.label,
-        total,
-        percentage:
-          totalOutstanding > 0
-            ? (total / totalOutstanding) * 100
-            : 0,
-        blmJto2026,
-        sdhJto2026,
-        blmJto2025,
-        sdhJto2025,
-        sdhJtoBefore2025,
-        percentageSdhJto:
-          total > 0
-            ? (sdhJto2026 / total) * 100
-            : 0,
-      };
-    };
-
-    const rows = groups.map(getRow);
-
-    const totalRow = rows.reduce(
-      (acc, row) => ({
+    if (apiTotal) {
+      rows.push({
         channel: 'TOTAL',
-        total: acc.total + row.total,
-        percentage: acc.percentage + row.percentage,
-        blmJto2026: acc.blmJto2026 + row.blmJto2026,
-        sdhJto2026: acc.sdhJto2026 + row.sdhJto2026,
-        blmJto2025: acc.blmJto2025 + row.blmJto2025,
-        sdhJto2025: acc.sdhJto2025 + row.sdhJto2025,
-        sdhJtoBefore2025:
-          acc.sdhJtoBefore2025 + row.sdhJtoBefore2025,
-        percentageSdhJto:
-          totalOutstanding > 0
-            ? ((acc.sdhJto2026 + row.sdhJto2026) /
-              totalOutstanding) *
-            100
-            : 0,
-      }),
-      {
-        channel: 'TOTAL',
-        total: 0,
-        percentage: 0,
-        blmJto2026: 0,
-        sdhJto2026: 0,
-        blmJto2025: 0,
-        sdhJto2025: 0,
-        sdhJtoBefore2025: 0,
-        percentageSdhJto: 0,
-      }
-    );
-
-    return [...rows, totalRow];
-  }, [detailChartRows, channelNames]);
-
-
+        total: getDashboardNumber(apiTotal, ['total', 'total_outstanding', 'outstanding', 'saldo_piutang']),
+        percentage: getDashboardNumber(apiTotal, ['percentage', 'persentase', 'persentase_total'], 100),
+        blmJto2026: getDashboardNumber(apiTotal, ['blm_jto_2026', 'blmJto2026', 'belum_jto_2026']),
+        sdhJto2026: getDashboardNumber(apiTotal, ['sdh_jto_2026', 'sdhJto2026', 'sudah_jto_2026']),
+        blmJto2025: getDashboardNumber(apiTotal, ['blm_jto_2025', 'blmJto2025', 'belum_jto_2025']),
+        sdhJto2025: getDashboardNumber(apiTotal, ['sdh_jto_2025', 'sdhJto2025', 'sudah_jto_2025']),
+        sdhJtoBefore2025: getDashboardNumber(apiTotal, ['sdh_jto_before_2025', 'sdhJtoBefore2025', 'sdh_jto_sebelum_2025']),
+        percentageSdhJto: getDashboardNumber(apiTotal, ['percentage_sdh_jto', 'percentageSdhJto', 'persentase_sdh_jto']),
+      });
+    } else {
+      const total = rows.reduce((sum, row) => sum + row.total, 0);
+      rows.push({
+        channel: 'TOTAL', total,
+        percentage: rows.reduce((sum, row) => sum + row.percentage, 0),
+        blmJto2026: rows.reduce((sum, row) => sum + row.blmJto2026, 0),
+        sdhJto2026: rows.reduce((sum, row) => sum + row.sdhJto2026, 0),
+        blmJto2025: rows.reduce((sum, row) => sum + row.blmJto2025, 0),
+        sdhJto2025: rows.reduce((sum, row) => sum + row.sdhJto2025, 0),
+        sdhJtoBefore2025: rows.reduce((sum, row) => sum + row.sdhJtoBefore2025, 0),
+        percentageSdhJto: total > 0
+          ? (rows.reduce((sum, row) => sum + row.sdhJto2026, 0) / total) * 100
+          : 0,
+      });
+    }
+    return rows;
+  }, [saldoPiutangAgingChannelApiData]);
 
   const channelTableRows = useMemo(
     () => channelSummaryData.filter((row) => row.channel !== 'TOTAL'),
@@ -1752,59 +1716,20 @@ const Dashboard = () => {
 
   /* =======================================================
      PERFORMANCE CHART DATA
+     Data API tetap utuh; hanya visualisasi yang dibatasi Top 15
+     agar jumlah elemen SVG tetap ringan.
   ======================================================= */
 
-  const performanceChartData =
-    useMemo(() => {
-      const grouped = {};
-      const field = currentPerformanceConfig.field;
-      const idField = currentPerformanceConfig.idField;
-
-      // Agregasi menggunakan seluruh baris getDetailPiutangDashboard.
-      // Produk dikelompokkan berdasarkan produk_id + nama_produk,
-      // sedangkan customer berdasarkan customer_id + name_bill_to.
-      detailChartRows.forEach((item) => {
-        const label = String(item?.[field] ?? '').trim();
-        if (!label || label === 'Tidak diketahui') return;
-
-        const rawId = idField ? item?.[idField] : '';
-        const groupKey = idField && rawId !== undefined && rawId !== null && String(rawId).trim() !== ''
-          ? `${String(rawId).trim()}::${label}`
-          : label;
-
-        if (!grouped[groupKey]) {
-          grouped[groupKey] = {
-            name: label,
-            piutang: 0,
-            collection: 0,
-            saldo: 0,
-          };
-        }
-
-        // Nilai piutang berasal dari total_piutang per penjualan.
-        grouped[groupKey].piutang += Number(
-          item?.total_piutang ??
-          item?.totalPiutang ??
-          item?.piutang ??
-          0
-        ) || 0;
-
-        grouped[groupKey].collection += Number(
-          item?.total_collections ??
-          item?.totalCollections ??
-          item?.collection ??
-          0
-        ) || 0;
-
-        grouped[groupKey].saldo += Number(item?.outstanding ?? 0) || 0;
-      });
-
-      return Object.values(grouped).sort((a, b) => b.piutang - a.piutang);
-    }, [
-      detailChartRows,
-      currentPerformanceConfig.field,
-      currentPerformanceConfig.idField,
-    ]);
+  const performanceChartData = useMemo(() => (
+    performaPiutangDimensionApiData.map((item) => ({
+      name: String(item?.name ?? item?.label ?? item?.nama ?? item?.produk ?? item?.nama_produk ?? item?.text_material ?? item?.customer ?? item?.name_bill_to ?? item?.principal ?? item?.nama_principle ?? item?.principal_name ?? item?.channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? item?.cabang ?? item?.nama_cabang ?? 'Tidak diketahui'),
+      piutang: getDashboardNumber(item, ['piutang', 'total_piutang', 'totalPiutang']),
+      collection: getDashboardNumber(item, ['collection', 'total_collection', 'total_collections', 'totalCollections']),
+      saldo: getDashboardNumber(item, ['saldo', 'outstanding', 'total_outstanding', 'saldo_piutang']),
+    })).filter((item) => item.name !== 'Tidak diketahui')
+      .sort((a, b) => b.piutang - a.piutang)
+      .slice(0, 15)
+  ), [performaPiutangDimensionApiData]);
 
 
   /* =======================================================
@@ -1844,204 +1769,73 @@ const Dashboard = () => {
      COLLECTION CHART DATA
   ======================================================= */
 
-  const collectionChartData =
-    useMemo(() => {
-
-      const grouped = {};
-
-      const field =
-        currentCollectionConfig.field;
-
-
-      filteredData.forEach((item) => {
-
-        const key =
-          item[field];
-
-
-        if (!key) {
-          return;
-        }
-
-
-        if (!grouped[key]) {
-
-          grouped[key] = {
-            name: key,
-            collection: 0,
-          };
-
-        }
-
-
-        grouped[key].collection +=
-          item.collection;
-
-      });
-
-
-      return Object.values(grouped);
-
-    }, [
-      filteredData,
-      currentCollectionConfig.field,
-    ]);
+  const collectionChartData = useMemo(() => (
+    collectionDimensionApiData.map((item) => ({
+      name: String(item?.name ?? item?.label ?? item?.nama ?? item?.customer ?? item?.name_bill_to ?? item?.nama_customer ?? item?.principal ?? item?.nama_principle ?? item?.principal_name ?? item?.channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? 'Tidak diketahui'),
+      collection: getDashboardNumber(item, ['collection', 'total_collection', 'total_collections', 'totalCollections', 'nominal_collection']),
+    })).filter((item) => item.name !== 'Tidak diketahui')
+      .sort((a, b) => b.collection - a.collection)
+      .slice(0, 15)
+  ), [collectionDimensionApiData]);
 
 
   /* =======================================================
    COLLECTIONS BY METODE PEMBAYARAN
 ======================================================= */
 
-  const collectionByMetodeData = useMemo(() => {
-    const grouped = {};
-
-    const parseCollections = (value) => {
-      if (!value) return [];
-
-      if (Array.isArray(value)) {
-        return value;
-      }
-
-      if (typeof value === "string") {
-        try {
-          const parsed = JSON.parse(value);
-          return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-          console.warn(
-            "Gagal membaca collections_per_metode:",
-            error
-          );
-          return [];
-        }
-      }
-
-      return [];
-    };
-
-    (detailRows || []).forEach((item) => {
-      const collections = parseCollections(
-        item?.collections_per_metode ??
-        item?.collectionsPerMetode ??
-        item?.collections_by_metode ??
-        item?.collectionsByMetode
-      );
-
-      collections.forEach((payment) => {
-        const metode = String(
-          payment?.metode_pembayaran ??
-          payment?.metodePembayaran ??
-          payment?.metode ??
-          payment?.payment_method ??
-          payment?.method ??
-          "LAINNYA"
-        ).trim() || "LAINNYA";
-
-        const nominal = Number(
-          payment?.nominal_collection ??
-          payment?.nominalCollection ??
-          payment?.nominal_bayar ??
-          payment?.nominal_pembayaran ??
-          payment?.nominal ??
-          payment?.amount ??
-          0
-        ) || 0;
-
-        if (!grouped[metode]) {
-          grouped[metode] = {
-            name: metode,
-            collection: 0,
-          };
-        }
-
-        grouped[metode].collection += nominal;
-      });
-    });
-
-    return Object.values(grouped).sort(
-      (a, b) => b.collection - a.collection
-    );
-  }, [detailRows]);
-
-
-  const topPiutangPrincipalData = useMemo(() => {
-    const grouped = {};
-
-    detailChartRows.forEach((item) => {
-      const principal = String(
-        item?.principal ??
-        item?.nama_principle ??
-        item?.principal_name ??
-        item?.principle ??
-        ''
-      ).trim();
-
-      if (!principal) return;
-
-      const outstanding = Number(
-        item?.outstanding ??
-        item?.total_piutang ??
-        0
-      ) || 0;
-
-      if (!grouped[principal]) {
-        grouped[principal] = 0;
-      }
-
-      grouped[principal] += outstanding;
-    });
-
-    const data = Object.entries(grouped)
-      .map(([name, value]) => ({
-        name,
-        value,
+  // Data sudah diagregasi oleh endpoint berdasarkan metode pembayaran.
+  // Tidak lagi mengambil collections_per_metode dari detailRows yang berpaginasi.
+  const collectionByMetodeData = useMemo(() => (
+    (collectionByMetodeApiData || [])
+      .map((item) => ({
+        name: String(
+          item?.metode_pembayaran ??
+          item?.metodePembayaran ??
+          item?.metode ??
+          item?.payment_method ??
+          item?.method ??
+          item?.name ??
+          item?.label ??
+          'LAINNYA'
+        ).trim() || 'LAINNYA',
+        collection: getDashboardNumber(item, [
+          'nominal_collection',
+          'nominalCollection',
+          'nominal_bayar',
+          'nominal_pembayaran',
+          'nominal',
+          'amount',
+          'collection',
+          'total_collection',
+          'total_collections',
+        ]),
       }))
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => b.collection - a.collection)
+  ), [collectionByMetodeApiData]);
 
-    const total = data.reduce(
-      (sum, item) => sum + item.value,
-      0
-    );
 
-    return data.map((item) => ({
-      ...item,
-      percentage: total > 0
-        ? (item.value / total) * 100
-        : 0,
-    }));
-  }, [detailChartRows]);
+  const topPiutangPrincipalData = useMemo(() => (
+    topPiutangPrincipalApiData.map((item) => ({
+      name: String(item?.name ?? item?.principal ?? item?.nama_principle ?? item?.name_principle ?? item?.principal_name ?? item?.principle ?? 'Tidak diketahui'),
+      value: getDashboardNumber(item, ['value', 'outstanding', 'total_outstanding', 'saldo_piutang', 'total_piutang']),
+      percentage: getDashboardNumber(item, ['percentage', 'persentase', 'persentase_total']),
+    })).filter((item) => item.name !== 'Tidak diketahui')
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10)
+  ), [topPiutangPrincipalApiData]);
 
 
   /* =======================================================
-     CHANNEL CHART
-  ======================================================= */
+     OUTSTANDING BY CHANNEL
+     ======================================================= */
 
-  const customerGroupChartData =
-    useMemo(() => {
-
-      const grouped = {};
-
-
-      detailChartRows.forEach((item) => {
-
-        if (!grouped[item.channel]) {
-
-          grouped[item.channel] = {
-            name: item.channel,
-            value: 0,
-          };
-
-        }
-
-
-        grouped[item.channel].value +=
-          item.outstanding;
-
-      });
-
-
-      return Object.values(grouped);
-
-    }, [detailChartRows]);
+  const customerGroupChartData = useMemo(() => (
+    outstandingChannelApiData.map((item) => ({
+      name: String(item?.name ?? item?.channel ?? item?.nama_channel ?? item?.customer_group ?? item?.desc_cust_grp4 ?? 'Tidak diketahui'),
+      value: getDashboardNumber(item, ['value', 'outstanding', 'total_outstanding', 'saldo_piutang', 'total']),
+    })).filter((item) => item.name !== 'Tidak diketahui')
+      .sort((a, b) => b.value - a.value)
+  ), [outstandingChannelApiData]);
 
 
   /* =======================================================
@@ -3170,12 +2964,12 @@ const Dashboard = () => {
               <th className="px-4 py-3 text-left">Nama Produk</th>
               <th className="px-4 py-3 text-left">Customer</th>
               <th className="px-4 py-3 text-left">Channel</th>
+              <th className="px-4 py-3 text-right">Total</th>
               {agingLabels.map((label) => (
                 <th key={label} className="px-3 py-3 text-right whitespace-nowrap">
                   {label}
                 </th>
               ))}
-              <th className="px-4 py-3 text-right">Total</th>
             </tr>
           </thead>
 
@@ -3204,14 +2998,14 @@ const Dashboard = () => {
                     <td className="px-4 py-3 font-semibold text-gray-700">{row.namaProduk}</td>
                     <td className="px-4 py-3 text-gray-600">{row.customer}</td>
                     <td className="px-4 py-3 text-gray-600">{row.channel}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700 whitespace-nowrap">
+                      {formatRupiah(total)}
+                    </td>
                     {row.aging.map((value, agingIndex) => (
                       <td key={agingIndex} className="px-3 py-3 text-right text-gray-600 whitespace-nowrap">
                         {formatRupiah(value)}
                       </td>
                     ))}
-                    <td className="px-4 py-3 text-right font-bold text-blue-700 whitespace-nowrap">
-                      {formatRupiah(total)}
-                    </td>
                   </tr>
                 );
               })
@@ -3221,14 +3015,14 @@ const Dashboard = () => {
           <tfoot className="sticky bottom-0 z-20">
             <tr className="bg-blue-900 text-white shadow-[0_-2px_6px_rgba(15,23,42,0.12)]">
               <td colSpan={6} className="px-4 py-3 font-bold text-xs whitespace-nowrap">TOTAL SELURUH DATA</td>
+              <td className="px-4 py-3 text-right font-bold whitespace-nowrap">
+                {formatRupiah(Number(summary?.total_outstanding ?? summary?.totalOutstanding ?? 0))}
+              </td>
               {agingLabels.map((_, agingIndex) => (
                 <td key={agingIndex} className="px-3 py-3 text-right font-semibold whitespace-nowrap">
                   {formatRupiah(Number(summary?.aging?.[agingIndex] ?? 0))}
                 </td>
               ))}
-              <td className="px-4 py-3 text-right font-bold whitespace-nowrap">
-                {formatRupiah(Number(summary?.total_outstanding ?? summary?.totalOutstanding ?? 0))}
-              </td>
             </tr>
           </tfoot>
         </table>
@@ -3703,6 +3497,7 @@ const Dashboard = () => {
             <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-semibold text-slate-600">Cabang</label>
               <Select
+                maxMenuHeight={240}
                 isMulti
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
@@ -3723,6 +3518,7 @@ const Dashboard = () => {
             <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-semibold text-slate-600">Principal</label>
               <Select
+                maxMenuHeight={240}
                 isMulti
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
@@ -3743,6 +3539,7 @@ const Dashboard = () => {
             <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-semibold text-slate-600">Channel</label>
               <Select
+                maxMenuHeight={240}
                 isMulti
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
@@ -3763,6 +3560,7 @@ const Dashboard = () => {
             <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-semibold text-slate-600">Customer</label>
               <Select
+                maxMenuHeight={240}
                 isMulti
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
@@ -3783,6 +3581,7 @@ const Dashboard = () => {
             <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-semibold text-slate-600">Produk</label>
               <Select
+                maxMenuHeight={240}
                 isMulti
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
@@ -3976,7 +3775,7 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={applyFilter}
-              
+
               className="
                 flex
                 items-center
@@ -4453,13 +4252,13 @@ const Dashboard = () => {
             Tinggi card dibuat sama agar sejajar.
         ================================================= */}
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+        <div className="grid grid-cols-1 xl:grid-cols-1 gap-5 mb-5">
 
           {/* ===============================================
               SALDO PIUTANG BY AGING & CHANNEL
           =============================================== */}
 
-          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px]">
+          {/* <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-[350px]">
             <DashboardCardLoading loading={cardLoading.detailChart} />
 
             <div className="flex items-center justify-between mb-3">
@@ -4572,7 +4371,7 @@ const Dashboard = () => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </div> */}
 
 
           {/* ===============================================
@@ -4602,7 +4401,7 @@ const Dashboard = () => {
             </div>
 
             {/* TABLE AREA */}
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
+            <div className="min-h-0 flex overflow-hidden rounded-xl border border-slate-200">
 
               {/* 
       Wrapper ini yang mengatur:
@@ -4610,9 +4409,9 @@ const Dashboard = () => {
       - horizontal overflow
       - tinggi mengikuti sisa card
     */}
-              <div className="h-full overflow-auto">
+              <div className="h-full overflow-auto w-full">
 
-                <table className="min-w-max border-collapse text-[10px]">
+                <table className="w-full border-collapse text-[10px]">
 
                   {/* =========================
             HEADER
@@ -4871,127 +4670,106 @@ const Dashboard = () => {
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-
-              {topJatuhTempoChannelData.map(
-                (group) => (
+              {topJatuhTempoChannelData?.length > 0 &&
+                topJatuhTempoChannelData.some(
+                  (group) => group.rows?.length > 0
+                ) ? (
+                topJatuhTempoChannelData.map((group) => (
                   <div key={group.label}>
-
                     <div className="mx-3 my-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-bold text-red-600">
                       Total Overdue: Rp{' '}
                       {formatNumber(group.total / 1000)}
                     </div>
 
+                    {/* Header */}
                     <div className="
-                      grid
-                      grid-cols-[minmax(0,1fr)_48px_75px_60px]
-                      bg-slate-100
-                      text-slate-500
-                      text-[9px]
-                      font-bold
-                      px-2
-                      py-1
-                      gap-1
-                      sticky
-                      top-0
-                      z-10
-                    ">
+          grid
+          grid-cols-[minmax(0,1fr)_48px_75px_60px]
+          bg-slate-100
+          text-slate-500
+          text-[9px]
+          font-bold
+          px-2
+          py-1
+          gap-1
+          sticky
+          top-0
+          z-10
+        ">
                       <div>{group.label} (TOP 10 hari)</div>
                       <div className="text-center">Tahun</div>
                       <div className="text-right">Rp Ribu</div>
                       <div className="text-right">Aging</div>
                     </div>
 
-                    {group.rows.map(
-                      (row, index) => {
-                        const critical =
-                          row.aging > 360;
+                    {group.rows.map((row, index) => {
+                      const critical = row.aging > 360;
 
-                        return (
+                      return (
+                        <div
+                          key={`${group.label}-${row.customer}-${index}`}
+                          className={`
+                grid
+                grid-cols-[minmax(0,1fr)_48px_75px_60px]
+                px-2
+                py-1
+                gap-1
+                text-[9px]
+                border-b
+                border-slate-100
+                ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
+              `}
+                        >
                           <div
-                            key={`${group.label}-${row.customer}-${index}`}
                             className={`
-                              grid
-                              grid-cols-[minmax(0,1fr)_48px_75px_60px]
-                              px-2
-                              py-1
-                              gap-1
-                              text-[9px]
-                              border-b
-                              border-slate-100
-                              ${index % 2 === 0
-                                ? 'bg-white'
-                                : 'bg-slate-50'
-                              }
-                            `}
+                  truncate
+                  ${critical ? 'text-red-600 font-bold' : 'text-gray-700'}
+                `}
+                            title={row.customer}
                           >
-                            <div
-                              className={`
-                                truncate
-                                ${critical
-                                  ? 'text-red-600 font-bold'
-                                  : 'text-gray-700'
-                                }
-                              `}
-                              title={row.customer}
-                            >
-                              {row.customer}
-                            </div>
-
-                            <div
-                              className={`
-                                text-center
-                                ${critical
-                                  ? 'text-red-600 font-bold'
-                                  : 'text-gray-600'
-                                }
-                              `}
-                            >
-                              {row.tahun}
-                            </div>
-
-                            <div
-                              className={`
-                                text-right
-                                font-semibold
-                                ${critical
-                                  ? 'text-red-600'
-                                  : 'text-gray-700'
-                                }
-                              `}
-                            >
-                              {formatNumber(
-                                row.value / 1000
-                              )}
-                            </div>
-
-                            <div
-                              className={`
-                                text-right
-                                ${critical
-                                  ? 'text-red-600 font-bold'
-                                  : 'text-gray-600'
-                                }
-                              `}
-                            >
-                              {critical
-                                ? '>360 hari'
-                                : `${row.aging} hari`}
-                            </div>
+                            {row.customer}
                           </div>
-                        );
-                      }
-                    )}
 
-                    {group.rows.length === 0 && (
-                      <div className="px-3 py-5 text-center text-[10px] text-gray-400">
-                        Tidak ada data jatuh tempo.
-                      </div>
-                    )}
+                          <div
+                            className={`
+                  text-center
+                  ${critical ? 'text-red-600 font-bold' : 'text-gray-600'}
+                `}
+                          >
+                            {row.tahun}
+                          </div>
 
+                          <div
+                            className={`
+                  text-right
+                  font-semibold
+                  ${critical ? 'text-red-600' : 'text-gray-700'}
+                `}
+                          >
+                            {formatNumber(row.value / 1000)}
+                          </div>
+
+                          <div
+                            className={`
+                  text-right
+                  ${critical ? 'text-red-600 font-bold' : 'text-gray-600'}
+                `}
+                          >
+                            {critical ? '>360 hari' : `${row.aging} hari`}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )
+                ))
+              ) : (
+                <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-2 text-gray-400">
+                  <FaFolderOpen size={42} className="text-gray-300" />
+                  <span className="text-xs font-semibold">
+                    Tidak Ada Data
+                  </span>
+                </div>
               )}
-
             </div>
           </div>
 
@@ -5859,7 +5637,7 @@ const Dashboard = () => {
                 p-5
                 xl:col-span-2
               ">
-                <DashboardCardLoading loading={cardLoading.performaProduk} />
+                <DashboardCardLoading loading={cardLoading.performaDimension} />
 
                 <div className="
                   flex
@@ -5997,15 +5775,7 @@ const Dashboard = () => {
                   overflow-x-auto
                 ">
 
-                  <div
-                    style={{
-                      width: `${Math.max(
-                        performanceChartData.length * 120,
-                        800
-                      )}px`,
-                      height: '300px',
-                    }}
-                  >
+                  <div className="w-full h-[300px] min-w-0">
 
                     <ResponsiveContainer
                       width="100%"
@@ -6044,7 +5814,7 @@ const Dashboard = () => {
                             fontSize: 9,
                             fill: '#6b7280',
                           }}
-                          interval={0}
+                          interval="preserveStartEnd"
                           angle={
                             (performanceDimension ===
                               'customer' ||
@@ -6102,13 +5872,15 @@ const Dashboard = () => {
                             0,
                           ]}
                         >
-                          <LabelList
-                            dataKey="piutang"
-                            position="top"
-                            formatter={formatShortRupiah}
-                            fontSize={9}
-                            fill="#2563eb"
-                          />
+                          {performanceChartData.length <= 10 && (
+                            <LabelList
+                              dataKey="piutang"
+                              position="top"
+                              formatter={formatShortRupiah}
+                              fontSize={9}
+                              fill="#2563eb"
+                            />
+                          )}
                         </Bar>
 
 
@@ -6124,13 +5896,15 @@ const Dashboard = () => {
                             0,
                           ]}
                         >
-                          <LabelList
-                            dataKey="collection"
-                            position="top"
-                            formatter={formatShortRupiah}
-                            fontSize={9}
-                            fill="#2563eb"
-                          />
+                          {performanceChartData.length <= 10 && (
+                            <LabelList
+                              dataKey="collection"
+                              position="top"
+                              formatter={formatShortRupiah}
+                              fontSize={9}
+                              fill="#2563eb"
+                            />
+                          )}
                         </Bar>
 
 
@@ -6146,13 +5920,15 @@ const Dashboard = () => {
                             0,
                           ]}
                         >
-                          <LabelList
-                            dataKey="saldo"
-                            position="top"
-                            formatter={formatShortRupiah}
-                            fontSize={9}
-                            fill="#f97316"
-                          />
+                          {performanceChartData.length <= 10 && (
+                            <LabelList
+                              dataKey="saldo"
+                              position="top"
+                              formatter={formatShortRupiah}
+                              fontSize={9}
+                              fill="#f97316"
+                            />
+                          )}
                         </Bar>
 
                       </BarChart>
@@ -6169,6 +5945,7 @@ const Dashboard = () => {
               {/* CHANNEL */}
 
               <div className="
+  relative
   bg-white
   rounded-2xl
   border
@@ -6198,6 +5975,7 @@ const Dashboard = () => {
                     <FaHospital size={13} />
                   </div>
 
+                  <DashboardCardLoading loading={cardLoading.outstandingChannel} />
                   <h2 className="
       text-sm
       font-bold
@@ -6385,6 +6163,7 @@ const Dashboard = () => {
             ">
 
               <div className="
+  relative
   bg-white
   rounded-2xl
   border
@@ -6425,6 +6204,7 @@ const Dashboard = () => {
 
                     <div>
 
+                      <DashboardCardLoading loading={cardLoading.collectionDimension} />
                       <h2 className="
           text-sm
           font-bold
@@ -6521,15 +6301,7 @@ const Dashboard = () => {
     mt-2
   ">
 
-                  <div
-                    style={{
-                      width: `${Math.max(
-                        collectionChartData.length * 80,
-                        500
-                      )}px`,
-                      height: "400px",
-                    }}
-                  >
+                  <div className="w-full h-[400px] min-w-0">
 
                     <ResponsiveContainer
                       width="100%"
@@ -6562,7 +6334,7 @@ const Dashboard = () => {
                             fontSize: 9,
                             fill: "#6b7280",
                           }}
-                          interval={0}
+                          interval="preserveStartEnd"
                           angle={
                             collectionDimension === "customer"
                               ? -35
@@ -6596,13 +6368,15 @@ const Dashboard = () => {
                           radius={[6, 6, 0, 0]}
                         >
 
-                          <LabelList
-                            dataKey="collection"
-                            position="top"
-                            formatter={formatShortRupiah}
-                            fontSize={9}
-                            fill="#374151"
-                          />
+                          {collectionChartData.length <= 10 && (
+                            <LabelList
+                              dataKey="collection"
+                              position="top"
+                              formatter={formatShortRupiah}
+                              fontSize={9}
+                              fill="#374151"
+                            />
+                          )}
 
                           {collectionChartData.map(
                             (entry, index) => {
@@ -6650,6 +6424,7 @@ const Dashboard = () => {
               {/* TOP PIUTANG BY PRINCIPAL */}
 
               <div className="
+              relative
               bg-white
               rounded-2xl
               border
@@ -6672,6 +6447,7 @@ const Dashboard = () => {
                     <FaFileInvoiceDollar size={13} />
                   </div>
 
+                  <DashboardCardLoading loading={cardLoading.topPiutangPrincipal} />
                   <h2 className="text-sm font-bold text-gray-800">
                     Top Piutang by Principal
                   </h2>
@@ -7068,7 +6844,16 @@ const Dashboard = () => {
 
           <div className="w-full h-[320px]">
 
-            {collectionByMetodeData.length > 0 ? (
+            {collectionByMetodeLoading ? (
+
+              <div className="h-full flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
+                <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-emerald-100 border-t-emerald-600" />
+                <p className="mt-3 text-sm font-semibold text-slate-500">
+                  Memuat data collection...
+                </p>
+              </div>
+
+            ) : collectionByMetodeData.length > 0 ? (
 
               <ResponsiveContainer width="100%" height="100%">
 
@@ -7090,7 +6875,7 @@ const Dashboard = () => {
 
                   <XAxis
                     dataKey="name"
-                    interval={0}
+                    interval="preserveStartEnd"
                     angle={-15}
                     textAnchor="end"
                     height={60}

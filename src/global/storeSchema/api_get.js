@@ -2966,6 +2966,293 @@ const n2nGetService = {
       );
     }
   },
+  getSaldoPiutangByAgingChannelDashboard: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getSaldoPiutangByAgingChannelDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET SALDO PIUTANG BY AGING CHANNEL:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil Saldo Piutang by Aging & Channel",
+          data: [],
+        }
+      );
+    }
+  },
+  getPerformaPiutangByDimensionDashboard: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+    group_by = "produk",
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getPerformaPiutangByDimensionDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+            group_by,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET PERFORMA PIUTANG BY DIMENSION:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil Performa Piutang",
+          data: [],
+        }
+      );
+    }
+  },
+  getOutstandingByChannelDashboard: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getOutstandingByChannelDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET OUTSTANDING BY CHANNEL:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil Outstanding per Channel",
+          data: [],
+        }
+      );
+    }
+  },
+  getCollectionByDimensionDashboard: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+    group_by = "customer",
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getCollectionByDimensionDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+            group_by,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET COLLECTION BY DIMENSION:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil Collection by Dimension",
+          data: [],
+        }
+      );
+    }
+  },
+  getTopPiutangByPrincipalDashboard: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getTopPiutangByPrincipalDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET TOP PIUTANG BY PRINCIPAL:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message || "Gagal mengambil Top Piutang by Principal",
+          data: [],
+        }
+      );
+    }
+  },
+  getCollectionByMetodePembayaranDashboard: async ({
+    cabang = [],
+    principal = [],
+    principal_id = [],
+    channel = [],
+    customer = [],
+    produk = [],
+    tanggal_mulai = null,
+    tanggal_akhir = null,
+  } = {}) => {
+    try {
+      const response = await api.get(
+        "/getCollectionByMetodePembayaranDashboard",
+        {
+          params: {
+            cabang,
+            principal,
+            principal_id,
+            channel,
+            customer,
+            produk,
+            tanggal_mulai,
+            tanggal_akhir,
+          },
+          paramsSerializer: {
+            indexes: null,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        "ERROR GET COLLECTION BY METODE PEMBAYARAN:",
+        error.response?.data || error.message
+      );
+
+      return (
+        error.response?.data || {
+          status: false,
+          message:
+            error.message ||
+            "Gagal mengambil Collection By Metode Pembayaran",
+          data: [],
+        }
+      );
+    }
+  },
   getDashboardPiutangByCabang: async ({
     cabang = [],
     principal = [],
