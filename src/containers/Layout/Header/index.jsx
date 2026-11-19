@@ -98,6 +98,9 @@ const Header = () => {
   const notificationListRef =
     useRef(null);
 
+  const notificationRefreshInProgressRef =
+    useRef(false);
+
 
   // ===================================================
   // STATE
@@ -327,12 +330,14 @@ const Header = () => {
   const getListNotification = async (pageNumber = 1, mode = "replace") => {
     const isLoadMore = pageNumber > 1;
 
+    if (!getCookies("loginData") || !getCookies("accountAccess")) return;
     if (isLoadMore && (loadingMore || refreshing)) return;
-    if (!isLoadMore && refreshing) return;
+    if (!isLoadMore && (refreshing || notificationRefreshInProgressRef.current)) return;
 
     if (isLoadMore) {
       setLoadingMore(true);
     } else {
+      notificationRefreshInProgressRef.current = true;
       setRefreshing(true);
     }
 
@@ -377,6 +382,7 @@ const Header = () => {
         setLoadingMore(false);
       } else {
         setRefreshing(false);
+        notificationRefreshInProgressRef.current = false;
       }
     }
   };
@@ -385,10 +391,23 @@ const Header = () => {
     await getListNotification(1, "replace");
   };
 
-  // Ambil halaman pertama saat Header dimuat.
+  // Muat notifikasi saat Header dibuka dan perbarui setiap 20 detik.
   useEffect(() => {
-    refreshNotifications();
-    // Fungsi dipanggil sekali saat komponen dimuat.
+    let intervalId;
+    const refreshIfSessionActive = () => {
+      if (!getCookies("loginData") || !getCookies("accountAccess")) {
+        clearInterval(intervalId);
+        return;
+      }
+
+      refreshNotifications();
+    };
+
+    intervalId = setInterval(refreshIfSessionActive, 20000);
+    refreshIfSessionActive();
+
+    return () => clearInterval(intervalId);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

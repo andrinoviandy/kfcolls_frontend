@@ -430,7 +430,8 @@ const getPiutangKeterangan = ({ saldoPiutang, totalInvoice, ppn, pph }, item = {
   );
 
   if (topNumber === 45) {
-    return "Sisa Komersil";
+    // return "Sisa Komersil";
+    return "Cicil";
   }
 
   if (ppn > 0 && isSameAmount(saldoPiutang, ppn)) {
@@ -448,7 +449,8 @@ const getPiutangKeterangan = ({ saldoPiutang, totalInvoice, ppn, pph }, item = {
     return "Sisa PPN + PPh";
   }
 
-  return "Sisa Komersil";
+  // return "Sisa Komersil";
+  return "Cicil";
 };
 // =====================================================
 // DATE HELPER

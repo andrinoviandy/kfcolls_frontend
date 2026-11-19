@@ -206,8 +206,10 @@ const TablePenugasanFaktur = ({
     total_faktur: 0,
     belum_ditugaskan: 0,
     sudah_ditugaskan: 0,
-    total_faktur_kembali_tukar_faktur: 0,
-    total_faktur_kembali_penagihan: 0,
+    faktur_kembali_tukar_faktur_accept: 0,
+    faktur_kembali_tukar_faktur_reject: 0,
+    faktur_kembali_penagihan_accept: 0,
+    faktur_kembali_penagihan_reject: 0,
   });
   const [totalData, setTotalData] = useState(0);
   const [totalPage, setTotalPage] = useState(0);
@@ -390,11 +392,17 @@ const TablePenugasanFaktur = ({
         ),
         belum_ditugaskan: Number(summary?.belum_ditugaskan || 0),
         sudah_ditugaskan: Number(summary?.sudah_ditugaskan || 0),
-        total_faktur_kembali_tukar_faktur: Number(
-          summary?.total_faktur_kembali_tukar_faktur || 0
+        faktur_kembali_tukar_faktur_accept: Number(
+          summary?.faktur_kembali_tukar_faktur_accept || 0
         ),
-        total_faktur_kembali_penagihan: Number(
-          summary?.total_faktur_kembali_penagihan || 0
+        faktur_kembali_tukar_faktur_reject: Number(
+          summary?.faktur_kembali_tukar_faktur_reject || 0
+        ),
+        faktur_kembali_penagihan_accept: Number(
+          summary?.faktur_kembali_penagihan_accept || 0
+        ),
+        faktur_kembali_penagihan_reject: Number(
+          summary?.faktur_kembali_penagihan_reject || 0
         ),
       });
     } catch (error) {
@@ -406,8 +414,10 @@ const TablePenugasanFaktur = ({
         total_faktur: 0,
         belum_ditugaskan: 0,
         sudah_ditugaskan: 0,
-        total_faktur_kembali_tukar_faktur: 0,
-        total_faktur_kembali_penagihan: 0,
+        faktur_kembali_tukar_faktur_accept: 0,
+        faktur_kembali_tukar_faktur_reject: 0,
+        faktur_kembali_penagihan_accept: 0,
+        faktur_kembali_penagihan_reject: 0,
       });
       await swal.error(error?.message || "Gagal mengambil data faktur petugas");
     } finally {
@@ -898,7 +908,7 @@ const TablePenugasanFaktur = ({
                 !filterCabang.length
                   ? "Pilih Cabang Dahulu"
                   : loadingCustomerOptions
-                    ? "Memuat Customer..."
+                    ? "Memuat Data..."
                     : "Semua Customer"
               }
               isDisabled={!filterCabang.length || loadingCustomerOptions}
@@ -984,7 +994,7 @@ const TablePenugasanFaktur = ({
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
           <div className="flex justify-between">
             <div>
@@ -1024,29 +1034,55 @@ const TablePenugasanFaktur = ({
             </div>
           </div>
         </div>
-        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-4">
-          <div className="flex justify-between gap-3">
-            <div>
-              <p className="text-sm text-orange-700">Faktur Kembali - Tukar Faktur</p>
-              <p className="text-2xl font-bold text-orange-900">
-                {formatNumber(summaryData.total_faktur_kembali_tukar_faktur)}
-              </p>
-            </div>
+        <div className="rounded-2xl bg-white border border-gray-200 p-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <p className="text-sm font-semibold text-gray-700">Faktur Kembali - Tukar Faktur</p>
             <div className="w-11 h-11 shrink-0 rounded-xl bg-orange-100 flex items-center justify-center">
               <FaExchangeAlt className="text-orange-600" />
             </div>
           </div>
-        </div>
-        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4">
-          <div className="flex justify-between gap-3">
-            <div>
-              <p className="text-sm text-purple-700">Faktur Kembali - Penagihan</p>
-              <p className="text-2xl font-bold text-purple-900">
-                {formatNumber(summaryData.total_faktur_kembali_penagihan)}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-green-50 border border-green-100 px-3 py-2">
+              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                Accept
+              </span>
+              <p className="mt-1 text-xl font-bold text-green-800">
+                {formatNumber(summaryData.faktur_kembali_tukar_faktur_accept)}
               </p>
             </div>
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-purple-100 flex items-center justify-center">
-              <FaRoute className="text-purple-600" />
+            <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-2">
+              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                Reject
+              </span>
+              <p className="mt-1 text-xl font-bold text-red-800">
+                {formatNumber(summaryData.faktur_kembali_tukar_faktur_reject)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-white border border-gray-200 p-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <p className="text-sm font-semibold text-gray-700">Faktur Kembali - Penagihan</p>
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-100 flex items-center justify-center">
+              <FaRoute className="text-blue-600" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-green-50 border border-green-100 px-3 py-2">
+              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                Accept
+              </span>
+              <p className="mt-1 text-xl font-bold text-green-800">
+                {formatNumber(summaryData.faktur_kembali_penagihan_accept)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-2">
+              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                Reject
+              </span>
+              <p className="mt-1 text-xl font-bold text-red-800">
+                {formatNumber(summaryData.faktur_kembali_penagihan_reject)}
+              </p>
             </div>
           </div>
         </div>

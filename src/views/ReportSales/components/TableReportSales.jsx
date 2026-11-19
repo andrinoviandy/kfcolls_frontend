@@ -1266,6 +1266,7 @@ const TableReportSales = ({
   const [filterOptions, setFilterOptions] = useState({
     cabang: [], principal: [], channel: [], customer: [], sales: [],
   });
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
 
   const normalizeOptions = (items, valueKeys, labelKeys) => {
     if (!Array.isArray(items)) return [];
@@ -1340,8 +1341,10 @@ const TableReportSales = ({
       if (!filter.cabang.length) {
         setFilterOptions((prev) => ({ ...prev, customer: [] }));
         setFilter((prev) => prev.customer.length ? { ...prev, customer: [] } : prev);
+        setLoadingCustomer(false);
         return;
       }
+      setLoadingCustomer(true);
       try {
         const res = await storeSchema.actions.getDataPelanggan({
           page: 1,
@@ -1360,6 +1363,8 @@ const TableReportSales = ({
       } catch (error) {
         console.error("ERROR GET CUSTOMER FILTER REPORT SALES:", error);
         if (active) setFilterOptions((prev) => ({ ...prev, customer: [] }));
+      } finally {
+        if (active) setLoadingCustomer(false);
       }
     };
     loadCustomers();
@@ -1888,11 +1893,13 @@ const TableReportSales = ({
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Customer</label>
             <Select
               isMulti
-              isDisabled={!filter.cabang.length}
+              isDisabled={!filter.cabang.length || loadingCustomer}
+              isLoading={loadingCustomer}
+              loadingMessage={() => "Memuat Data..."}
               options={customerOptions.filter((item) => item.value !== "ALL")}
               value={customerOptions.filter((item) => (filter.customer || []).includes(item.value))}
               onChange={(selected) => handleFilterChange("customer", (selected || []).map((item) => item.value))}
-              placeholder="Semua Customer"
+              placeholder={loadingCustomer ? "Memuat Data..." : "Semua Customer"}
               closeMenuOnSelect={false}
               hideSelectedOptions={false}
               components={filterSelectComponents}

@@ -221,6 +221,7 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [customerOptions, setCustomerOptions] = useState([]);
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [cabangOptions, setCabangOptions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -250,8 +251,10 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
       if (!filterCabang.length) {
         setCustomerOptions([]);
         setFilterCustomer([]);
+        setLoadingCustomer(false);
         return;
       }
+      setLoadingCustomer(true);
       try {
         const res = await storeSchema.actions.getDataPelanggan({
           page: 1,
@@ -284,6 +287,8 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
           setFilterCustomer([]);
           await swal.error(error?.message || "Gagal mengambil data customer");
         }
+      } finally {
+        if (isMounted) setLoadingCustomer(false);
       }
     };
     getDataCustomer();
@@ -493,14 +498,16 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
             <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
             <Select
               isMulti
-              isDisabled={!filterCabang.length}
+              isDisabled={!filterCabang.length || loadingCustomer}
+              isLoading={loadingCustomer}
+              loadingMessage={() => "Memuat Data..."}
               options={customerOptions}
               value={getSelectedFilterOptions(customerOptions, filterCustomer)}
               onChange={(selected) => {
                 setCurrentPage(1);
                 setFilterCustomer((selected || []).map((item) => item.value));
               }}
-              placeholder={filterCabang.length ? "Semua Customer" : "Pilih cabang dahulu"}
+              placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomer ? "Memuat Data..." : "Semua Customer"}
               closeMenuOnSelect={false}
               hideSelectedOptions={false}
               components={filterSelectComponents}

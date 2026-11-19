@@ -301,7 +301,8 @@ const getPiutangKeterangan = ({
   );
 
   if (parsedTOP === 45) {
-    return "Sisa Komersil";
+    // return "Sisa Komersil";
+    return "Cicil";
   }
 
   if (ppn > 0 && isSameAmount(saldoPiutang, ppn)) {
@@ -319,7 +320,8 @@ const getPiutangKeterangan = ({
     return "Sisa PPN + PPh";
   }
 
-  return "Sisa Komersil";
+  // return "Sisa Komersil";
+  return "Cicil";
 };
 
 const getInvoiceAmounts = (item) => {
@@ -356,6 +358,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [options, setOptions] = useState({ cabang: [], customer: [], channel: [], principle: [] });
   const [selectedData, setSelectedData] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
@@ -383,8 +386,10 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
       if (!filterCabang.length) {
         setOptions((prev) => ({ ...prev, customer: [] }));
         setFilterCustomer([]);
+        setLoadingCustomer(false);
         return;
       }
+      setLoadingCustomer(true);
       try {
         const res = await storeSchema.actions.getDataPelanggan({ page: 1, limit: 9999, cabang_id: filterCabang });
         if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data customer");
@@ -398,6 +403,8 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
       } catch (error) {
         console.error("ERROR GET CUSTOMER LAPORAN:", error);
         if (mounted) { setOptions((prev) => ({ ...prev, customer: [] })); setFilterCustomer([]); }
+      } finally {
+        if (mounted) setLoadingCustomer(false);
       }
     };
     getCustomers();
@@ -613,7 +620,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
           <div className="w-full min-w-[190px] sm:w-[220px]"><label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label><Select isMulti options={options.cabang} value={getSelectedFilterOptions(options.cabang, filterCabang)} onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); setFilterCustomer([]); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
           <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Channel</label><Select isMulti options={options.channel} value={getSelectedFilterOptions(options.channel, filterChannel)} onChange={(selected) => { setCurrentPage(1); setFilterChannel((selected || []).map((item) => item.value)); }} placeholder="Semua Channel" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
           <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Principle</label><Select isMulti options={options.principle} value={getSelectedFilterOptions(options.principle, filterPrinciple)} onChange={(selected) => { setCurrentPage(1); setFilterPrinciple((selected || []).map((item) => item.value)); }} placeholder="Semua Principle" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
-          <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Customer</label><Select isMulti isDisabled={!filterCabang.length} options={options.customer} value={getSelectedFilterOptions(options.customer, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
+          <div className="w-full min-w-[180px] sm:w-[210px]"><label className="mb-1 block text-xs font-medium text-gray-600">Customer</label><Select isMulti isDisabled={!filterCabang.length || loadingCustomer} isLoading={loadingCustomer} loadingMessage={() => "Memuat Data..."} options={options.customer} value={getSelectedFilterOptions(options.customer, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomer ? "Memuat Data..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} /></div>
           <div className="w-full sm:w-auto"><label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label><div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm"><FaCalendarAlt className="text-primary text-sm" /><input type="date" value={filterStartDate} max={filterEndDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterStartDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" title="Tanggal mulai" /><span className="text-gray-300">-</span><input type="date" value={filterEndDate} min={filterStartDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterEndDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" title="Tanggal akhir" /></div></div>
         </div>
       </div>

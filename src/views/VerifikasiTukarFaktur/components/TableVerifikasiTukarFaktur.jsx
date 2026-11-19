@@ -1026,7 +1026,7 @@ const TableVerifikasiTukarFaktur = ({
                 !filterCabang.length
                   ? "Pilih Cabang Dahulu"
                   : loadingCustomerOptions
-                  ? "Memuat Customer..."
+                  ? "Memuat Data..."
                   : "Semua Customer"
               }
               isDisabled={!filterCabang.length || loadingCustomerOptions}

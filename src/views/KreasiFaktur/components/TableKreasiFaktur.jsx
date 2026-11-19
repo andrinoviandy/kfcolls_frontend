@@ -697,6 +697,7 @@ const TableKreasiFaktur = ({
 
   const [filterCabang, setFilterCabang] = useState([]);
   const [filterCustomer, setFilterCustomer] = useState([]);
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [filterChannel, setFilterChannel] = useState([]);
   const [filterPrinciple, setFilterPrinciple] = useState([]);
   const [filterStatusTerimaFaktur, setFilterStatusTerimaFaktur] =
@@ -818,10 +819,13 @@ const TableKreasiFaktur = ({
         }));
 
         setFilterCustomer([]);
+        setLoadingCustomer(false);
         return;
       }
 
       try {
+        setLoadingCustomer(true);
+
         const res = await storeSchema.actions.getDataPelanggan({
           page: 1,
           limit: 9999,
@@ -890,6 +894,10 @@ const TableKreasiFaktur = ({
           await swal.error(
             error?.message || "Gagal mengambil data customer"
           );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCustomer(false);
         }
       }
     };
@@ -1498,7 +1506,9 @@ const TableKreasiFaktur = ({
             </label>
             <Select
               isMulti
-              isDisabled={!filterCabang.length}
+              isDisabled={!filterCabang.length || loadingCustomer}
+              isLoading={loadingCustomer}
+              loadingMessage={() => "Memuat Data..."}
               options={options?.customer || []}
               value={getSelectedFilterOptions(
                 options?.customer || [],
@@ -1513,7 +1523,9 @@ const TableKreasiFaktur = ({
               placeholder={
                 !filterCabang.length
                   ? "Pilih cabang dahulu"
-                  : "Semua Customer"
+                  : loadingCustomer
+                    ? "Memuat Data..."
+                    : "Semua Customer"
               }
               closeMenuOnSelect={false}
               hideSelectedOptions={false}

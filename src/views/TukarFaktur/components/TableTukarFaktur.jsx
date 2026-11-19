@@ -272,7 +272,8 @@ const TableTukarFaktur = ({
   const [bulkFile, setBulkFile] = useState(null);
   const [showFakturKembaliModal, setShowFakturKembaliModal] = useState(false);
   const [alasanFakturKembali, setAlasanFakturKembali] = useState("");
-  const [metodeFakturKembali, setMetodeFakturKembali] = useState("");
+  const [aksiVerifikasiFaktur, setAksiVerifikasiFaktur] = useState(null);
+  const [modeVerifikasiFaktur, setModeVerifikasiFaktur] = useState(false);
   const [loadingFakturKembali, setLoadingFakturKembali] = useState(false);
   const [fakturKembaliList, setFakturKembaliList] = useState([]);
   const [historyPenugasanData, setHistoryPenugasanData] = useState([]);
@@ -570,6 +571,13 @@ const TableTukarFaktur = ({
       getStatus(item) === "BELUM_DITUKAR"
   );
 
+  // Faktur yang menunggu verifikasi dapat diproses sekaligus (terima/tolak).
+  const selectedVerifikasiFakturList = Object.values(selectedRowData).filter(
+    (item) =>
+      selectedIds.includes(getId(item)) &&
+      item?.status_verifikasi_tukar === "MENUNGGU_VERIFIKASI"
+  );
+
   // ===================================================
   // LOKASI USER / KOORDINAT
   // ===================================================
@@ -639,13 +647,15 @@ const TableTukarFaktur = ({
   const selectableData = tableData.filter(
     (item) =>
       getStatus(item) === "BELUM_DITUKAR" ||
-      item?.status_verifikasi_tukar === "DITOLAK"
+      item?.status_verifikasi_tukar === "DITOLAK" ||
+      item?.status_verifikasi_tukar === "MENUNGGU_VERIFIKASI"
   );
   const toggleSelectFaktur = (faktur) => {
     const id = getId(faktur);
     const canSelect =
       getStatus(faktur) === "BELUM_DITUKAR" ||
-      faktur?.status_verifikasi_tukar === "DITOLAK";
+      faktur?.status_verifikasi_tukar === "DITOLAK" ||
+      faktur?.status_verifikasi_tukar === "MENUNGGU_VERIFIKASI";
     if (!id || !canSelect) return;
     if (selectedIds.includes(id)) {
       const nextIds = selectedIds.filter((x) => x !== id);
@@ -731,7 +741,27 @@ const TableTukarFaktur = ({
     setFakturKembaliList(list);
     setSelectedFaktur(list[0]);
     setAlasanFakturKembali("");
-    setMetodeFakturKembali("");
+    setAksiVerifikasiFaktur(null);
+    setModeVerifikasiFaktur(false);
+    setShowFakturKembaliModal(true);
+  };
+
+  const openVerifikasiFaktur = (faktur = null) => {
+    const list = faktur ? [faktur] : selectedVerifikasiFakturList;
+    const listMenunggu = list.filter(
+      (item) => item?.status_verifikasi_tukar === "MENUNGGU_VERIFIKASI"
+    );
+
+    if (!list.length || listMenunggu.length !== list.length) {
+      swal.error("Pilih minimal satu faktur dengan status Menunggu Verifikasi.");
+      return;
+    }
+
+    setFakturKembaliList(listMenunggu);
+    setSelectedFaktur(listMenunggu[0]);
+    setAlasanFakturKembali("");
+    setAksiVerifikasiFaktur(null);
+    setModeVerifikasiFaktur(true);
     setShowFakturKembaliModal(true);
   };
 
@@ -739,7 +769,8 @@ const TableTukarFaktur = ({
     if (loadingFakturKembali) return;
     setShowFakturKembaliModal(false);
     setAlasanFakturKembali("");
-    setMetodeFakturKembali("");
+    setAksiVerifikasiFaktur(null);
+    setModeVerifikasiFaktur(false);
     setFakturKembaliList([]);
   };
 
@@ -751,22 +782,28 @@ const TableTukarFaktur = ({
       return;
     }
 
-    const fakturBelumDitukar = fakturTerpilih.filter(
-      (item) => getStatus(item) === "BELUM_DITUKAR"
-    );
+    if (!modeVerifikasiFaktur) {
+      const fakturBelumDitukar = fakturTerpilih.filter(
+        (item) => getStatus(item) === "BELUM_DITUKAR"
+      );
 
-    if (fakturBelumDitukar.length !== fakturTerpilih.length) {
-      await swal.error("Faktur Kembali hanya dapat dilakukan untuk faktur yang belum ditukar.");
+      if (fakturBelumDitukar.length !== fakturTerpilih.length) {
+        await swal.error("Faktur Kembali hanya dapat dilakukan untuk faktur yang belum ditukar.");
+        return;
+      }
+    }
+
+    if (modeVerifikasiFaktur && !aksiVerifikasiFaktur) {
+      await swal.error("Silakan pilih Terima atau Tolak terlebih dahulu.");
       return;
     }
 
-    if (!metodeFakturKembali) {
-      await swal.error("Silakan pilih metode pengembalian faktur terlebih dahulu.");
-      return;
-    }
-
-    if (alasanFakturKembali.trim().length < 10) {
-      await swal.error("Alasan Faktur Kembali minimal 10 karakter.");
+    if (alasanVerifikasiWajib && alasanFakturKembali.trim().length < 10) {
+      await swal.error(
+        modeVerifikasiFaktur
+          ? "Alasan verifikasi minimal 10 karakter."
+          : "Alasan Faktur Kembali minimal 10 karakter."
+      );
       return;
     }
 
@@ -774,8 +811,8 @@ const TableTukarFaktur = ({
       setLoadingFakturKembali(true);
       const payload = {
         faktur_petugas_id: fakturTerpilih.map((item) => getPetugasId(item)),
-        alasan: alasanFakturKembali.trim(),
-        kd_status: metodeFakturKembali,
+        alasan: aksiVerifikasiFaktur === "A" ? "" : alasanFakturKembali.trim(),
+        kd_status: aksiVerifikasiFaktur || "K",
         kegiatan: 'TUKAR_FAKTUR',
         user_id: loginAccess?.user_id || null,
         nip: loginAccess?.nip || null,
@@ -786,10 +823,18 @@ const TableTukarFaktur = ({
         throw new Error(res?.message || "Gagal menyimpan Faktur Kembali.");
       }
 
-      await swal.success(res?.message || "Faktur Kembali berhasil disimpan.");
+      await swal.success(
+        res?.message ||
+          (aksiVerifikasiFaktur === "A"
+            ? "Faktur berhasil diterima."
+            : aksiVerifikasiFaktur === "C"
+              ? "Faktur berhasil ditolak."
+              : "Faktur Kembali berhasil disimpan.")
+      );
       setShowFakturKembaliModal(false);
       setAlasanFakturKembali("");
-      setMetodeFakturKembali("");
+      setAksiVerifikasiFaktur(null);
+      setModeVerifikasiFaktur(false);
       setFakturKembaliList([]);
       setSelectedIds([]);
       setSelectedRowData({});
@@ -1102,33 +1147,33 @@ const TableTukarFaktur = ({
 
     return (
       <div className="flex items-center gap-2 whitespace-nowrap">
-        {(!sudahDitukar || ditolak) && (
-          <>
-            <label
-              className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${checked
-                  ? "bg-blue-50 border-primary text-primary"
-                  : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
-                }`}
-              title={checked ? "Batalkan pilihan" : "Pilih faktur"}
-            >
-              <input
-                type="checkbox"
-                className="hidden"
-                checked={checked}
-                onChange={() => toggleSelectFaktur(faktur)}
-              />
-              {checked ? <FaCheck /> : <span className="w-4 h-4 rounded border border-current" />}
-            </label>
+        {(!sudahDitukar || ditolak || faktur.status_verifikasi_tukar === "MENUNGGU_VERIFIKASI") && (
+          <label
+            className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition ${checked
+                ? "bg-blue-50 border-primary text-primary"
+                : "bg-white border-gray-300 text-gray-400 hover:bg-blue-50 hover:text-primary"
+              }`}
+            title={checked ? "Batalkan pilihan" : "Pilih faktur"}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={checked}
+              onChange={() => toggleSelectFaktur(faktur)}
+            />
+            {checked ? <FaCheck /> : <span className="w-4 h-4 rounded border border-current" />}
+          </label>
+        )}
 
-            <button
-              type="button"
-              onClick={() => openTukarFaktur(faktur)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition shadow-sm whitespace-nowrap"
-            >
-              <FaExchangeAlt />
-              Tukar Faktur
-            </button>
-          </>
+        {(!sudahDitukar || ditolak) && (
+          <button
+            type="button"
+            onClick={() => openTukarFaktur(faktur)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition shadow-sm whitespace-nowrap"
+          >
+            <FaExchangeAlt />
+            Tukar Faktur
+          </button>
         )}
 
         {!sudahDitukar && (
@@ -1140,6 +1185,18 @@ const TableTukarFaktur = ({
           >
             <FaUndoAlt />
             Faktur Kembali
+          </button>
+        )}
+
+        {faktur.status_verifikasi_tukar === "MENUNGGU_VERIFIKASI" && (
+          <button
+            type="button"
+            onClick={() => openVerifikasiFaktur(faktur)}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition whitespace-nowrap"
+            title="Verifikasi Faktur"
+          >
+            <FaCheckCircle />
+            Verifikasi
           </button>
         )}
       </div>
@@ -1218,6 +1275,64 @@ const TableTukarFaktur = ({
   // ===================================================
   // RENDER
   // ===================================================
+
+  const isVerifikasiFaktur = modeVerifikasiFaktur;
+  const alasanVerifikasiWajib = !isVerifikasiFaktur || aksiVerifikasiFaktur === "C";
+  const warnaModal = aksiVerifikasiFaktur === "A"
+    ? {
+        header: "bg-green-600",
+        subText: "text-green-100",
+        panel: "border-green-100 bg-green-50",
+        panelTitle: "text-green-900",
+        panelText: "text-green-700",
+        badge: "badge-success",
+        itemBorder: "border-green-100",
+        number: "bg-green-100 text-green-700",
+        billing: "text-green-900",
+        submit: "bg-green-600 hover:bg-green-700",
+        icon: <FaCheckCircle />,
+      }
+    : aksiVerifikasiFaktur === "C"
+      ? {
+          header: "bg-red-600",
+          subText: "text-red-100",
+          panel: "border-red-100 bg-red-50",
+          panelTitle: "text-red-900",
+          panelText: "text-red-700",
+          badge: "badge-error",
+          itemBorder: "border-red-100",
+          number: "bg-red-100 text-red-700",
+          billing: "text-red-900",
+          submit: "bg-red-600 hover:bg-red-700",
+          icon: <FaTimesCircle />,
+        }
+      : modeVerifikasiFaktur
+        ? {
+            header: "bg-indigo-600",
+            subText: "text-indigo-100",
+            panel: "border-indigo-100 bg-indigo-50",
+            panelTitle: "text-indigo-900",
+            panelText: "text-indigo-700",
+            badge: "badge-info",
+            itemBorder: "border-indigo-100",
+            number: "bg-indigo-100 text-indigo-700",
+            billing: "text-indigo-900",
+            submit: "bg-indigo-600 hover:bg-indigo-700",
+            icon: <FaCheckCircle />,
+          }
+        : {
+            header: "bg-orange-600",
+            subText: "text-orange-100",
+            panel: "border-orange-100 bg-orange-50",
+            panelTitle: "text-orange-900",
+            panelText: "text-orange-700",
+            badge: "badge-warning",
+            itemBorder: "border-orange-100",
+            number: "bg-orange-100 text-orange-700",
+            billing: "text-orange-900",
+            submit: "bg-orange-600 hover:bg-orange-700",
+            icon: <FaUndoAlt />,
+          };
 
   return (
 
@@ -1308,7 +1423,7 @@ const TableTukarFaktur = ({
                 !filterCabang.length
                   ? "Pilih Cabang Dahulu"
                   : loadingCustomerOptions
-                  ? "Memuat Customer..."
+                  ? "Memuat Data..."
                   : "Semua Customer"
               }
               isDisabled={!filterCabang.length || loadingCustomerOptions}
@@ -1690,6 +1805,15 @@ const TableTukarFaktur = ({
           >
             <FaUndoAlt />
             Faktur Kembali {selectedFakturKembaliList.length > 0 ? `${selectedFakturKembaliList.length} Faktur` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => openVerifikasiFaktur()}
+            disabled={selectedVerifikasiFakturList.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-indigo-200 bg-white text-indigo-700 text-sm font-semibold shadow-sm hover:bg-indigo-50 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <FaCheckCircle />
+            Verifikasi {selectedVerifikasiFakturList.length > 0 ? `${selectedVerifikasiFakturList.length} Faktur` : "Faktur"}
           </button>
           <button
             type="button"
@@ -3083,15 +3207,21 @@ const TableTukarFaktur = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* HEADER - TETAP TERLIHAT */}
-            <div className="flex shrink-0 items-center justify-between gap-3 bg-orange-600 px-5 py-4 text-white sm:px-6">
+            <div className={`flex shrink-0 items-center justify-between gap-3 ${warnaModal.header} px-5 py-4 text-white sm:px-6`}>
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                  <FaUndoAlt />
+                  {warnaModal.icon}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-bold">Faktur Kembali</h3>
-                  <p className="mt-0.5 text-xs text-orange-100">
-                    Masukkan alasan pengembalian faktur
+                  <h3 className="text-lg font-bold">
+                    {isVerifikasiFaktur
+                      ? aksiVerifikasiFaktur === "A" ? "Terima Faktur" : "Tolak Faktur"
+                      : "Faktur Kembali"}
+                  </h3>
+                  <p className={`mt-0.5 text-xs ${warnaModal.subText}`}>
+                    {isVerifikasiFaktur
+                      ? aksiVerifikasiFaktur === "A" ? "Faktur akan diterima tanpa perlu mengisi alasan" : "Masukkan alasan penolakan faktur"
+                      : "Masukkan alasan pengembalian faktur"}
                   </p>
                 </div>
               </div>
@@ -3110,18 +3240,18 @@ const TableTukarFaktur = ({
             {/* CONTENT - SCROLL JIKA MELEBIHI TINGGI MODAL */}
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
               {/* DAFTAR FAKTUR */}
-              <div className="min-w-0 rounded-xl border border-orange-100 bg-orange-50 p-3 sm:p-4">
+              <div className={`min-w-0 rounded-xl border p-3 sm:p-4 ${warnaModal.panel}`}>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-orange-900">
+                    <p className={`text-sm font-bold ${warnaModal.panelTitle}`}>
                       Daftar Faktur yang Dipilih
                     </p>
-                    <p className="mt-1 text-xs text-orange-700">
-                      {fakturKembaliList.length} faktur akan diproses untuk Faktur Kembali.
+                    <p className={`mt-1 text-xs ${warnaModal.panelText}`}>
+                      {fakturKembaliList.length} faktur akan diproses untuk {isVerifikasiFaktur ? "verifikasi" : "Faktur Kembali"}.
                     </p>
                   </div>
 
-                  <span className="badge badge-warning badge-lg shrink-0">
+                  <span className={`badge ${warnaModal.badge} badge-lg shrink-0`}>
                     {fakturKembaliList.length} Faktur
                   </span>
                 </div>
@@ -3131,10 +3261,10 @@ const TableTukarFaktur = ({
                   {fakturKembaliList.map((faktur, index) => (
                     <div
                       key={getId(faktur) ?? `${getNoBilling(faktur)}-${index}`}
-                      className="min-w-0 rounded-lg border border-orange-100 bg-white p-3"
+                      className={`min-w-0 rounded-lg border bg-white p-3 ${warnaModal.itemBorder}`}
                     >
                       <div className="flex min-w-0 items-start gap-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${warnaModal.number}`}>
                           {index + 1}
                         </span>
 
@@ -3142,7 +3272,7 @@ const TableTukarFaktur = ({
                           <p className="text-[11px] font-medium text-gray-500">
                             No. Billing
                           </p>
-                          <p className="break-all text-sm font-bold text-orange-900">
+                          <p className={`break-all text-sm font-bold ${warnaModal.billing}`}>
                             {getNoBilling(faktur)}
                           </p>
 
@@ -3163,115 +3293,90 @@ const TableTukarFaktur = ({
                 </div>
 
                 {fakturKembaliList.length > 1 && (
-                  <p className="mt-3 text-xs text-orange-700">
+                  <p className={`mt-3 text-xs ${warnaModal.panelText}`}>
                     Satu alasan akan diterapkan untuk seluruh{" "}
                     {fakturKembaliList.length} faktur yang dipilih.
                   </p>
                 )}
               </div>
 
-              {/* METODE PENGEMBALIAN FAKTUR */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Metode Pengembalian Faktur <span className="text-red-500">*</span>
-                </label>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {/* KENDALA CUSTOMER */}
-                  <label
-                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                      metodeFakturKembali === "K"
-                        ? "border-orange-500 bg-orange-50 ring-2 ring-orange-100"
-                        : "border-gray-200 bg-white hover:border-orange-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="metodeFakturKembali"
-                      value="K"
-                      checked={metodeFakturKembali === "K"}
-                      onChange={(e) => setMetodeFakturKembali(e.target.value)}
-                      disabled={loadingFakturKembali}
-                      className="radio radio-warning radio-sm mt-0.5"
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        Kendala Customer
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Faktur dikembalikan karena customer menolak, tidak menerima, atau terdapat kendala dalam proses penagihan.
-                      </p>
-                      <span className="mt-2 inline-block rounded-full bg-orange-100 px-2 py-1 text-[10px] font-bold text-orange-700">
-                        K
-                      </span>
-                    </div>
+              {isVerifikasiFaktur && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Keputusan Verifikasi <span className="text-red-500">*</span>
                   </label>
-
-                  {/* PEMBATALAN PENUGASAN */}
-                  <label
-                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                      metodeFakturKembali === "C"
-                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100"
-                        : "border-gray-200 bg-white hover:border-blue-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="metodeFakturKembali"
-                      value="C"
-                      checked={metodeFakturKembali === "C"}
-                      onChange={(e) => setMetodeFakturKembali(e.target.value)}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => { setAksiVerifikasiFaktur("A"); setAlasanFakturKembali(""); }}
                       disabled={loadingFakturKembali}
-                      className="radio radio-primary radio-sm mt-0.5"
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        Pembatalan Penugasan
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Faktur dikembalikan karena penugasan dibatalkan dan perlu dikembalikan ke antrean penugasan.
-                      </p>
-                      <span className="mt-2 inline-block rounded-full bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700">
-                        C
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
+                        aksiVerifikasiFaktur === "A"
+                          ? "border-green-500 bg-green-50 ring-2 ring-green-100"
+                          : "border-gray-200 bg-white hover:border-green-300"
+                      }`}
+                    >
+                      <FaCheckCircle className="text-xl text-green-600" />
+                      <span>
+                        <span className="block text-sm font-semibold text-green-800">Terima Faktur</span>
+                        <span className="mt-1 block text-xs text-gray-500">Setujui proses tukar faktur</span>
                       </span>
-                    </div>
-                  </label>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAksiVerifikasiFaktur("C")}
+                      disabled={loadingFakturKembali}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
+                        aksiVerifikasiFaktur === "C"
+                          ? "border-red-500 bg-red-50 ring-2 ring-red-100"
+                          : "border-gray-200 bg-white hover:border-red-300"
+                      }`}
+                    >
+                      <FaTimesCircle className="text-xl text-red-600" />
+                      <span>
+                        <span className="block text-sm font-semibold text-red-800">Tolak Faktur</span>
+                        <span className="mt-1 block text-xs text-gray-500">Tolak proses tukar faktur</span>
+                      </span>
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                {!metodeFakturKembali && (
-                  <p className="mt-2 text-xs text-red-500">
-                    Metode pengembalian faktur wajib dipilih.
+              {/* ALASAN FAKTUR KEMBALI / PENOLAKAN */}
+              {alasanVerifikasiWajib ? (
+                <div>
+                  <label
+                    htmlFor="alasan-faktur-kembali"
+                    className="mb-2 block text-sm font-semibold text-gray-700"
+                  >
+                    {isVerifikasiFaktur ? "Alasan Penolakan Faktur" : "Alasan Faktur Kembali"} <span className="text-red-500">*</span>
+                  </label>
+
+                  <textarea
+                    id="alasan-faktur-kembali"
+                    rows={4}
+                    value={alasanFakturKembali}
+                    onChange={(e) => setAlasanFakturKembali(e.target.value)}
+                    placeholder={isVerifikasiFaktur
+                      ? "Tuliskan alasan penolakan faktur..."
+                      : "Tuliskan alasan faktur dikembalikan..."}
+                    disabled={loadingFakturKembali}
+                    minLength={10}
+                    className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
+                  />
+                  <p className={`mt-1 text-xs ${
+                    alasanFakturKembali.trim().length < 10
+                      ? "text-gray-500"
+                      : "text-green-600"
+                  }`}>
+                    Minimal 10 karakter ({alasanFakturKembali.trim().length}/10)
                   </p>
-                )}
-              </div>
-
-              {/* ALASAN FAKTUR KEMBALI */}
-              <div>
-                <label
-                  htmlFor="alasan-faktur-kembali"
-                  className="mb-2 block text-sm font-semibold text-gray-700"
-                >
-                  Alasan Faktur Kembali <span className="text-red-500">*</span>
-                </label>
-
-                <textarea
-                  id="alasan-faktur-kembali"
-                  rows={4}
-                  value={alasanFakturKembali}
-                  onChange={(e) => setAlasanFakturKembali(e.target.value)}
-                  placeholder="Tuliskan alasan faktur dikembalikan..."
-                  disabled={loadingFakturKembali}
-                  minLength={10}
-                  className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
-                />
-                <p className={`mt-1 text-xs ${
-                  alasanFakturKembali.trim().length < 10
-                    ? "text-gray-500"
-                    : "text-green-600"
-                }`}>
-                  Minimal 10 karakter ({alasanFakturKembali.trim().length}/10)
-                </p>
-              </div>
+                </div>
+              ) : isVerifikasiFaktur ? (
+                <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                  Faktur yang diterima tidak memerlukan alasan verifikasi.
+                </div>
+              ) : null}
             </div>
 
             {/* FOOTER - TETAP TERLIHAT */}
@@ -3290,20 +3395,22 @@ const TableTukarFaktur = ({
                 onClick={handleInsertFakturKembali}
                 disabled={
                   loadingFakturKembali ||
-                  !metodeFakturKembali ||
-                  alasanFakturKembali.trim().length < 10
+                  (isVerifikasiFaktur && !aksiVerifikasiFaktur) ||
+                  (alasanVerifikasiWajib && alasanFakturKembali.trim().length < 10)
                 }
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:bg-gray-300 ${warnaModal.submit}`}
               >
                 {loadingFakturKembali ? (
                   <>
                     <span className="loading loading-spinner loading-xs" />
-                    Menyimpan...
+                    Memproses...
                   </>
                 ) : (
                   <>
-                    <FaUndoAlt />
-                    Submit Faktur Kembali
+                    {warnaModal.icon}
+                    {isVerifikasiFaktur
+                      ? aksiVerifikasiFaktur === "A" ? "Submit Terima Faktur" : aksiVerifikasiFaktur === "C" ? "Submit Tolak Faktur" : "Pilih Keputusan"
+                      : "Submit Faktur Kembali"}
                   </>
                 )}
               </button>

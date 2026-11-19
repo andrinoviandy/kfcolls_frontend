@@ -1510,7 +1510,7 @@ const TableVerifikasiPembayaran = ({
                 !filterCabang.length
                   ? "Pilih Cabang Dahulu"
                   : loadingCustomerOptions
-                    ? "Memuat Customer..."
+                    ? "Memuat Data..."
                     : "Semua Customer"
               }
               isDisabled={
