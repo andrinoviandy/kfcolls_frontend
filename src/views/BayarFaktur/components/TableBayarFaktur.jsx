@@ -203,8 +203,8 @@ const normalizeBayarFakturRow = (item, index, page = 1, limit = 10) => {
   const collections = collectionsTerverifikasi;
   const saldoPiutang = Math.max(0, totalInvoice - collectionsTerverifikasi);
   const status = normalizeStatus(item, saldoPiutang, dpp);
-  const statusLunas = saldoPiutang <= 0 ? "SUDAH_LUNAS" : "BELUM_LUNAS";
-  const statusLunasLabel = saldoPiutang <= 0 ? "Sudah Lunas" : "Belum Lunas";
+  const statusLunas = saldoPiutang < 1 ? "SUDAH_LUNAS" : "BELUM_LUNAS";
+  const statusLunasLabel = saldoPiutang < 1 ? "Sudah Lunas" : "Belum Lunas";
   const collectionsBulanIni = Number(item?.collections_bulan_ini ?? 0) || 0;
   const targetBulanIni = Number(item?.target_bulan_ini ?? 0) || 0;
   const persentasePencapaian = targetBulanIni > 0
