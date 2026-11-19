@@ -232,6 +232,13 @@ const statusConfig = {
 // =====================================================
 
 const paymentMethodConfig = {
+  BIAYA_LAIN: {
+    label:
+      "Biaya Lain",
+    icon: FaUniversity,
+    className:
+      "text-blue-400",
+  },
   DIRECT_TRANSFER: {
     label:
       "Direct Transfer",
@@ -2055,7 +2062,7 @@ const TableVerifikasiPembayaran = ({
                           </td>
 
                           {/* CUSTOMER */}
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-nowrap">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
                                 <FaBuilding className="text-indigo-500 text-sm" />

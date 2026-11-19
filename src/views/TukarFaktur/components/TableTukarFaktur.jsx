@@ -1195,8 +1195,7 @@ const TableTukarFaktur = ({
             className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition whitespace-nowrap"
             title="Verifikasi Faktur"
           >
-            <FaCheckCircle />
-            Verifikasi
+            <FaCheckCircle size={14} className="text-green-500"/>/<FaTimesCircle size={14} className="text-red-500"/>
           </button>
         )}
       </div>

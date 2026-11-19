@@ -509,6 +509,7 @@ const TableBayarFaktur = ({
   const [filterEndDate, setFilterEndDate] = useState("");
   const [customerOptions, setCustomerOptions] = useState([]);
   const [cabangOptions, setCabangOptions] = useState([]);
+  const [bankOptions, setBankOptions] = useState([]);
   const [loadingCustomerOptions, setLoadingCustomerOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -729,6 +730,14 @@ const TableBayarFaktur = ({
       const refCabang = await storeSchema.actions.getReferensiByJenis("cabang_id");
       if (refCabang?.status === true) {
         setCabangOptions((refCabang?.data || []).map((item) => ({ label: item?.ur_ref, value: item?.kd_ref })));
+      }
+
+      const refBank = await storeSchema.actions.getReferensiByJenis("bank");
+      if (refBank?.status === true) {
+        setBankOptions((refBank?.data || []).map((item) => ({
+          label: item?.ur_ref,
+          value: item?.kd_ref,
+        })));
       }
     } catch (error) {
       console.error("ERROR GET REFERENSI CABANG:", error);
@@ -2129,7 +2138,7 @@ const TableBayarFaktur = ({
       const billingData = biayaBilling.raw || {};
 
       const payload = {
-        jenis_pembayaran: "Biaya Lain",
+        jenis_pembayaran: "BIAYA_LAIN",
         metode_pembayaran: null,
         nomor_park_dokumen_sap: nomorDokumenSAP,
         nama_bank: null,
@@ -2607,8 +2616,8 @@ const TableBayarFaktur = ({
     const invoicesForAllocation =
       partialPaymentMethod === "MANUAL"
         ? getPayableInvoices().filter((item) =>
-            partialSelectedIds.some((id) => String(id) === String(item.id))
-          )
+          partialSelectedIds.some((id) => String(id) === String(item.id))
+        )
         : getPayableInvoices();
 
     const availableBalance = invoicesForAllocation.reduce(
@@ -3360,12 +3369,16 @@ const TableBayarFaktur = ({
             <button type="button" onClick={handleRefresh} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50">
               <FaSyncAlt /> Refresh
             </button>
-            <button type="button" onClick={openPartialPayment} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition shadow-sm whitespace-nowrap">
-              <FaCreditCard /> Partial Payment
-            </button>
-            <button type="button" onClick={openPenerimaanLain} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
-              <FaMoneyBillWave /> Penerimaan Lain
-            </button>
+            {!['02'].includes(loginAccess?.role_id) && (
+              <>
+                <button type="button" onClick={openPartialPayment} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition shadow-sm whitespace-nowrap">
+                  <FaCreditCard /> Partial Payment
+                </button>
+                <button type="button" onClick={openPenerimaanLain} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
+                  <FaMoneyBillWave /> Penerimaan Lain
+                </button>
+              </>
+            )}
             <button type="button" onClick={openBiayaLain} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
               <FaFileInvoiceDollar /> Biaya Lain
             </button>
@@ -3511,25 +3524,27 @@ const TableBayarFaktur = ({
         </div>
 
         {/* PENERIMAAN LAIN - dibuat lebih ringkas */}
-        <button
-          type="button"
-          onClick={handleOpenRiwayatPenerimaanLain}
-          title="Klik untuk melihat riwayat Penerimaan Lain"
-          className="flex w-full items-center justify-between gap-3 rounded-xl border border-purple-200 bg-purple-50/70 px-4 py-3 text-left transition hover:border-purple-300 hover:bg-purple-50 hover:shadow-sm"
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700"><FaMoneyBillWave size={16} /></div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-purple-900">Penerimaan Lain</p>
-              <p className="text-xs text-purple-600">{summaryData.total_data_penerimaan_lain ?? 0} transaksi <span className="mx-1 text-purple-300">•</span> Klik untuk melihat riwayat</p>
+        {loginAccess?.role_id !== '02' && (
+          <button
+            type="button"
+            onClick={handleOpenRiwayatPenerimaanLain}
+            title="Klik untuk melihat riwayat Penerimaan Lain"
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-purple-200 bg-purple-50/70 px-4 py-3 text-left transition hover:border-purple-300 hover:bg-purple-50 hover:shadow-sm"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700"><FaMoneyBillWave size={16} /></div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-purple-900">Penerimaan Lain</p>
+                <p className="text-xs text-purple-600">{summaryData.total_data_penerimaan_lain ?? 0} transaksi <span className="mx-1 text-purple-300">•</span> Klik untuk melihat riwayat</p>
+              </div>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden text-xs font-medium text-purple-600 sm:inline">Total nominal</span>
-            <span className="text-sm font-bold text-purple-900">Rp {formatNominalCard(summaryData.total_penerimaan_lain ?? 0)}</span>
-            <FaChevronRight className="text-xs text-purple-500" />
-          </div>
-        </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="hidden text-xs font-medium text-purple-600 sm:inline">Total nominal</span>
+              <span className="text-sm font-bold text-purple-900">Rp {formatNominalCard(summaryData.total_penerimaan_lain ?? 0)}</span>
+              <FaChevronRight className="text-xs text-purple-500" />
+            </div>
+          </button>
+        )}
       </section>
 
       {/* ================================================= */}
@@ -3909,42 +3924,42 @@ const TableBayarFaktur = ({
                                 text-center
                               "
                               >
+                                {['04', '00', '03'].includes(loginAccess?.role_id) && (
+                                  <>
+                                    {
+                                      Number(v?.saldo_piutang ?? 0) > 0 ? (
 
-                                {
-                                  Number(v?.saldo_piutang ?? 0) > 0 ? (
+                                        <div className="flex items-center justify-center gap-2">
 
-                                    <div className="flex items-center justify-center gap-2">
+                                          {hasPenagih && !hasAnyPayment(v) && getStatusVerifikasiTukar(v) !== "MENUNGGU_VERIFIKASI" && (
+                                            <button
+                                              type="button"
+                                              onClick={() => openFakturKembali(v)}
+                                              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                              title="Faktur Kembali"
+                                              aria-label="Faktur Kembali"
+                                            >
+                                              <FaUndoAlt />
+                                              <span>Faktur Kembali</span>
+                                            </button>
+                                          )}
 
-                                      {hasPenagih && !hasAnyPayment(v) && getStatusVerifikasiTukar(v) !== "MENUNGGU_VERIFIKASI" && (
-                                        <button
-                                          type="button"
-                                          onClick={() => openFakturKembali(v)}
-                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
-                                          title="Faktur Kembali"
-                                          aria-label="Faktur Kembali"
-                                        >
-                                          <FaUndoAlt />
-                                          <span>Faktur Kembali</span>
-                                        </button>
-                                      )}
+                                          {getStatusVerifikasiTukar(v) === "MENUNGGU_VERIFIKASI" && (
+                                            <button
+                                              type="button"
+                                              onClick={() => openVerifikasiFaktur(v)}
+                                              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                                              title="Verifikasi Faktur"
+                                              aria-label="Verifikasi Faktur"
+                                            >
+                                              <FaCheckCircle size={14} className="text-green-500" />/<FaTimesCircle size={14} className="text-red-500" />
+                                            </button>
+                                          )}
 
-                                      {getStatusVerifikasiTukar(v) === "MENUNGGU_VERIFIKASI" && (
-                                        <button
-                                          type="button"
-                                          onClick={() => openVerifikasiFaktur(v)}
-                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
-                                          title="Verifikasi Faktur"
-                                          aria-label="Verifikasi Faktur"
-                                        >
-                                          <FaCheckCircle />
-                                          <span>Verifikasi</span>
-                                        </button>
-                                      )}
-
-                                      <button
-                                        type="button"
-                                        onClick={() => openPayment(v)}
-                                        className="
+                                          <button
+                                            type="button"
+                                            onClick={() => openPayment(v)}
+                                            className="
                                         inline-flex
                                         items-center
                                         gap-2
@@ -3959,18 +3974,18 @@ const TableBayarFaktur = ({
                                         transition
                                         shadow-sm
                                       "
-                                      >
+                                          >
 
-                                        <FaMoneyBillWave />
+                                            <FaMoneyBillWave />
 
-                                        Bayar
+                                            Bayar
 
-                                      </button>
+                                          </button>
 
-                                      <button
-                                        type="button"
-                                        onClick={() => openPartialPayment(v)}
-                                        className="
+                                          <button
+                                            type="button"
+                                            onClick={() => openPartialPayment(v)}
+                                            className="
                                         inline-flex
                                         items-center
                                         justify-center
@@ -3982,37 +3997,38 @@ const TableBayarFaktur = ({
                                         hover:bg-orange-100
                                         transition
                                       "
-                                        title="Partial Payment"
-                                      >
+                                            title="Partial Payment"
+                                          >
 
-                                        <FaCreditCard />
+                                            <FaCreditCard />
 
-                                      </button>
+                                          </button>
 
-                                    </div>
+                                        </div>
 
-                                  ) : (
-
-                                    <div className="flex items-center justify-center gap-2">
-                                      {getStatusVerifikasiTukar(v) === "MENUNGGU_VERIFIKASI" ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => openVerifikasiFaktur(v)}
-                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
-                                          title="Verifikasi Faktur"
-                                          aria-label="Verifikasi Faktur"
-                                        >
-                                          <FaCheckCircle />
-                                          <span>Verifikasi</span>
-                                        </button>
                                       ) : (
-                                        <span className="text-xs text-gray-400">Sudah dibayar</span>
-                                      )}
-                                    </div>
 
-                                  )
-                                }
+                                        <div className="flex items-center justify-center gap-2">
+                                          {getStatusVerifikasiTukar(v) === "MENUNGGU_VERIFIKASI" ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => openVerifikasiFaktur(v)}
+                                              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                                              title="Verifikasi Faktur"
+                                              aria-label="Verifikasi Faktur"
+                                            >
+                                              <FaCheckCircle />
+                                              <span>Verifikasi</span>
+                                            </button>
+                                          ) : (
+                                            <span className="text-xs text-gray-400">Sudah dibayar</span>
+                                          )}
+                                        </div>
 
+                                      )
+                                    }
+                                  </>
+                                )}
                               </td>
 
 
@@ -4378,13 +4394,12 @@ const TableBayarFaktur = ({
                                 {(() => {
                                   const persentase = Number(v?.persentase_pencapaian ?? 0) || 0;
                                   return (
-                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
-                                      persentase >= 100
-                                        ? "bg-green-100 text-green-700"
-                                        : persentase > 0
-                                          ? "bg-amber-100 text-amber-700"
-                                          : "bg-gray-100 text-gray-500"
-                                    }`}>
+                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${persentase >= 100
+                                      ? "bg-green-100 text-green-700"
+                                      : persentase > 0
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-gray-100 text-gray-500"
+                                      }`}>
                                       {persentase.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                                     </span>
                                   );
@@ -6232,13 +6247,13 @@ const TableBayarFaktur = ({
                         <label className="mb-2 block text-sm font-semibold text-gray-600">
                           Nama Bank <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
-                          value={namaBankPembayaran}
-                          onChange={(e) => setNamaBankPembayaran(e.target.value)}
-                          placeholder="Masukkan nama bank"
-                          className="input input-bordered w-full rounded-xl bg-white"
-                          required
+                        <Select
+                          options={bankOptions}
+                          value={bankOptions.find((item) => String(item.value) === String(namaBankPembayaran)) || null}
+                          onChange={(selected) => setNamaBankPembayaran(selected?.value || "")}
+                          placeholder="Pilih bank"
+                          styles={filterSelectStyles}
+                          isClearable
                         />
                       </div>
                     )}
@@ -7461,13 +7476,13 @@ const TableBayarFaktur = ({
                       <label className="mb-2 block text-sm font-semibold text-gray-700">
                         Nama Bank <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={partialNamaBankPembayaran}
-                        onChange={(e) => setPartialNamaBankPembayaran(e.target.value)}
-                        placeholder="Masukkan nama bank"
-                        className="input input-bordered w-full rounded-xl bg-white"
-                        required
+                      <Select
+                        options={bankOptions}
+                        value={bankOptions.find((item) => String(item.value) === String(partialNamaBankPembayaran)) || null}
+                        onChange={(selected) => setPartialNamaBankPembayaran(selected?.value || "")}
+                        placeholder="Pilih bank"
+                        styles={filterSelectStyles}
+                        isClearable
                       />
                     </div>
                   )}
@@ -8372,11 +8387,10 @@ const TableBayarFaktur = ({
             className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`flex shrink-0 items-center justify-between gap-3 px-5 py-4 text-white ${
-              modeVerifikasiFaktur
-                ? aksiVerifikasiFaktur === "A" ? "bg-green-600" : aksiVerifikasiFaktur === "C" ? "bg-red-600" : "bg-indigo-600"
-                : "bg-orange-600"
-            }`}>
+            <div className={`flex shrink-0 items-center justify-between gap-3 px-5 py-4 text-white ${modeVerifikasiFaktur
+              ? aksiVerifikasiFaktur === "A" ? "bg-green-600" : aksiVerifikasiFaktur === "C" ? "bg-red-600" : "bg-indigo-600"
+              : "bg-orange-600"
+              }`}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
                   {modeVerifikasiFaktur ? <FaCheckCircle /> : <FaUndoAlt />}
@@ -8442,9 +8456,8 @@ const TableBayarFaktur = ({
                       type="button"
                       onClick={() => { setAksiVerifikasiFaktur("A"); setAlasanFakturKembali(""); }}
                       disabled={loadingFakturKembali}
-                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
-                        aksiVerifikasiFaktur === "A" ? "border-green-500 bg-green-50 ring-2 ring-green-100" : "border-gray-200 bg-white hover:border-green-300"
-                      }`}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${aksiVerifikasiFaktur === "A" ? "border-green-500 bg-green-50 ring-2 ring-green-100" : "border-gray-200 bg-white hover:border-green-300"
+                        }`}
                     >
                       <FaCheckCircle className="text-xl text-green-600" />
                       <span>
@@ -8456,9 +8469,8 @@ const TableBayarFaktur = ({
                       type="button"
                       onClick={() => setAksiVerifikasiFaktur("C")}
                       disabled={loadingFakturKembali}
-                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
-                        aksiVerifikasiFaktur === "C" ? "border-red-500 bg-red-50 ring-2 ring-red-100" : "border-gray-200 bg-white hover:border-red-300"
-                      }`}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${aksiVerifikasiFaktur === "C" ? "border-red-500 bg-red-50 ring-2 ring-red-100" : "border-gray-200 bg-white hover:border-red-300"
+                        }`}
                     >
                       <FaTimesCircle className="text-xl text-red-600" />
                       <span>
@@ -8506,11 +8518,10 @@ const TableBayarFaktur = ({
                   (modeVerifikasiFaktur && !aksiVerifikasiFaktur) ||
                   ((!modeVerifikasiFaktur || aksiVerifikasiFaktur === "C") && alasanFakturKembali.trim().length < 10)
                 }
-                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-gray-300 ${
-                  modeVerifikasiFaktur
-                    ? aksiVerifikasiFaktur === "A" ? "bg-green-600 hover:bg-green-700" : aksiVerifikasiFaktur === "C" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600"
-                    : "bg-orange-600 hover:bg-orange-700"
-                }`}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-gray-300 ${modeVerifikasiFaktur
+                  ? aksiVerifikasiFaktur === "A" ? "bg-green-600 hover:bg-green-700" : aksiVerifikasiFaktur === "C" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600"
+                  : "bg-orange-600 hover:bg-orange-700"
+                  }`}
               >
                 {loadingFakturKembali ? <><span className="loading loading-spinner loading-xs" /> Memproses...</> : modeVerifikasiFaktur ? aksiVerifikasiFaktur === "A" ? <><FaCheckCircle /> Submit Terima Faktur</> : aksiVerifikasiFaktur === "C" ? <><FaTimesCircle /> Submit Tolak Faktur</> : "Pilih Keputusan" : <><FaUndoAlt /> Submit Faktur Kembali</>}
               </button>
@@ -8956,12 +8967,12 @@ const TableBayarFaktur = ({
                               .toLowerCase()
                               .includes(searchBillingAlokasi.trim().toLowerCase())
                           ).length === 0 && (
-                            <tr>
-                              <td colSpan={6} className="py-8 text-center text-sm text-gray-500">
-                                {loadingBillingAlokasi ? "Memuat billing..." : "Billing tidak ditemukan."}
-                              </td>
-                            </tr>
-                          )}
+                              <tr>
+                                <td colSpan={6} className="py-8 text-center text-sm text-gray-500">
+                                  {loadingBillingAlokasi ? "Memuat billing..." : "Billing tidak ditemukan."}
+                                </td>
+                              </tr>
+                            )}
                         </tbody>
                       </table>
                     </div>
@@ -9002,9 +9013,8 @@ const TableBayarFaktur = ({
                         </div>
                         <div className="border-t border-blue-200 pt-2 flex justify-between gap-3">
                           <span className="font-semibold text-gray-700">Sisa penerimaan</span>
-                          <strong className={`text-base ${
-                            exhausted ? "text-red-600" : "text-green-700"
-                          }`}>
+                          <strong className={`text-base ${exhausted ? "text-red-600" : "text-green-700"
+                            }`}>
                             {formatRupiah(perhitungan.sisaPenerimaan)}
                           </strong>
                         </div>
@@ -9115,13 +9125,13 @@ const TableBayarFaktur = ({
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nama Bank <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={penerimaanNamaBank}
-                    onChange={(e) => setPenerimaanNamaBank(e.target.value)}
-                    placeholder="Masukkan nama bank"
-                    required
-                    className="input input-bordered w-full bg-white rounded-xl"
+                  <Select
+                    options={bankOptions}
+                    value={bankOptions.find((item) => String(item.value) === String(penerimaanNamaBank)) || null}
+                    onChange={(selected) => setPenerimaanNamaBank(selected?.value || "")}
+                    placeholder="Pilih bank"
+                    styles={filterSelectStyles}
+                    isClearable
                   />
                 </div>
               )}

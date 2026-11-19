@@ -88,7 +88,7 @@ export const dummyMenu = [
         name: "Bayar Faktur",
         path: "/bayar-faktur",
         icon: FaFileInvoiceDollar,
-        roles: ['04', '03', '00'],
+        roles: ['04', '03', '00', '02'],
         submenu: [],
     },
     {
@@ -96,7 +96,7 @@ export const dummyMenu = [
         name: "Verifikasi Pembayaran",
         path: "/verifikasi-pembayaran",
         icon: FaMoneyCheckAlt,
-        roles: ['03', '00'],
+        roles: ['03', '00', '02'],
         submenu: [],
     },
     // {
