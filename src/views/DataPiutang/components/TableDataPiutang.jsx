@@ -786,6 +786,9 @@ const TableDataPiutang = ({
   const [loading, setLoading] =
     useState(false);
 
+  const [loadingCustomer, setLoadingCustomer] =
+    useState(false);
+
   const [options, setOptions] =
     useState({
       cabang: [],
@@ -931,10 +934,13 @@ const TableDataPiutang = ({
           customer: [],
         }));
         setFilterCustomer([]);
+        setLoadingCustomer(false);
         return;
       }
 
       try {
+        setLoadingCustomer(true);
+
         const res = await storeSchema.actions.getDataPelanggan({
           page: 1,
           limit: 9999,
@@ -998,6 +1004,10 @@ const TableDataPiutang = ({
           await swal.error(
             error?.message || "Gagal mengambil data customer"
           );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCustomer(false);
         }
       }
     };
@@ -1533,7 +1543,9 @@ const TableDataPiutang = ({
 
             <Select
               isMulti
-              isDisabled={!filterCabang.length}
+              isDisabled={!filterCabang.length || loadingCustomer}
+              isLoading={loadingCustomer}
+              loadingMessage={() => "Memuat Data..."}
               options={options?.customer || []}
               value={getSelectedFilterOptions(
                 options?.customer || [],
@@ -1548,7 +1560,9 @@ const TableDataPiutang = ({
               placeholder={
                 !filterCabang.length
                   ? "Pilih cabang dahulu"
-                  : "Semua Customer"
+                  : loadingCustomer
+                    ? "Memuat Data..."
+                    : "Semua Customer"
               }
               closeMenuOnSelect={false}
               hideSelectedOptions={false}

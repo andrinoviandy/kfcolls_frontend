@@ -1120,7 +1120,7 @@ const TableMasterFaktur = ({
                   !filterSalesOffice.length
                     ? "Pilih cabang dahulu"
                     : loadingCustomer
-                      ? "Memuat customer..."
+                      ? "Memuat Data..."
                       : "Pilih Customer"
                 }
                 closeMenuOnSelect={false}

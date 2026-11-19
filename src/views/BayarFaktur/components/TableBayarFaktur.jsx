@@ -508,8 +508,6 @@ const TableBayarFaktur = ({
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [customerOptions, setCustomerOptions] = useState([]);
-  const [partialCustomerOptions, setPartialCustomerOptions] = useState([]);
-  const [loadingPartialCustomers, setLoadingPartialCustomers] = useState(false);
   const [cabangOptions, setCabangOptions] = useState([]);
   const [loadingCustomerOptions, setLoadingCustomerOptions] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -693,6 +691,35 @@ const TableBayarFaktur = ({
   // Opsi customer Partial Payment terpisah dari filter Cabang di halaman utama.
   // ===================================================
 
+  // Opsi customer Partial Payment menggunakan data halaman utama yang sudah dimuat.
+  // Tidak melakukan request getDataBayarFaktur tambahan.
+  const partialCustomerOptions = useMemo(() => {
+    const map = new Map();
+
+    allData.forEach((item) => {
+      const value = item?.customer_id ?? item?.customer;
+      if (value === null || value === undefined || String(value).trim() === "") return;
+
+      const key = String(value);
+      if (!map.has(key)) {
+        map.set(key, {
+          label: `${item?.nama_customer || key} - ${key}`,
+          value,
+          customer_id: value,
+          nama_customer: item?.nama_customer || key,
+          jumlah_faktur: 0,
+          total_saldo_piutang: 0,
+        });
+      }
+
+      const customer = map.get(key);
+      customer.jumlah_faktur += 1;
+      customer.total_saldo_piutang += Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+    });
+
+    return Array.from(map.values());
+  }, [allData]);
+
   // ===================================================
   // API DATA + FILTER
   // ===================================================
@@ -705,53 +732,6 @@ const TableBayarFaktur = ({
       }
     } catch (error) {
       console.error("ERROR GET REFERENSI CABANG:", error);
-    }
-  };
-
-  // Customer untuk modal Partial Payment: ambil seluruh customer yang memiliki faktur,
-  // tidak bergantung pada filter Cabang di halaman utama.
-  const loadPartialCustomerOptions = async () => {
-    try {
-      setLoadingPartialCustomers(true);
-      const res = await storeSchema.actions.getDataBayarFaktur({
-        page: 1,
-        limit: 9999,
-        keyword: "",
-        sales_office: "ALL",
-        customer: "ALL",
-        status: "ALL",
-        status_verifikasi: "ALL",
-        start_date: "",
-        end_date: "",
-      });
-      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data customer");
-      const rows = Array.isArray(res?.data?.list_data) ? res.data.list_data : [];
-      const map = new Map();
-      rows.map((item, index) => normalizeBayarFakturRow(item, index, 1, 9999)).forEach((item) => {
-        const value = item?.customer_id ?? item?.customer;
-        if (value === null || value === undefined || String(value).trim() === "") return;
-        const key = String(value);
-        if (!map.has(key)) {
-          map.set(key, {
-            label: `${item?.nama_customer || key} - ${key}`,
-            value,
-            customer_id: value,
-            nama_customer: item?.nama_customer || key,
-            jumlah_faktur: 0,
-            total_saldo_piutang: 0,
-          });
-        }
-        const customer = map.get(key);
-        customer.jumlah_faktur += 1;
-        customer.total_saldo_piutang += Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
-      });
-      setPartialCustomerOptions(Array.from(map.values()));
-    } catch (error) {
-      console.error("ERROR GET CUSTOMER PARTIAL PAYMENT:", error);
-      setPartialCustomerOptions([]);
-      await swal.error(error?.message || "Gagal mengambil data customer Partial Payment");
-    } finally {
-      setLoadingPartialCustomers(false);
     }
   };
 
@@ -888,23 +868,9 @@ const TableBayarFaktur = ({
     setExpandedRiwayatAlokasi((prev) => ({ ...prev, [key]: true }));
     setLoadingRiwayatAlokasi((prev) => ({ ...prev, [key]: true }));
     try {
-      const res = await storeSchema.actions.getDataBayarFaktur({
-        page: 1,
-        limit: 9999,
-        keyword: "",
-        sales_office: "ALL",
-        customer: "ALL",
-        status: "ALL",
-        status_verifikasi: "ALL",
-        start_date: "",
-        end_date: "",
-        penerimaan_lain_id: penerimaanId,
-      });
-      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil riwayat alokasi.");
-      const responseData = res?.data;
-      const rows = Array.isArray(responseData)
-        ? responseData
-        : Array.isArray(responseData?.list_data) ? responseData.list_data : [];
+      const rows = allData.filter((row) =>
+        String(row?.penerimaan_lain_id ?? row?.penerimaan_id ?? "") === String(penerimaanId)
+      );
       setDataRiwayatAlokasi((prev) => ({ ...prev, [key]: rows }));
     } catch (error) {
       console.error("ERROR RIWAYAT ALOKASI PENERIMAAN LAIN:", error);
@@ -1021,20 +987,10 @@ const TableBayarFaktur = ({
 
     try {
       setLoadingBillingAlokasi(true);
-      const res = await storeSchema.actions.getDataBayarFaktur({
-        page: 1,
-        limit: 9999,
-        keyword: "",
-        sales_office: [cabangAlokasiPenerimaan],
-        customer: customerIds,
-        status: "ALL",
-        status_verifikasi: "ALL",
-        start_date: "",
-        end_date: "",
+      const rows = allData.filter((item) => {
+        const customerId = item?.customer_id ?? item?.customer;
+        return customerIds.some((id) => String(id) === String(customerId));
       });
-      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data billing customer");
-
-      const rows = Array.isArray(res?.data?.list_data) ? res.data.list_data : [];
       const uniqueBilling = new Map();
       rows.forEach((item, index) => {
         const billing = String(item?.no_billing ?? "").trim();
@@ -1268,7 +1224,6 @@ const TableBayarFaktur = ({
 
   useEffect(() => {
     getReferensi();
-    loadPartialCustomerOptions();
   }, []);
 
   useEffect(() => {
@@ -2103,23 +2058,9 @@ const TableBayarFaktur = ({
 
     try {
       setLoadingBiayaBilling(true);
-      const res = await storeSchema.actions.getDataBayarFaktur({
-        page: 1,
-        limit: 9999,
-        keyword: "",
-        sales_office: [biayaCabang],
-        customer: [customerOption.value],
-        status: "ALL",
-        status_verifikasi: "ALL",
-        start_date: "",
-        end_date: "",
-      });
-
-      if (res?.status !== true) {
-        throw new Error(res?.message || "Gagal mengambil data billing.");
-      }
-
-      const rows = Array.isArray(res?.data?.list_data) ? res.data.list_data : [];
+      const rows = allData.filter((item) =>
+        String(item?.customer_id ?? item?.customer ?? "") === String(customerOption.value)
+      );
       const uniqueBilling = new Map();
 
       rows.forEach((item, index) => {
@@ -2260,30 +2201,17 @@ const TableBayarFaktur = ({
     }
   };
 
-  const loadPartialInvoices = async (customerId) => {
+  const loadPartialInvoices = (customerId) => {
     if (!customerId) {
       setPartialInvoiceData([]);
       return;
     }
-    try {
-      const res = await storeSchema.actions.getDataBayarFaktur({
-        page: 1,
-        limit: 9999,
-        keyword: "",
-        sales_office: "ALL",
-        customer: [customerId],
-        status: "ALL",
-        start_date: "",
-        end_date: "",
-      });
-      if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil faktur customer");
-      const list = res?.data?.list_data || [];
-      setPartialInvoiceData(list.map((item, index) => normalizeBayarFakturRow(item, index, 1, 9999)));
-    } catch (error) {
-      console.error("ERROR GET FAKTUR CUSTOMER:", error);
-      setPartialInvoiceData([]);
-      await swal.error(error?.message || "Gagal mengambil faktur customer");
-    }
+
+    const rows = allData.filter((item) =>
+      String(item?.customer_id ?? item?.customer ?? "") === String(customerId)
+    );
+
+    setPartialInvoiceData(rows);
   };
 
 
@@ -3451,7 +3379,7 @@ const TableBayarFaktur = ({
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
-            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomerOptions ? "Memuat custmer..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomerOptions ? "Memuat Data..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Status Pembayaran</label>
@@ -6974,9 +6902,9 @@ const TableBayarFaktur = ({
                     ) || null}
                     isClearable
                     isSearchable
-                    isLoading={loadingPartialCustomers}
-                    isDisabled={loadingPartialCustomers}
-                    placeholder={loadingPartialCustomers ? "Memuat Data..." : "Pilih atau cari customer..."}
+                    isLoading={loading}
+                    isDisabled={loading}
+                    placeholder={loading ? "Memuat Data..." : "Pilih atau cari customer..."}
                     noOptionsMessage={() => "Data customer tidak ditemukan"}
                     loadingMessage={() => "Memuat Data..."}
                     menuPortalTarget={document.body}
