@@ -62,8 +62,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const isLoginRequest = error.config?.url?.includes("/users/login");
+    const isSessionExpired =
+      error.response?.data?.code === "SESSION_EXPIRED" ||
+      (error.response?.status === 401 && !isLoginRequest);
 
-    if (error.response?.data?.code === "SESSION_EXPIRED") {
+    if (isSessionExpired) {
 
       removeCookies("loginData");
       removeCookies("accountAccess");
