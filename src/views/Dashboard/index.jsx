@@ -635,6 +635,7 @@ const Dashboard = () => {
   );
 
   const [apiCustomerOptions, setApiCustomerOptions] = useState([]);
+  const [loadingCustomerOptions, setLoadingCustomerOptions] = useState(false);
   const [apiProductOptions, setApiProductOptions] = useState([]);
   const [apiCabangOptions, setApiCabangOptions] = useState([]);
   const [apiPrincipalOptions, setApiPrincipalOptions] = useState([]);
@@ -673,10 +674,12 @@ const Dashboard = () => {
     const loadCustomers = async () => {
       if (!filter.cabang.length) {
         setApiCustomerOptions([]);
+        setLoadingCustomerOptions(false);
         setFilter((prev) => prev.customer.length ? ({ ...prev, customer: [] }) : prev);
         return;
       }
       try {
+        setLoadingCustomerOptions(true);
         const res = await storeSchema.actions.getDataPelanggan({ page: 1, limit: 9999, cabang_id: filter.cabang });
         if (res?.status !== true) throw new Error(res?.message || 'Gagal mengambil data customer');
         const rows = unwrapDashboardResponse(res);
@@ -688,6 +691,8 @@ const Dashboard = () => {
       } catch (error) {
         console.error('ERROR GET CUSTOMER FILTER DASHBOARD:', error);
         if (active) setApiCustomerOptions([]);
+      } finally {
+        if (active) setLoadingCustomerOptions(false);
       }
     };
     loadCustomers();
@@ -3565,14 +3570,21 @@ const Dashboard = () => {
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
                 isClearable
-                isDisabled={!filter.cabang.length}
+                isDisabled={!filter.cabang.length || loadingCustomerOptions}
+                isLoading={loadingCustomerOptions}
                 options={customerOptions}
                 value={customerOptions.filter((option) => (filter.customer || []).some((value) => String(value) === String(option.value)))}
                 onChange={(selected) => handleFilterChange('customer', selected || [])}
                 components={dashboardFilterSelectComponents}
                 styles={dashboardFilterSelectStyles}
-                placeholder="Pilih customer..."
-                noOptionsMessage={() => "Tidak ada data"}
+                placeholder={
+                  !filter.cabang.length
+                    ? "Pilih cabang dahulu..."
+                    : loadingCustomerOptions
+                      ? "Memuat Data..."
+                      : "Pilih customer..."
+                }
+                noOptionsMessage={() => loadingCustomerOptions ? "Memuat data customer..." : "Tidak ada data"}
               />
             </div>
 
