@@ -862,24 +862,48 @@ const TableBayarFaktur = ({
     }
   };
 
-  // Detail alokasi dimuat hanya ketika baris riwayat di-expand.
+  // Detail alokasi dimuat dari API ketika baris riwayat di-expand.
   const toggleRiwayatAlokasi = async (item) => {
     const penerimaanId = item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id;
     if (penerimaanId === null || penerimaanId === undefined || penerimaanId === "") {
       await swal.error("ID Penerimaan Lain tidak ditemukan.");
       return;
     }
+
     const key = String(penerimaanId);
     if (expandedRiwayatAlokasi[key]) {
       setExpandedRiwayatAlokasi((prev) => ({ ...prev, [key]: false }));
       return;
     }
+
     setExpandedRiwayatAlokasi((prev) => ({ ...prev, [key]: true }));
     setLoadingRiwayatAlokasi((prev) => ({ ...prev, [key]: true }));
+
     try {
-      const rows = allData.filter((row) =>
-        String(row?.penerimaan_lain_id ?? row?.penerimaan_id ?? "") === String(penerimaanId)
-      );
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 20,
+        keyword: "",
+        sales_office: "ALL",
+        customer: "ALL",
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
+        penerimaan_lain_id: penerimaanId,
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil riwayat alokasi.");
+      }
+
+      const responseData = res?.data;
+      const rows = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.list_data)
+          ? responseData.list_data
+          : [];
+
       setDataRiwayatAlokasi((prev) => ({ ...prev, [key]: rows }));
     } catch (error) {
       console.error("ERROR RIWAYAT ALOKASI PENERIMAAN LAIN:", error);
@@ -996,18 +1020,45 @@ const TableBayarFaktur = ({
 
     try {
       setLoadingBillingAlokasi(true);
-      const rows = allData.filter((item) => {
-        const customerId = item?.customer_id ?? item?.customer;
-        return customerIds.some((id) => String(id) === String(customerId));
+
+      // Ambil billing langsung dari API berdasarkan cabang dan seluruh customer terpilih.
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: [cabangAlokasiPenerimaan],
+        customer: customerIds,
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
       });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil data billing customer.");
+      }
+
+      const responseData = res?.data;
+      const rows = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.list_data)
+          ? responseData.list_data
+          : [];
+
       const uniqueBilling = new Map();
-      rows.forEach((item, index) => {
+      rows.forEach((rawItem, index) => {
+        const item = normalizeBayarFakturRow(rawItem, index, 1, 9999);
         const billing = String(item?.no_billing ?? "").trim();
         if (!billing || billing === "-") return;
+
         const customerId = item?.customer_id ?? item?.customer;
         if (!customerIds.some((id) => String(id) === String(customerId))) return;
+
+        const saldo = Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+        // Tampilkan hanya billing yang masih memiliki saldo piutang.
+        if (saldo <= 0) return;
+
         if (!uniqueBilling.has(billing)) {
-          const saldo = Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
           uniqueBilling.set(billing, {
             value: billing,
             label: `${billing} - ${item?.nama_customer || customerId || "Customer"} - ${formatRupiah(saldo)}`,
@@ -1024,8 +1075,14 @@ const TableBayarFaktur = ({
       setBillingOptionsAlokasi(options);
       setSelectedBillingAlokasi([]);
       setSearchBillingAlokasi("");
+
+      // Tetap di step pilih cabang/customer jika API tidak menemukan billing.
+      if (!options.length) {
+        await swal.error("Tidak ditemukan billing untuk customer yang dipilih.");
+        return;
+      }
+
       setStepAlokasiPenerimaan(2);
-      if (!options.length) await swal.error("Tidak ditemukan billing untuk customer yang dipilih.");
     } catch (error) {
       console.error("ERROR GET BILLING ALOKASI PENERIMAAN:", error);
       await swal.error(error?.message || "Gagal mengambil data billing customer.");
@@ -8733,7 +8790,7 @@ const TableBayarFaktur = ({
                                 ) : (
                                   <div className="overflow-x-auto">
                                     <table className="table table-sm table-zebra w-full">
-                                      <thead className="bg-gray-50"><tr><th>No</th><th>No. Billing</th><th>No. Faktur</th><th>Customer</th><th>Cabang</th><th className="text-right">Total Invoice</th><th className="text-right">Saldo Piutang</th></tr></thead>
+                                      <thead className="bg-gray-50"><tr><th>No</th><th>No. Billing</th><th>No. Faktur</th><th>Customer</th><th>Cabang</th><th className="text-right">Total Invoice</th><th className="text-right">Collection Belum Verifikasi</th><th className="text-right">Collection Tidak Terverifikasi</th><th className="text-right">Collection Terverifikasi</th><th className="text-right">Saldo Piutang</th></tr></thead>
                                       <tbody>
                                         {dataRiwayatAlokasi[String(item?.penerimaan_lain_id ?? item?.id ?? item?.pembayaran_id)].map((alokasi, alokasiIndex) => (
                                           <tr key={alokasi?.piutang_id ?? alokasi?.id ?? alokasiIndex}>
@@ -8742,8 +8799,11 @@ const TableBayarFaktur = ({
                                             <td className="whitespace-nowrap">{alokasi?.no_faktur ?? "-"}</td>
                                             <td>{alokasi?.nama_customer ?? alokasi?.customer ?? "-"}</td>
                                             <td>{alokasi?.nama_cabang ?? alokasi?.cabang ?? "-"}</td>
-                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.total_invoice ?? alokasi?.total_tagihan ?? 0)}</td>
-                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.saldo_piutang ?? alokasi?.sisa_tagihan ?? 0)}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.nominal_tagihan ?? 0)}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.collections_menunggu_verifikasi ?? 0)}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.collections_tidak_terverifikasi ?? 0)}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.collections_terverifikasi ?? 0)}</td>
+                                            <td className="text-right whitespace-nowrap">{formatRupiah(alokasi?.saldo_piutang ?? 0)}</td>
                                           </tr>
                                         ))}
                                       </tbody>
