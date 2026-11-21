@@ -1092,21 +1092,30 @@ const TableBayarFaktur = ({
   };
 
   // =====================================================
-  // HITUNG ALOKASI PENERIMAAN BERDASARKAN URUTAN CHECKLIST
+  // HITUNG ALOKASI PENERIMAAN SESUAI SISA PENERIMAAN
+  // Default nominal per billing mengikuti sisa penerimaan yang tersedia,
+  // dengan batas maksimal sebesar saldo piutang billing tersebut.
   // =====================================================
   const getPerhitunganAlokasiPenerimaan = () => {
     const nominalPenerimaan = Number(
       selectedPenerimaanAlokasi?.sisa_penerimaan ?? 0
     ) || 0;
 
-    let sisaPenerimaan = nominalPenerimaan;
+    let totalAlokasiBerjalan = 0;
 
     const hasil = selectedBillingAlokasi.map((item, index) => {
       const saldoPiutang = Number(item?.saldo_piutang || 0);
-      const nominalAlokasi = Math.min(saldoPiutang, sisaPenerimaan);
+      const sisaPenerimaanSebelum = Math.max(
+        0,
+        nominalPenerimaan - totalAlokasiBerjalan
+      );
+      const nominalDefault = Math.min(saldoPiutang, sisaPenerimaanSebelum);
+      const nominalAlokasi = Number(
+        item?.nominal_alokasi ?? nominalDefault
+      ) || 0;
       const sisaPiutang = Math.max(0, saldoPiutang - nominalAlokasi);
 
-      sisaPenerimaan = Math.max(0, sisaPenerimaan - nominalAlokasi);
+      totalAlokasiBerjalan += nominalAlokasi;
 
       return {
         ...item,
@@ -1114,14 +1123,22 @@ const TableBayarFaktur = ({
         saldo_piutang: saldoPiutang,
         nominal_alokasi: nominalAlokasi,
         sisa_piutang: sisaPiutang,
-        sisa_penerimaan_setelah: sisaPenerimaan,
+        sisa_penerimaan_setelah: Math.max(
+          0,
+          nominalPenerimaan - totalAlokasiBerjalan
+        ),
       };
     });
 
+    const totalAlokasi = hasil.reduce(
+      (sum, item) => sum + item.nominal_alokasi,
+      0
+    );
+
     return {
       nominalPenerimaan,
-      totalAlokasi: hasil.reduce((sum, item) => sum + item.nominal_alokasi, 0),
-      sisaPenerimaan,
+      totalAlokasi,
+      sisaPenerimaan: nominalPenerimaan - totalAlokasi,
       hasil,
     };
   };
@@ -1143,6 +1160,26 @@ const TableBayarFaktur = ({
 
     if (!billings.length) {
       await swal.error("Pilih minimal satu billing untuk dialokasikan.");
+      return;
+    }
+
+    const billingInvalid = billings.find(
+      (item) =>
+        item.nominal_alokasi <= 0 ||
+        item.nominal_alokasi > Number(item.saldo_piutang || 0)
+    );
+
+    if (billingInvalid) {
+      await swal.error(
+        `Nominal alokasi billing ${billingInvalid.no_billing || billingInvalid.value} harus lebih dari 0 dan tidak boleh melebihi saldo piutang.`
+      );
+      return;
+    }
+
+    if (perhitungan.totalAlokasi > perhitungan.nominalPenerimaan) {
+      await swal.error(
+        "Total alokasi melebihi sisa penerimaan yang tersedia."
+      );
       return;
     }
 
@@ -1331,10 +1368,24 @@ const TableBayarFaktur = ({
   // SELECT CHECKBOX
   // ===================================================
 
-  const isSelectableInvoice = (item) => {
-    const saldoPiutang = Number(item?.saldo_piutang ?? 0);
-    return saldoPiutang > 0 || getStatusVerifikasiTukar(item) === "MENUNGGU_VERIFIKASI";
+  const isPayableInvoice = (item) => {
+    const saldoPiutang = Number(
+      item?.saldo_piutang ?? item?.sisa_tagihan ?? 0
+    );
+    return Number.isFinite(saldoPiutang) && saldoPiutang > 0;
   };
+
+  const isSelectableInvoice = (item) => {
+    return (
+      isPayableInvoice(item) ||
+      getStatusVerifikasiTukar(item) === "MENUNGGU_VERIFIKASI"
+    );
+  };
+
+  const selectedPayableInvoiceList = allData.filter(
+    (item) =>
+      selectedIds.includes(item.id) && isPayableInvoice(item)
+  );
 
   const selectedVerifikasiFakturList = allData.filter(
     (item) =>
@@ -1454,12 +1505,20 @@ const TableBayarFaktur = ({
     data = null
   ) => {
 
-    const selectedPaymentData = data
-      ? [data]
-      : allData.filter((item) => selectedIds.includes(item.id));
+    const selectedPaymentData = (
+      data
+        ? [data]
+        : allData.filter((item) => selectedIds.includes(item.id))
+    ).filter(isPayableInvoice);
+
+    // Faktur dengan saldo piutang 0 atau sudah lunas tidak dapat dibayar kembali.
+    if (!selectedPaymentData.length) {
+      swal.error("Tidak ada faktur dengan saldo piutang yang dapat dibayar.");
+      return;
+    }
 
     if (data) {
-      setSelectedData(data);
+      setSelectedData(selectedPaymentData[0]);
     } else {
       setSelectedData(selectedPaymentData);
     }
@@ -3721,6 +3780,7 @@ const TableBayarFaktur = ({
               onClick={() =>
                 openPayment()
               }
+              disabled={selectedPayableInvoiceList.length === 0}
               className="
                 inline-flex
                 items-center
@@ -3735,6 +3795,8 @@ const TableBayarFaktur = ({
                 hover:opacity-90
                 transition
                 shadow-md
+                disabled:cursor-not-allowed
+                disabled:opacity-40
               "
             >
 
@@ -3742,7 +3804,7 @@ const TableBayarFaktur = ({
 
               Bayar Faktur (
               {
-                selectedIds.length
+                selectedPayableInvoiceList.length
               }
               )
 
@@ -4074,8 +4136,7 @@ const TableBayarFaktur = ({
                                               title="Verifikasi Faktur"
                                               aria-label="Verifikasi Faktur"
                                             >
-                                              <FaCheckCircle />
-                                              <span>Verifikasi</span>
+                                              <FaCheckCircle size={14} className="text-green-500"/>/<FaTimesCircle size={14} className="text-red-500"/>
                                             </button>
                                           ) : (
                                             <span className="text-xs text-gray-400">Sudah dibayar</span>
@@ -8972,8 +9033,7 @@ const TableBayarFaktur = ({
                               );
                               const isDisabled =
                                 isSubmittingAlokasiPenerimaanLain ||
-                                loadingBillingAlokasi ||
-                                (!isChecked && perhitungan.sisaPenerimaan <= 0);
+                                loadingBillingAlokasi;
 
                               return (
                                 <tr
@@ -8989,9 +9049,28 @@ const TableBayarFaktur = ({
                                       onChange={(e) => {
                                         setSelectedBillingAlokasi((prev) => {
                                           if (e.target.checked) {
-                                            // Item ditambahkan di akhir array sehingga urutan
-                                            // checklist menjadi urutan prioritas alokasi.
-                                            return [...prev, item];
+                                            // Default nominal mengambil sisa penerimaan yang tersedia,
+                                            // tetapi tidak boleh melebihi saldo piutang billing.
+                                            const perhitunganSaatIni =
+                                              getPerhitunganAlokasiPenerimaan();
+                                            const sisaPenerimaanTersedia = Math.max(
+                                              0,
+                                              perhitunganSaatIni.sisaPenerimaan
+                                            );
+                                            const saldoPiutang = Number(
+                                              item?.saldo_piutang || 0
+                                            );
+
+                                            return [
+                                              ...prev,
+                                              {
+                                                ...item,
+                                                nominal_alokasi: Math.min(
+                                                  saldoPiutang,
+                                                  sisaPenerimaanTersedia
+                                                ),
+                                              },
+                                            ];
                                           }
 
                                           return prev.filter(
@@ -9011,8 +9090,31 @@ const TableBayarFaktur = ({
                                   <td className="text-right font-medium">
                                     {formatRupiah(item.saldo_piutang)}
                                   </td>
-                                  <td className="text-right font-semibold text-blue-700">
-                                    {formatRupiah(detailAlokasi?.nominal_alokasi || 0)}
+                                  <td className="text-right">
+                                    {isChecked ? (
+                                      <div className="relative ml-auto w-40">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">Rp</span>
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          value={formatInputNominal(detailAlokasi?.nominal_alokasi ?? 0)}
+                                          disabled={isSubmittingAlokasiPenerimaanLain}
+                                          onChange={(e) => {
+                                            const nominal = parseNominal(e.target.value);
+                                            setSelectedBillingAlokasi((prev) =>
+                                              prev.map((selected) =>
+                                                String(selected.no_billing || selected.value) === billingKey
+                                                  ? { ...selected, nominal_alokasi: nominal }
+                                                  : selected
+                                              )
+                                            );
+                                          }}
+                                          className="input input-bordered input-sm w-full rounded-lg pl-8 text-right font-semibold text-blue-700"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
                                   </td>
                                   <td className="text-right font-semibold text-orange-600">
                                     {formatRupiah(
@@ -9078,11 +9180,15 @@ const TableBayarFaktur = ({
                             {formatRupiah(perhitungan.sisaPenerimaan)}
                           </strong>
                         </div>
-                        {exhausted && (
+                        {perhitungan.sisaPenerimaan < 0 ? (
                           <p className="text-xs text-red-600 font-semibold">
-                            Sisa penerimaan sudah habis. Billing lainnya tidak dapat dipilih.
+                            Total nominal alokasi melebihi sisa penerimaan. Silakan sesuaikan nominal per billing.
                           </p>
-                        )}
+                        ) : exhausted ? (
+                          <p className="text-xs text-amber-600 font-semibold">
+                            Seluruh sisa penerimaan sudah dialokasikan.
+                          </p>
+                        ) : null}
                       </div>
                     );
                   })()}
