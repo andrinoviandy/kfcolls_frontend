@@ -4708,7 +4708,7 @@ const Dashboard = () => {
           top-0
           z-10
         ">
-                      <div>{group.label} (TOP 10 hari)</div>
+                      <div>{group.label} (TOP 10 Terbesar)</div>
                       <div className="text-center">Tahun</div>
                       <div className="text-right">Rp Ribu</div>
                       <div className="text-right">Aging</div>
