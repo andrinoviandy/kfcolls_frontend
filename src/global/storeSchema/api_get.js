@@ -2490,6 +2490,7 @@ const n2nGetService = {
     status = "ALL",
     start_date = "",
     end_date = "",
+    periode = ""
   }) => {
     try {
       const response = await api.get(
@@ -2504,6 +2505,7 @@ const n2nGetService = {
             status,
             start_date,
             end_date,
+            periode
           }
         }
       );
@@ -2523,6 +2525,7 @@ const n2nGetService = {
     status_verifikasi = "ALL",
     start_date = "",
     end_date = "",
+    periode = "",
     penerimaan_lain_id,
   }) => {
     try {
@@ -2539,10 +2542,24 @@ const n2nGetService = {
             status_verifikasi,
             start_date,
             end_date,
+            periode,
             penerimaan_lain_id
           },
         }
       );
+
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
+  getHistoryPembayaran: async ({ no_billing }) => {
+    try {
+      const response = await api.get("/getHistoryPembayaran", {
+        params: {
+          no_billing,
+        },
+      });
 
       return response.data;
     } catch (error) {

@@ -65,6 +65,12 @@ const formatDate = (date) => {
 
 };
 
+
+const getCurrentPeriode = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
 // Mengambil URL lampiran dari field files, baik berupa string maupun object.
 const getPenerimaanFileUrl = (files) => {
   if (!files) return "";
@@ -285,8 +291,11 @@ const getHistoryPembayaran = (item) => {
       const source = String(
         firstValue(row, "source", "asal", "jenis", "sumber", "table", "from") || ""
       ).toUpperCase();
+      const metodeRow = String(
+        firstValue(row, "metode_pembayaran", "metode", "payment_method", "method") || ""
+      ).toUpperCase();
 
-      if (source === "COD" || source === "D_COD") {
+      if (source === "COD" || source === "D_COD" || metodeRow === "COD") {
         addHistory([row], "COD");
       } else {
         addHistory([row], "D_PEMBAYARAN");
@@ -507,6 +516,16 @@ const TableBayarFaktur = ({
   const [selectedStatusVerifikasi, setSelectedStatusVerifikasi] = useState("ALL");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterPeriode, setFilterPeriode] = useState(getCurrentPeriode);
+  const [appliedFilters, setAppliedFilters] = useState(() => ({
+    cabang: [],
+    customer: [],
+    status: "ALL",
+    statusVerifikasi: "ALL",
+    startDate: "",
+    endDate: "",
+    periode: getCurrentPeriode(),
+  }));
   const [customerOptions, setCustomerOptions] = useState([]);
   const [cabangOptions, setCabangOptions] = useState([]);
   const [bankOptions, setBankOptions] = useState([]);
@@ -523,6 +542,10 @@ const TableBayarFaktur = ({
 
   const [expandedRows, setExpandedRows] =
     useState({});
+
+  // History pembayaran pada tabel utama dimuat saat baris di-expand.
+  const [historyPembayaranByBilling, setHistoryPembayaranByBilling] = useState({});
+  const [loadingHistoryPembayaran, setLoadingHistoryPembayaran] = useState({});
 
   const [paymentMethod, setPaymentMethod] =
     useState("DIRECT_TRANSFER");
@@ -1176,9 +1199,14 @@ const TableBayarFaktur = ({
       return;
     }
 
+    if (perhitungan.nominalPenerimaan <= 0) {
+      await swal.error("Sisa penerimaan sudah tidak tersedia untuk dialokasikan.");
+      return;
+    }
+
     if (perhitungan.totalAlokasi > perhitungan.nominalPenerimaan) {
       await swal.error(
-        "Total alokasi melebihi sisa penerimaan yang tersedia."
+        `Total alokasi ${formatRupiah(perhitungan.totalAlokasi)} tidak boleh melebihi sisa penerimaan ${formatRupiah(perhitungan.nominalPenerimaan)}.`
       );
       return;
     }
@@ -1241,12 +1269,13 @@ const TableBayarFaktur = ({
         page: currentPage,
         limit: perPage,
         keyword: searchKeyword,
-        sales_office: filterCabang.length ? filterCabang : "ALL",
-        customer: filterCustomer.length ? filterCustomer : "ALL",
-        status: selectedStatus,
-        status_verifikasi: selectedStatusVerifikasi,
-        start_date: filterStartDate,
-        end_date: filterEndDate,
+        sales_office: appliedFilters.cabang.length ? appliedFilters.cabang : "ALL",
+        customer: appliedFilters.customer.length ? appliedFilters.customer : "ALL",
+        status: appliedFilters.status,
+        status_verifikasi: appliedFilters.statusVerifikasi,
+        start_date: appliedFilters.startDate,
+        end_date: appliedFilters.endDate,
+        periode: appliedFilters.periode,
       };
       const res = await storeSchema.actions.getDataBayarFaktur(payload);
       if (res?.status !== true) throw new Error(res?.message || "Gagal mengambil data Bayar Faktur");
@@ -1331,7 +1360,20 @@ const TableBayarFaktur = ({
 
   useEffect(() => {
     getDataBayarFaktur();
-  }, [currentPage, perPage, searchKeyword, filterCabang, filterCustomer, selectedStatus, selectedStatusVerifikasi, filterStartDate, filterEndDate]);
+  }, [currentPage, perPage, searchKeyword, appliedFilters]);
+
+  const applyFilter = () => {
+    setCurrentPage(1);
+    setAppliedFilters({
+      cabang: filterCabang,
+      customer: filterCustomer,
+      status: selectedStatus,
+      statusVerifikasi: selectedStatusVerifikasi,
+      startDate: filterStartDate,
+      endDate: filterEndDate,
+      periode: filterPeriode,
+    });
+  };
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -1347,6 +1389,16 @@ const TableBayarFaktur = ({
     setSelectedStatusVerifikasi("ALL");
     setFilterStartDate("");
     setFilterEndDate("");
+    setFilterPeriode(getCurrentPeriode());
+    setAppliedFilters({
+      cabang: [],
+      customer: [],
+      status: "ALL",
+      statusVerifikasi: "ALL",
+      startDate: "",
+      endDate: "",
+      periode: getCurrentPeriode(),
+    });
     setCurrentPage(1);
   };
 
@@ -1490,11 +1542,86 @@ const TableBayarFaktur = ({
   // EXPAND HISTORY PEMBAYARAN
   // ===================================================
 
-  const toggleHistoryPembayaran = (id) => {
+  const toggleHistoryPembayaran = async (item) => {
+    const id = item?.id;
+    const noBilling = String(item?.no_billing || "").trim();
+
+    if (!id) return;
+
+    // Jika sedang terbuka, cukup tutup tanpa memanggil API.
+    if (expandedRows[id]) {
+      setExpandedRows((prev) => ({
+        ...prev,
+        [id]: false,
+      }));
+      return;
+    }
+
+    if (!noBilling || noBilling === "-") {
+      await swal.error("No Billing tidak ditemukan.");
+      return;
+    }
+
     setExpandedRows((prev) => ({
       ...prev,
-      [id]: !prev[id],
+      [id]: true,
     }));
+
+    // Gunakan cache berdasarkan no_billing agar billing yang sama
+    // tidak perlu meminta history berulang kali.
+    if (Object.prototype.hasOwnProperty.call(historyPembayaranByBilling, noBilling)) {
+      return;
+    }
+
+    if (loadingHistoryPembayaran[noBilling]) return;
+
+    try {
+      setLoadingHistoryPembayaran((prev) => ({
+        ...prev,
+        [noBilling]: true,
+      }));
+
+      const res = await storeSchema.actions.getHistoryPembayaran({
+        no_billing: noBilling,
+      });
+
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil history pembayaran.");
+      }
+
+      const responseData = res?.data;
+      const historyRaw =
+        responseData?.h_pembayaran ??
+        responseData?.list_data ??
+        responseData?.history_pembayaran ??
+        responseData?.data ??
+        responseData;
+
+      const history = getHistoryPembayaran({
+        h_pembayaran: Array.isArray(historyRaw)
+          ? historyRaw
+          : historyRaw && typeof historyRaw === "object"
+            ? historyRaw
+            : [],
+      });
+
+      setHistoryPembayaranByBilling((prev) => ({
+        ...prev,
+        [noBilling]: history,
+      }));
+    } catch (error) {
+      console.error("ERROR GET HISTORY PEMBAYARAN:", error);
+      setExpandedRows((prev) => ({
+        ...prev,
+        [id]: false,
+      }));
+      await swal.error(error?.message || "Gagal mengambil history pembayaran.");
+    } finally {
+      setLoadingHistoryPembayaran((prev) => ({
+        ...prev,
+        [noBilling]: false,
+      }));
+    }
   };
 
   // ===================================================
@@ -2173,7 +2300,8 @@ const TableBayarFaktur = ({
     }
   };
 
-  // Billing dimuat berdasarkan cabang dan customer yang dipilih.
+  // Billing dimuat dari API berdasarkan cabang dan customer yang dipilih.
+  // Pola request sama dengan Alokasi Penerimaan Lain, dengan limit 9999.
   const loadBillingBiayaLain = async (customerOption) => {
     setBiayaCustomer(customerOption || null);
     setBiayaBilling(null);
@@ -2183,20 +2311,42 @@ const TableBayarFaktur = ({
 
     try {
       setLoadingBiayaBilling(true);
-      const rows = allData.filter((item) =>
-        String(item?.customer_id ?? item?.customer ?? "") === String(customerOption.value)
-      );
-      const uniqueBilling = new Map();
+      const res = await storeSchema.actions.getDataBayarFaktur({
+        page: 1,
+        limit: 9999,
+        keyword: "",
+        sales_office: [biayaCabang],
+        customer: [customerOption.value],
+        status: "ALL",
+        status_verifikasi: "ALL",
+        start_date: "",
+        end_date: "",
+      });
 
-      rows.forEach((item, index) => {
+      if (res?.status !== true) {
+        throw new Error(res?.message || "Gagal mengambil data billing customer.");
+      }
+
+      const responseData = res?.data;
+      const rows = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.list_data)
+          ? responseData.list_data
+          : [];
+
+      const uniqueBilling = new Map();
+      rows.forEach((rawItem, index) => {
+        const item = normalizeBayarFakturRow(rawItem, index, 1, 9999);
         const noBilling = String(item?.no_billing ?? "").trim();
         if (!noBilling || noBilling === "-") return;
 
         const customerId = item?.customer_id ?? item?.customer;
         if (String(customerId) !== String(customerOption.value)) return;
 
+        const saldo = Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
+        if (saldo <= 0) return;
+
         if (!uniqueBilling.has(noBilling)) {
-          const saldo = Number(item?.saldo_piutang ?? item?.sisa_tagihan ?? 0);
           uniqueBilling.set(noBilling, {
             value: noBilling,
             label: `${noBilling} - ${formatRupiah(saldo)}`,
@@ -2207,7 +2357,7 @@ const TableBayarFaktur = ({
             no_faktur: item?.no_faktur ?? null,
             saldo_piutang: saldo,
             nominal_tagihan: Number(item?.nominal_tagihan ?? item?.total_invoice ?? item?.dpp ?? 0),
-            raw: item,
+            raw: rawItem,
             row_index: index,
           });
         }
@@ -3501,31 +3651,52 @@ const TableBayarFaktur = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Cabang</label>
-            <Select isMulti options={cabangOptions} value={getSelectedFilterOptions(cabangOptions, filterCabang)} onChange={(selected) => { setCurrentPage(1); setFilterCabang((selected || []).map((item) => item.value)); setFilterCustomer([]); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+            <Select isMulti options={cabangOptions} value={getSelectedFilterOptions(cabangOptions, filterCabang)} onChange={(selected) => { setFilterCabang((selected || []).map((item) => item.value)); setFilterCustomer([]); }} placeholder="Semua Cabang" closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Customer</label>
-            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => { setCurrentPage(1); setFilterCustomer((selected || []).map((item) => item.value)); }} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomerOptions ? "Memuat Data..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
+            <Select isMulti isDisabled={!filterCabang.length || loadingCustomerOptions} options={customerOptions} value={getSelectedFilterOptions(customerOptions, filterCustomer)} onChange={(selected) => setFilterCustomer((selected || []).map((item) => item.value))} placeholder={!filterCabang.length ? "Pilih cabang dahulu" : loadingCustomerOptions ? "Memuat Data..." : "Semua Customer"} closeMenuOnSelect={false} hideSelectedOptions={false} components={filterSelectComponents} styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Status Pembayaran</label>
-            <Select options={[{ label: "Semua Status", value: "ALL" }, { label: "Belum Dibayar", value: "BELUM_DIBAYAR" }, { label: "Partial Payment", value: "PARTIAL" }, { label: "Menunggu Pembayaran", value: "MENUNGGU_PEMBAYARAN" }, { label: "Sudah Dibayar", value: "SUDAH_DIBAYAR" }]} value={[{ label: "Semua Status", value: "ALL" }, { label: "Belum Dibayar", value: "BELUM_DIBAYAR" }, { label: "Partial Payment", value: "PARTIAL" }, { label: "Menunggu Pembayaran", value: "MENUNGGU_PEMBAYARAN" }, { label: "Sudah Dibayar", value: "SUDAH_DIBAYAR" }].find((item) => item.value === selectedStatus)} onChange={(selected) => { setCurrentPage(1); setSelectedStatus(selected?.value || "ALL"); }} placeholder="Semua Status" styles={filterSelectStyles} />
+            <Select options={[{ label: "Semua Status", value: "ALL" }, { label: "Belum Dibayar", value: "BELUM_DIBAYAR" }, { label: "Partial Payment", value: "PARTIAL" }, { label: "Menunggu Pembayaran", value: "MENUNGGU_PEMBAYARAN" }, { label: "Sudah Dibayar", value: "SUDAH_DIBAYAR" }]} value={[{ label: "Semua Status", value: "ALL" }, { label: "Belum Dibayar", value: "BELUM_DIBAYAR" }, { label: "Partial Payment", value: "PARTIAL" }, { label: "Menunggu Pembayaran", value: "MENUNGGU_PEMBAYARAN" }, { label: "Sudah Dibayar", value: "SUDAH_DIBAYAR" }].find((item) => item.value === selectedStatus)} onChange={(selected) => setSelectedStatus(selected?.value || "ALL")} placeholder="Semua Status" styles={filterSelectStyles} />
           </div>
           <div className="w-full min-w-[190px] sm:w-[220px]">
             <label className="mb-1 block text-xs font-medium text-gray-600">Status Verifikasi</label>
-            <Select options={[{ label: "Semua Status Verifikasi", value: "ALL" }, { label: "Belum Diverifikasi", value: "BELUM_DIVERIFIKASI" }, { label: "Terverifikasi", value: "VERIFIED" }]} value={[{ label: "Semua Status Verifikasi", value: "ALL" }, { label: "Belum Diverifikasi", value: "BELUM_DIVERIFIKASI" }, { label: "Terverifikasi", value: "VERIFIED" }].find((item) => item.value === selectedStatusVerifikasi)} onChange={(selected) => { setCurrentPage(1); setSelectedStatusVerifikasi(selected?.value || "ALL"); }} placeholder="Semua Status Verifikasi" styles={filterSelectStyles} />
+            <Select options={[{ label: "Semua Status Verifikasi", value: "ALL" }, { label: "Belum Diverifikasi", value: "BELUM_DIVERIFIKASI" }, { label: "Terverifikasi", value: "VERIFIED" }]} value={[{ label: "Semua Status Verifikasi", value: "ALL" }, { label: "Belum Diverifikasi", value: "BELUM_DIVERIFIKASI" }, { label: "Terverifikasi", value: "VERIFIED" }].find((item) => item.value === selectedStatusVerifikasi)} onChange={(selected) => setSelectedStatusVerifikasi(selected?.value || "ALL")} placeholder="Semua Status Verifikasi" styles={filterSelectStyles} />
           </div>
           <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label>
             <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
               <FaCalendarAlt className="text-primary text-sm" />
-              <input type="date" value={filterStartDate} max={filterEndDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterStartDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
+              <input type="date" value={filterStartDate} max={filterEndDate || undefined} onChange={(e) => setFilterStartDate(e.target.value)} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
               <span className="text-gray-300">-</span>
-              <input type="date" value={filterEndDate} min={filterStartDate || undefined} onChange={(e) => { setCurrentPage(1); setFilterEndDate(e.target.value); }} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
+              <input type="date" value={filterEndDate} min={filterStartDate || undefined} onChange={(e) => setFilterEndDate(e.target.value)} className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]" />
             </div>
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">Periode Pembayaran</label>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+              <FaCalendarAlt className="text-primary text-sm" />
+              <input
+                type="month"
+                value={filterPeriode}
+                onChange={(e) => setFilterPeriode(e.target.value)}
+                className="h-full text-sm bg-transparent outline-none text-gray-600"
+              />
+            </div>
+          </div>
+          <div className="w-full sm:w-auto flex items-end">
+            <button
+              type="button"
+              onClick={applyFilter}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            >
+              <FaFilter /> Terapkan Filter
+            </button>
           </div>
         </div>
       </div>
@@ -3541,7 +3712,7 @@ const TableBayarFaktur = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="relative grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {/* TOTAL FAKTUR */}
           <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
             <div className="absolute inset-x-0 top-0 h-1 bg-blue-500" />
@@ -3637,6 +3808,14 @@ const TableBayarFaktur = ({
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><FaMoneyBillWave size={17} /></div>
             </div>
           </div>
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/75 backdrop-blur-[1px]">
+              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-white px-5 py-3 text-sm font-semibold text-blue-700 shadow-md">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                Memuat ringkasan...
+              </div>
+            </div>
+          )}
         </div>
 
         {/* PENERIMAAN LAIN - dibuat lebih ringkas */}
@@ -4014,10 +4193,13 @@ const TableBayarFaktur = ({
 
                         const invoiceAmounts =
                           getDisplayInvoiceAmounts(v);
+                        const historyBillingKey = String(v?.no_billing || "").trim();
                         const historyPembayaran =
-                          getHistoryPembayaran(v);
+                          historyPembayaranByBilling[historyBillingKey] || [];
                         const isHistoryExpanded =
                           !!expandedRows[v.id];
+                        const isLoadingHistoryPembayaran =
+                          !!loadingHistoryPembayaran[historyBillingKey];
                         const hasPenagih =
                           String(v?.petugas || "").trim() !== "" &&
                           String(v?.petugas || "").trim() !== "-";
@@ -4195,7 +4377,7 @@ const TableBayarFaktur = ({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => toggleHistoryPembayaran(v.id)}
+                                    onClick={() => toggleHistoryPembayaran(v)}
                                     className="
                                   inline-flex
                                   items-center
@@ -4539,11 +4721,17 @@ const TableBayarFaktur = ({
                                         History Pembayaran
                                       </span>
                                       <span className="text-xs text-gray-500">
-                                        ({historyPembayaran.length} transaksi)
+                                        {isLoadingHistoryPembayaran
+                                          ? "(memuat...)"
+                                          : `(${historyPembayaran.length} transaksi)`}
                                       </span>
                                     </div>
 
-                                    {historyPembayaran.length === 0 ? (
+                                    {isLoadingHistoryPembayaran ? (
+                                      <div className="px-4 py-6 text-center text-sm text-gray-500">
+                                        Memuat history pembayaran...
+                                      </div>
+                                    ) : historyPembayaran.length === 0 ? (
                                       <div className="px-4 py-6 text-center text-sm text-gray-400">
                                         Belum ada history pembayaran.
                                       </div>
@@ -4581,6 +4769,9 @@ const TableBayarFaktur = ({
                                                 verification === "TERVERIFIKASI" ||
                                                 verification === "APPROVED" ||
                                                 verification === "SUDAH_VERIFIKASI";
+                                              const isRejected =
+                                                verification === "DITOLAK" ||
+                                                verification === "REJECTED";
 
                                               return (
                                                 <tr
@@ -4602,7 +4793,9 @@ const TableBayarFaktur = ({
                                                     <span
                                                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isVerified
                                                         ? "bg-green-100 text-green-700"
-                                                        : "bg-amber-100 text-amber-700"
+                                                        : isRejected
+                                                          ? "bg-red-100 text-red-700"
+                                                          : "bg-amber-100 text-amber-700"
                                                         }`}
                                                     >
                                                       <FaCheckCircle />
@@ -9101,6 +9294,30 @@ const TableBayarFaktur = ({
                                           disabled={isSubmittingAlokasiPenerimaanLain}
                                           onChange={(e) => {
                                             const nominal = parseNominal(e.target.value);
+                                            const perhitunganSaatIni =
+                                              getPerhitunganAlokasiPenerimaan();
+                                            const nominalSaatIni = Number(
+                                              detailAlokasi?.nominal_alokasi || 0
+                                            );
+                                            const sisaPenerimaanUntukBilling = Math.max(
+                                              0,
+                                              perhitunganSaatIni.nominalPenerimaan -
+                                                (perhitunganSaatIni.totalAlokasi - nominalSaatIni)
+                                            );
+                                            const batasNominal = Math.min(
+                                              Number(item?.saldo_piutang || 0),
+                                              sisaPenerimaanUntukBilling
+                                            );
+
+                                            if (nominal > batasNominal) {
+                                              swal.error(
+                                                nominal > Number(item?.saldo_piutang || 0)
+                                                  ? "Nominal alokasi tidak boleh melebihi saldo piutang billing."
+                                                  : `Nominal alokasi tidak boleh melebihi sisa penerimaan sebesar ${formatRupiah(sisaPenerimaanUntukBilling)}.`
+                                              );
+                                              return;
+                                            }
+
                                             setSelectedBillingAlokasi((prev) =>
                                               prev.map((selected) =>
                                                 String(selected.no_billing || selected.value) === billingKey
@@ -9147,7 +9364,7 @@ const TableBayarFaktur = ({
                       </span>
                     </div>
                     {loadingBillingAlokasi && <p className="text-xs text-blue-600 mt-2">Memuat billing sesuai customer...</p>}
-                    <p className="text-xs text-gray-500 mt-2">Billing diambil dari getDataBayarFaktur dan difilter sesuai cabang serta customer yang dipilih.</p>
+                    <p className="text-xs text-gray-500 mt-2">Billing difilter sesuai cabang serta customer yang dipilih.</p>
                   </div>
                   {selectedBillingAlokasi.length > 0 && (() => {
                     const perhitungan = getPerhitunganAlokasiPenerimaan();

@@ -771,11 +771,32 @@ const TableDataPiutang = ({
   const [filterPrinciple, setFilterPrinciple] =
     useState([]);
 
+  const today = new Date();
+  const defaultEndDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+  const defaultStartDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    "01",
+  ].join("-");
+
   const [filterStartDate, setFilterStartDate] =
-    useState("");
+    useState(defaultStartDate);
 
   const [filterEndDate, setFilterEndDate] =
-    useState("");
+    useState(defaultEndDate);
+
+  const [appliedFilters, setAppliedFilters] = useState({
+    cabang: [],
+    customer: [],
+    channel: [],
+    principle: [],
+    startDate: defaultStartDate,
+    endDate: defaultEndDate,
+  });
 
   const [currentPage, setCurrentPage] =
     useState(1);
@@ -1034,12 +1055,12 @@ const TableDataPiutang = ({
         keyword:
           searchKeyword,
 
-        sales_office: filterCabang.length ? filterCabang : "ALL",
-        customer: filterCustomer.length ? filterCustomer : "ALL",
-        customer_group: filterChannel.length ? filterChannel : "ALL",
-        principle: filterPrinciple.length ? filterPrinciple : "ALL",
-        start_date: filterStartDate,
-        end_date: filterEndDate,
+        sales_office: appliedFilters.cabang.length ? appliedFilters.cabang : "ALL",
+        customer: appliedFilters.customer.length ? appliedFilters.customer : "ALL",
+        customer_group: appliedFilters.channel.length ? appliedFilters.channel : "ALL",
+        principle: appliedFilters.principle.length ? appliedFilters.principle : "ALL",
+        start_date: appliedFilters.startDate,
+        end_date: appliedFilters.endDate,
       };
 
       const res =
@@ -1244,12 +1265,7 @@ const TableDataPiutang = ({
     currentPage,
     perPage,
     searchKeyword,
-    filterCabang,
-    filterCustomer,
-    filterChannel,
-    filterPrinciple,
-    filterStartDate,
-    filterEndDate,
+    appliedFilters,
   ]);
 
   // ===================================================
@@ -1284,6 +1300,18 @@ const TableDataPiutang = ({
     setSearchKeyword(keyword.trim());
   };
 
+  const applyFilter = () => {
+    setCurrentPage(1);
+    setAppliedFilters({
+      cabang: [...filterCabang],
+      customer: [...filterCustomer],
+      channel: [...filterChannel],
+      principle: [...filterPrinciple],
+      startDate: filterStartDate,
+      endDate: filterEndDate,
+    });
+  };
+
   const resetFilter = () => {
     setKeyword("");
     setSearchKeyword("");
@@ -1291,8 +1319,16 @@ const TableDataPiutang = ({
     setFilterCustomer([]);
     setFilterChannel([]);
     setFilterPrinciple([]);
-    setFilterStartDate("");
-    setFilterEndDate("");
+    setFilterStartDate(defaultStartDate);
+    setFilterEndDate(defaultEndDate);
+    setAppliedFilters({
+      cabang: [],
+      customer: [],
+      channel: [],
+      principle: [],
+      startDate: defaultStartDate,
+      endDate: defaultEndDate,
+    });
 
     setCurrentPage(1);
   };
@@ -1482,7 +1518,6 @@ const TableDataPiutang = ({
               options={options?.cabang || []}
               value={getSelectedFilterOptions(options?.cabang || [], filterCabang)}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterCabang((selected || []).map((item) => item.value));
                 setFilterCustomer([]);
               }}
@@ -1504,7 +1539,6 @@ const TableDataPiutang = ({
               options={options?.channel || []}
               value={getSelectedFilterOptions(options?.channel || [], filterChannel)}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterChannel((selected || []).map((item) => item.value));
               }}
               placeholder="Semua Channel"
@@ -1525,7 +1559,6 @@ const TableDataPiutang = ({
               options={options?.principle || []}
               value={getSelectedFilterOptions(options?.principle || [], filterPrinciple)}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterPrinciple((selected || []).map((item) => item.value));
               }}
               placeholder="Semua Principle"
@@ -1552,7 +1585,6 @@ const TableDataPiutang = ({
                 filterCustomer
               )}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterCustomer(
                   (selected || []).map((item) => item.value)
                 );
@@ -1584,7 +1616,6 @@ const TableDataPiutang = ({
                 value={filterStartDate}
                 max={filterEndDate || undefined}
                 onChange={(e) => {
-                  setCurrentPage(1);
                   setFilterStartDate(e.target.value);
                 }}
                 className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
@@ -1598,7 +1629,6 @@ const TableDataPiutang = ({
                 value={filterEndDate}
                 min={filterStartDate || undefined}
                 onChange={(e) => {
-                  setCurrentPage(1);
                   setFilterEndDate(e.target.value);
                 }}
                 className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
@@ -1607,6 +1637,18 @@ const TableDataPiutang = ({
             </div>
           </div>
 
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={applyFilter}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold shadow-sm hover:opacity-90 disabled:opacity-50"
+          >
+            <FaFilter />
+            Terapkan Filter
+          </button>
         </div>
 
       </div>

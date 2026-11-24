@@ -21,6 +21,7 @@ import {
   FaWarehouse,
   FaTag,
   FaPercentage,
+  FaSyncAlt,
 } from "react-icons/fa";
 import ReactPaginate from "react-paginate";
 import Select, { components as selectComponents } from "react-select";
@@ -630,8 +631,27 @@ const TableMasterFaktur = ({
   const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [filterCustomerGroup, setFilterCustomerGroup] = useState([]);
   const [filterPrinciple, setFilterPrinciple] = useState([]);
-  const [filterStartDate, setFilterStartDate] = useState("");
-  const [filterEndDate, setFilterEndDate] = useState("");
+  const today = new Date();
+  const defaultEndDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+  const defaultStartDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    "01",
+  ].join("-");
+  const [filterStartDate, setFilterStartDate] = useState(defaultStartDate);
+  const [filterEndDate, setFilterEndDate] = useState(defaultEndDate);
+  const [appliedFilters, setAppliedFilters] = useState({
+    salesOffice: [],
+    customer: [],
+    customerGroup: [],
+    principle: [],
+    startDate: defaultStartDate,
+    endDate: defaultEndDate,
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -821,12 +841,12 @@ const TableMasterFaktur = ({
         page: currentPage,
         limit: perPage,
         keyword: searchKeyword,
-        sales_office: filterSalesOffice.length ? filterSalesOffice : "ALL",
-        customer: filterCustomer.length ? filterCustomer : "ALL",
-        customer_group: filterCustomerGroup.length ? filterCustomerGroup : "ALL",
-        principle: filterPrinciple.length ? filterPrinciple : "ALL",
-        start_date: filterStartDate,
-        end_date: filterEndDate,
+        sales_office: appliedFilters.salesOffice.length ? appliedFilters.salesOffice : "ALL",
+        customer: appliedFilters.customer.length ? appliedFilters.customer : "ALL",
+        customer_group: appliedFilters.customerGroup.length ? appliedFilters.customerGroup : "ALL",
+        principle: appliedFilters.principle.length ? appliedFilters.principle : "ALL",
+        start_date: appliedFilters.startDate,
+        end_date: appliedFilters.endDate,
       };
       const res = await storeSchema.actions.getDataPenjualan(payload);
       if (res?.status !== true) {
@@ -907,12 +927,7 @@ const TableMasterFaktur = ({
     currentPage,
     perPage,
     searchKeyword,
-    filterSalesOffice,
-    filterCustomer,
-    filterCustomerGroup,
-    filterPrinciple,
-    filterStartDate,
-    filterEndDate,
+    appliedFilters,
   ]);
   // ===================================================
   // RELOAD SETELAH UPLOAD
@@ -952,7 +967,22 @@ const TableMasterFaktur = ({
   const handleSearch = () => {
     setCurrentPage(1);
     setSearchKeyword(keyword.trim());
-    getDataPenjualan()
+  };
+
+  const applyFilter = () => {
+    setCurrentPage(1);
+    setAppliedFilters({
+      salesOffice: [...filterSalesOffice],
+      customer: [...filterCustomer],
+      customerGroup: [...filterCustomerGroup],
+      principle: [...filterPrinciple],
+      startDate: filterStartDate,
+      endDate: filterEndDate,
+    });
+  };
+
+  const refreshData = () => {
+    getDataPenjualan();
   };
   const resetFilter = () => {
     setKeyword("");
@@ -962,8 +992,16 @@ const TableMasterFaktur = ({
     setCustomerOptions([]);
     setFilterCustomerGroup([]);
     setFilterPrinciple([]);
-    setFilterStartDate("");
-    setFilterEndDate("");
+    setFilterStartDate(defaultStartDate);
+    setFilterEndDate(defaultEndDate);
+    setAppliedFilters({
+      salesOffice: [],
+      customer: [],
+      customerGroup: [],
+      principle: [],
+      startDate: defaultStartDate,
+      endDate: defaultEndDate,
+    });
     setCurrentPage(1);
   };
   // ===================================================
@@ -1035,14 +1073,26 @@ const TableMasterFaktur = ({
               <FaSearch className="text-sm" />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={resetFilter}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
-          >
-            <FaFilter />
-            Reset Filter
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={refreshData}
+              disabled={loading}
+              title="Refresh data"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+            >
+              <FaSyncAlt className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={resetFilter}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50"
+            >
+              <FaFilter />
+              Reset Filter
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-full min-w-[190px] sm:w-[220px]">
@@ -1054,7 +1104,6 @@ const TableMasterFaktur = ({
               options={salesOfficeOptions}
               value={getSelectedFilterOptions(salesOfficeOptions, filterSalesOffice)}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterSalesOffice((selected || []).map((item) => item.value));
               }}
               placeholder="Semua Sales Office"
@@ -1073,7 +1122,6 @@ const TableMasterFaktur = ({
               options={customerGroupOptions}
               value={getSelectedFilterOptions(customerGroupOptions, filterCustomerGroup)}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterCustomerGroup((selected || []).map((item) => item.value));
               }}
               placeholder="Semua Channel"
@@ -1092,7 +1140,6 @@ const TableMasterFaktur = ({
               options={principleOptions}
               value={getSelectedFilterOptions(principleOptions, filterPrinciple)}
               onChange={(selected) => {
-                setCurrentPage(1);
                 setFilterPrinciple((selected || []).map((item) => item.value));
               }}
               placeholder="Semua Principle"
@@ -1113,7 +1160,6 @@ const TableMasterFaktur = ({
                 options={customerOptions}
                 value={getSelectedFilterOptions(customerOptions, filterCustomer)}
                 onChange={(selected) => {
-                  setCurrentPage(1);
                   setFilterCustomer((selected || []).map((item) => item.value));
                 }}
                 placeholder={
@@ -1140,7 +1186,6 @@ const TableMasterFaktur = ({
                 value={filterStartDate}
                 max={filterEndDate || undefined}
                 onChange={(e) => {
-                  setCurrentPage(1);
                   setFilterStartDate(e.target.value);
                 }}
                 className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
@@ -1152,7 +1197,6 @@ const TableMasterFaktur = ({
                 value={filterEndDate}
                 min={filterStartDate || undefined}
                 onChange={(e) => {
-                  setCurrentPage(1);
                   setFilterEndDate(e.target.value);
                 }}
                 className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
@@ -1160,6 +1204,17 @@ const TableMasterFaktur = ({
               />
             </div>
           </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={applyFilter}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold shadow-sm hover:opacity-90 disabled:opacity-50"
+          >
+            <FaFilter />
+            Terapkan Filter
+          </button>
         </div>
       </div>
       {/* SUMMARY */}

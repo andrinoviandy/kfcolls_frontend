@@ -34,6 +34,19 @@ import Select, {
 } from "react-select";
 
 // =====================================================
+// DEFAULT PERIODE PEMBAYARAN (BULAN BERJALAN)
+// Format: YYYY-MM, sama seperti TableBayarFaktur.
+// =====================================================
+
+const getCurrentMonthPeriod = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
+};
+
+// =====================================================
 // FORMAT DATE
 // =====================================================
 
@@ -316,11 +329,20 @@ const TableVerifikasiPembayaran = ({
   const [selectedStatus, setSelectedStatus] =
     useState("ALL");
 
+  // Filter Document Date (tetap seperti sebelumnya).
   const [filterStartDate, setFilterStartDate] =
     useState("");
 
   const [filterEndDate, setFilterEndDate] =
     useState("");
+
+  // Periode Pembayaran (bulan) yang sudah diterapkan dan dikirim ke API.
+  const [filterPaymentPeriod, setFilterPaymentPeriod] =
+    useState(() => getCurrentMonthPeriod());
+
+  // Nilai sementara Periode Pembayaran sebelum tombol diterapkan.
+  const [draftPaymentPeriod, setDraftPaymentPeriod] =
+    useState(() => getCurrentMonthPeriod());
 
   const [customerOptions, setCustomerOptions] =
     useState([]);
@@ -521,6 +543,8 @@ const TableVerifikasiPembayaran = ({
             filterStartDate,
           end_date:
             filterEndDate,
+          periode:
+            filterPaymentPeriod,
         };
 
         const res =
@@ -759,6 +783,7 @@ const TableVerifikasiPembayaran = ({
     selectedStatus,
     filterStartDate,
     filterEndDate,
+    filterPaymentPeriod,
   ]);
 
   // ===================================================
@@ -776,7 +801,15 @@ const TableVerifikasiPembayaran = ({
   // RESET FILTER
   // ===================================================
 
+  const handleApplyFilter = () => {
+    setFilterPaymentPeriod(draftPaymentPeriod);
+    setCurrentPage(1);
+    setSelectedIds([]);
+  };
+
   const resetFilter = () => {
+    const currentPeriod = getCurrentMonthPeriod();
+
     setKeyword("");
     setSearchKeyword("");
     setFilterCabang([]);
@@ -784,6 +817,8 @@ const TableVerifikasiPembayaran = ({
     setSelectedStatus("ALL");
     setFilterStartDate("");
     setFilterEndDate("");
+    setDraftPaymentPeriod(currentPeriod);
+    setFilterPaymentPeriod(currentPeriod);
     setCurrentPage(1);
     setSelectedIds([]);
   };
@@ -1636,49 +1671,52 @@ const TableVerifikasiPembayaran = ({
               <FaCalendarAlt className="text-primary text-sm" />
               <input
                 type="date"
-                value={
-                  filterStartDate
-                }
-                max={
-                  filterEndDate ||
-                  undefined
-                }
-                onChange={(
-                  e
-                ) => {
-                  setCurrentPage(
-                    1
-                  );
-                  setFilterStartDate(
-                    e.target.value
-                  );
+                value={filterStartDate}
+                max={filterEndDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterStartDate(e.target.value);
                 }}
                 className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
               />
-              <span className="text-gray-300">
-                -
-              </span>
+              <span className="text-gray-300">-</span>
               <input
                 type="date"
-                value={
-                  filterEndDate
-                }
-                min={
-                  filterStartDate ||
-                  undefined
-                }
-                onChange={(
-                  e
-                ) => {
-                  setCurrentPage(
-                    1
-                  );
-                  setFilterEndDate(
-                    e.target.value
-                  );
+                value={filterEndDate}
+                min={filterStartDate || undefined}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setFilterEndDate(e.target.value);
                 }}
                 className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
               />
+            </div>
+          </div>
+
+          {/* PERIODE PEMBAYARAN */}
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Periode Pembayaran
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+                <FaCalendarAlt className="text-primary text-sm" />
+                <input
+                  type="month"
+                  value={draftPaymentPeriod}
+                  onChange={(e) => setDraftPaymentPeriod(e.target.value)}
+                  className="h-full text-sm bg-transparent outline-none text-gray-600"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyFilter}
+                disabled={loading}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FaFilter />
+                Terapkan Filter
+              </button>
             </div>
           </div>
         </div>

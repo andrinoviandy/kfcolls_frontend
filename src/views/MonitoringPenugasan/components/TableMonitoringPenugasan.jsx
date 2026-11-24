@@ -29,6 +29,18 @@ import storeSchema from "global/store";
 // HELPERS
 // =====================================================
 
+const getCurrentMonthDateRange = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return {
+    start: `${year}-${month}-01`,
+    end: `${year}-${month}-${day}`,
+  };
+};
+
 const firstValue = (item, ...keys) => {
   for (const key of keys) {
     const value = item?.[key];
@@ -218,8 +230,21 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
   const [selectedStatusPenugasan, setSelectedStatusPenugasan] = useState("ALL");
   const [selectedStatusTukar, setSelectedStatusTukar] = useState("ALL");
   const [selectedStatusBayar, setSelectedStatusBayar] = useState("ALL");
-  const [filterStartDate, setFilterStartDate] = useState("");
-  const [filterEndDate, setFilterEndDate] = useState("");
+  // Document Date yang sudah diterapkan dan dikirim ke API.
+  const [filterStartDate, setFilterStartDate] = useState(
+    () => getCurrentMonthDateRange().start
+  );
+  const [filterEndDate, setFilterEndDate] = useState(
+    () => getCurrentMonthDateRange().end
+  );
+
+  // Nilai sementara Document Date sebelum tombol Terapkan Filter diklik.
+  const [draftStartDate, setDraftStartDate] = useState(
+    () => getCurrentMonthDateRange().start
+  );
+  const [draftEndDate, setDraftEndDate] = useState(
+    () => getCurrentMonthDateRange().end
+  );
   const [customerOptions, setCustomerOptions] = useState([]);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [cabangOptions, setCabangOptions] = useState([]);
@@ -392,7 +417,20 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
     setSearchKeyword(keyword.trim());
   };
 
+  const handleApplyFilter = async () => {
+    if (draftStartDate && draftEndDate && draftStartDate > draftEndDate) {
+      await swal.error("Document Date awal tidak boleh melebihi Document Date akhir.");
+      return;
+    }
+
+    setFilterStartDate(draftStartDate);
+    setFilterEndDate(draftEndDate);
+    setCurrentPage(1);
+  };
+
   const resetFilter = () => {
+    const currentMonthRange = getCurrentMonthDateRange();
+
     setKeyword("");
     setSearchKeyword("");
     setFilterCabang([]);
@@ -400,8 +438,10 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
     setSelectedStatusPenugasan("ALL");
     setSelectedStatusTukar("ALL");
     setSelectedStatusBayar("ALL");
-    setFilterStartDate("");
-    setFilterEndDate("");
+    setDraftStartDate(currentMonthRange.start);
+    setDraftEndDate(currentMonthRange.end);
+    setFilterStartDate(currentMonthRange.start);
+    setFilterEndDate(currentMonthRange.end);
     setCurrentPage(1);
   };
 
@@ -561,30 +601,35 @@ const TableMonitoringPenugasan = ({ dimensionScreenW, check, loginAccess, reload
             />
           </div>
           <div className="w-full sm:w-auto">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Tanggal</label>
-            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
-              <FaCalendarAlt className="text-primary text-sm" />
-              <input
-                type="date"
-                value={filterStartDate}
-                max={filterEndDate || undefined}
-                onChange={(event) => {
-                  setCurrentPage(1);
-                  setFilterStartDate(event.target.value);
-                }}
-                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
-              />
-              <span className="text-gray-300">-</span>
-              <input
-                type="date"
-                value={filterEndDate}
-                min={filterStartDate || undefined}
-                onChange={(event) => {
-                  setCurrentPage(1);
-                  setFilterEndDate(event.target.value);
-                }}
-                className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
-              />
+            <label className="mb-1 block text-xs font-medium text-gray-600">Document Date</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 h-9 shadow-sm">
+                <FaCalendarAlt className="text-primary text-sm" />
+                <input
+                  type="date"
+                  value={draftStartDate}
+                  max={draftEndDate || undefined}
+                  onChange={(event) => setDraftStartDate(event.target.value)}
+                  className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+                />
+                <span className="text-gray-300">-</span>
+                <input
+                  type="date"
+                  value={draftEndDate}
+                  min={draftStartDate || undefined}
+                  onChange={(event) => setDraftEndDate(event.target.value)}
+                  className="h-full text-sm bg-transparent outline-none text-gray-600 w-[125px]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyFilter}
+                disabled={loading}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FaFilter />
+                Terapkan Filter
+              </button>
             </div>
           </div>
         </div>
