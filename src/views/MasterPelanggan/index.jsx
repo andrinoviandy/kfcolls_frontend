@@ -171,7 +171,7 @@ const MasterPelanggan = () => {
 
         {/* ACTION */}
 
-        <div
+        {/* <div
           className="
             flex
             justify-end
@@ -198,7 +198,7 @@ const MasterPelanggan = () => {
 
           </button>
 
-        </div>
+        </div> */}
 
       </div>
 

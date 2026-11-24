@@ -226,6 +226,14 @@ const n2nPutService = {
       return error.response;
     }
   },
+  editPelanggan: async (data) => {
+    try {
+      const response = await api.put("/editPelanggan", data);
+      return response.data;
+    } catch (error) {
+      return error.response;
+    }
+  },
 };
 
 export default n2nPutService;

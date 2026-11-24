@@ -3,6 +3,8 @@ import React, {
   useState,
 } from "react";
 
+import * as XLSX from "xlsx";
+
 import {
   FaEllipsisV,
   FaHashtag,
@@ -20,6 +22,10 @@ import {
   FaClipboardList,
   FaStore,
   FaSyncAlt,
+  FaPlus,
+  FaFileExcel,
+  FaDownload,
+  FaUpload,
 } from "react-icons/fa";
 
 import {
@@ -82,92 +88,48 @@ const displayValue = (value) => {
 // =====================================================
 
 const normalizePelanggan = (item = {}) => {
-
+  const flagAktif = String(item?.flag_aktif ?? "Y").toUpperCase();
   return {
-
     ...item,
-
-    id:
-      item?.customer_id ||
-      item?.id,
-
-    customer_id:
-      item?.customer_id ||
-      item?.id ||
-      "-",
-
-    kode_customer:
-      item?.kode_customer ||
-      item?.customer_code ||
-      "-",
-
-    nama_customer:
-      item?.nama_customer ||
-      item?.name ||
-      item?.nama ||
-      "-",
-
-    jenis_customer:
-      item?.jenis_customer ||
-      item?.customer_groups_1_description ||
-      item?.customer_group ||
-      "-",
-
-    cabang:
-      item?.nama_plant ||
-      item?.cabang ||
-      item?.sales_office_description ||
-      item?.sales_office ||
-      "-",
-
-    alamat:
-      item?.street ||
-      item?.alamat ||
-      item?.address ||
-      "-",
-
-    kota:
-      item?.kota ||
-      item?.city ||
-      "-",
-
-    provinsi:
-      item?.provinsi ||
-      item?.province ||
-      "-",
-
-    no_npwp:
-      item?.nik_npwp_16 ||
-      item?.no_npwp ||
-      "-",
-
-    nama_npwp:
-      item?.nama_npwp ||
-      "-",
-
-    status: (() => {
-      const flagAktif = String(
-        item?.flag_aktif ??
-        item?.status ??
-        item?.status_outlet ??
-        "T"
-      ).toUpperCase();
-
-      if (flagAktif === "Y") {
-        return "AKTIF";
-      }
-
-      if (flagAktif === "T") {
-        return "NONAKTIF";
-      }
-
-      return flagAktif;
-    })(),
-
+    id: item?.customer_id || item?.id,
+    customer_id: item?.customer_id || item?.id || "-",
+    kode_customer: item?.kode_customer || "",
+    nama_customer: item?.name || item?.nama_customer || "-",
+    name: item?.name || item?.nama_customer || "",
+    cabang: item?.plant || item?.cabang || "",
+    plant: item?.plant || item?.cabang || "",
+    customer_groups_1: item?.customer_groups_1 || "",
+    customer_groups_1_description: item?.customer_groups_1_description || "-",
+    customer_groups_2: item?.customer_groups_2 || "",
+    customer_groups_2_description: item?.customer_groups_2_description || "-",
+    customer_groups_3: item?.customer_groups_3 || item?.channel_id || "",
+    customer_groups_3_description: item?.customer_groups_3_description || item?.channel_description || "-",
+    customer_groups_4: item?.customer_groups_4 || "",
+    customer_groups_4_description: item?.customer_groups_4_description || "-",
+    alamat: item?.street || "-",
+    kota: item?.city || "-",
+    no_npwp: item?.nik_npwp_16 || "-",
+    status: flagAktif === "Y" ? "AKTIF" : "NONAKTIF",
   };
-
 };
 
+
+const InputPelanggan = ({ label, value, onChange }) => (
+  <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+    <input type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="input input-bordered w-full rounded-xl bg-white" />
+  </div>
+);
+
+const SelectPelanggan = ({ label, value, options = [], onChange }) => (
+  <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+    <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="select select-bordered w-full rounded-xl bg-white">
+      <option value="">Pilih {label}</option>
+      {options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+    </select>
+  </div>
+);
 
 // =====================================================
 // COMPONENT
@@ -244,10 +206,11 @@ const TableMasterPelanggan = ({
   ] = useState(0);
 
 
-  const [
-    cabangOptions,
-    setCabangOptions,
-  ] = useState([]);
+  const [cabangOptions, setCabangOptions] = useState([]);
+  const [customerGroup1Options, setCustomerGroup1Options] = useState([]);
+  const [customerGroup2Options, setCustomerGroup2Options] = useState([]);
+  const [customerGroup3Options, setCustomerGroup3Options] = useState([]);
+  const [customerGroup4Options, setCustomerGroup4Options] = useState([]);
 
 
   const [
@@ -273,6 +236,23 @@ const TableMasterPelanggan = ({
     setEditData,
   ] = useState(null);
 
+  const emptyPelanggan = {
+    kode_customer: "", name: "", plant: "",
+    customer_groups_1: "", customer_groups_1_description: "",
+    customer_groups_2: "", customer_groups_2_description: "",
+    customer_groups_3: "", customer_groups_3_description: "",
+    customer_groups_4: "", customer_groups_4_description: "",
+    street: "", city: "", postal_code: "", tax_number: "",
+    telephone: "", mobile_phone: "", email: "", nik_npwp_16: "",
+    flag_aktif: "Y",
+  };
+  const [showInsert, setShowInsert] = useState(false);
+  const [insertData, setInsertData] = useState(emptyPelanggan);
+  const [savingInsert, setSavingInsert] = useState(false);
+  const [uploadingExcel, setUploadingExcel] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedExcelFile, setSelectedExcelFile] = useState(null);
+
 
   // ===================================================
   // SUMMARY
@@ -295,55 +275,32 @@ const TableMasterPelanggan = ({
 
 
   // ===================================================
-  // GET REFERENSI CABANG
+  // GET REFERENSI PELANGGAN
   // ===================================================
 
-  const getReferensiCabang = async () => {
+  const mapReferensi = (items = []) => items.map((item) => ({
+    label: item?.ur_ref || item?.description || item?.name || "",
+    value: item?.kd_ref || item?.code || "",
+  }));
 
-    try {
+  const getReferensiPelanggan = async () => {
+    const referenceRequests = [
+      { jenis: "cabang_id", setter: setCabangOptions },
+      { jenis: "cust_grp_1", setter: setCustomerGroup1Options },
+      { jenis: "cust_grp_2", setter: setCustomerGroup2Options },
+      { jenis: "channel_id", setter: setCustomerGroup3Options },
+      { jenis: "cust_grp_4", setter: setCustomerGroup4Options },
+    ];
 
-      const response =
-        await storeSchema.actions.getReferensiByJenis(
-          "cabang_id"
-        );
-
-
-      if (
-        response?.status === true
-      ) {
-
-        const data =
-          (
-            response?.data ||
-            []
-          ).map(
-            (item) => ({
-
-              label:
-                item?.ur_ref,
-
-              value:
-                item?.kd_ref,
-
-            })
-          );
-
-
-        setCabangOptions(data);
-
+    await Promise.all(referenceRequests.map(async ({ jenis, setter }) => {
+      try {
+        const response = await storeSchema.actions.getReferensiByJenis(jenis);
+        if (response?.status === true) setter(mapReferensi(response?.data || []));
+      } catch (error) {
+        console.error(`ERROR GET REFERENSI ${jenis}:`, error);
       }
-
-    } catch (error) {
-
-      console.error(
-        "ERROR GET REFERENSI CABANG:",
-        error
-      );
-
-    }
-
+    }));
   };
-
 
   // ===================================================
   // GET DATA PELANGGAN
@@ -374,7 +331,7 @@ const TableMasterPelanggan = ({
               ? "Y"
               : "T",
 
-        sales_office:
+        plant:
           selectedCabang === "ALL"
             ? ""
             : selectedCabang,
@@ -568,7 +525,7 @@ const TableMasterPelanggan = ({
 
   useEffect(() => {
 
-    getReferensiCabang();
+    getReferensiPelanggan();
 
   }, []);
 
@@ -704,83 +661,215 @@ const TableMasterPelanggan = ({
 
 
   // ===================================================
-  // SAVE EDIT
+  // PAYLOAD PELANGGAN SESUAI public.m_customer
+  // ===================================================
+
+  const buildPelangganPayload = (data = {}) => ({
+    kode_customer: data?.kode_customer || "",
+    name: data?.name || data?.nama_customer || "",
+    plant: data?.plant || data?.cabang || "",
+    customer_groups_1: data?.customer_groups_1 || "",
+    customer_groups_1_description: data?.customer_groups_1_description || "",
+    customer_groups_2: data?.customer_groups_2 || "",
+    customer_groups_2_description: data?.customer_groups_2_description || "",
+    customer_groups_3: data?.customer_groups_3 || "",
+    customer_groups_3_description: data?.customer_groups_3_description || "",
+    customer_groups_4: data?.customer_groups_4 || "",
+    customer_groups_4_description: data?.customer_groups_4_description || "",
+    street: data?.street || data?.alamat || "",
+    city: data?.city || data?.kota || "",
+    postal_code: data?.postal_code || "",
+    tax_number: data?.tax_number || "",
+    telephone: data?.telephone || "",
+    mobile_phone: data?.mobile_phone || "",
+    email: data?.email || "",
+    nik_npwp_16: data?.nik_npwp_16 || data?.no_npwp || "",
+    flag_aktif: data?.flag_aktif || ((data?.status === "NONAKTIF" || data?.status === "T") ? "T" : "Y"),
+  });
+
+  const validatePelanggan = (data) => {
+    if (!String(data?.name || data?.nama_customer || "").trim()) return "Nama pelanggan wajib diisi.";
+    if (!String(data?.plant || data?.cabang || "").trim()) return "Cabang wajib diisi.";
+    if (!String(data?.street || data?.alamat || "").trim()) return "Alamat wajib diisi.";
+    return null;
+  };
+
+  // ===================================================
+  // INSERT PELANGGAN
+  // ===================================================
+
+  const closeInsert = () => {
+    setShowInsert(false);
+    setInsertData({ ...emptyPelanggan });
+  };
+
+  const handleSaveInsert = async () => {
+    const validation = validatePelanggan(insertData);
+    if (validation) { await swal.warning(validation); return; }
+
+    try {
+      setSavingInsert(true);
+      const response = await storeSchema.actions.insertPelanggan(buildPelangganPayload(insertData));
+      if (response?.status !== true) throw new Error(response?.message || "Gagal menambahkan pelanggan.");
+      closeInsert();
+      await swal.success(response?.message || "Pelanggan berhasil ditambahkan.");
+      await getDataPelanggan();
+    } catch (error) {
+      await swal.error(error?.message || "Gagal menambahkan pelanggan.");
+    } finally {
+      setSavingInsert(false);
+    }
+  };
+
+  // ===================================================
+  // SAVE EDIT - API editPelanggan
   // ===================================================
 
   const handleSaveEdit = async () => {
+    const validation = validatePelanggan(editData);
+    if (validation) { await swal.warning(validation); return; }
 
-    if (
-      !editData?.nama_customer ||
-      !String(
-        editData?.nama_customer
-      ).trim()
-    ) {
-
-      await swal.warning(
-        "Nama pelanggan wajib diisi."
-      );
-
-      return;
-
+    try {
+      const payload = {
+        customer_id: editData?.customer_id,
+        ...buildPelangganPayload(editData),
+      };
+      swal.loading();
+      const response = await storeSchema.actions.editPelanggan(payload);
+      if (response?.status !== true) throw new Error(response?.message || "Gagal memperbarui pelanggan.");
+      closeEdit();
+      await swal.success(response?.message || "Data pelanggan berhasil diperbarui.");
+      await getDataPelanggan();
+    } catch (error) {
+      await swal.error(error?.message || "Gagal memperbarui pelanggan.");
     }
-
-
-    if (
-      !editData?.cabang ||
-      !String(
-        editData?.cabang
-      ).trim()
-    ) {
-
-      await swal.warning(
-        "Cabang wajib diisi."
-      );
-
-      return;
-
-    }
-
-
-    if (
-      !editData?.alamat ||
-      !String(
-        editData?.alamat
-      ).trim()
-    ) {
-
-      await swal.warning(
-        "Alamat wajib diisi."
-      );
-
-      return;
-
-    }
-
-
-    /*
-     * API UPDATE BELUM DIBERIKAN.
-     *
-     * Kalau nanti sudah ada:
-     *
-     * await storeSchema.actions.updatePelanggan(
-     *   editData
-     * );
-     *
-     * Setelah berhasil:
-     *
-     * closeEdit();
-     * getDataPelanggan();
-     */
-
-
-    closeEdit();
-
-    await swal.success(
-      "Data berhasil divalidasi."
-    );
-
   };
 
+  // ===================================================
+  // UPLOAD EXCEL PELANGGAN (MAKSIMAL 100 DATA)
+  // ===================================================
+
+  const normalizeExcelKey = (value) => String(value || "")
+    .trim().toLowerCase().replace(/[\s_-]+/g, "");
+
+  const getExcelField = (row, aliases) => {
+    const keys = Object.keys(row || {});
+    const found = keys.find((key) => aliases.includes(normalizeExcelKey(key)));
+    return found ? row[found] : "";
+  };
+
+  const downloadTemplatePelanggan = () => {
+    const headers = [
+      "kode_customer", "name", "plant",
+      "customer_groups_1", "customer_groups_1_description",
+      "customer_groups_2", "customer_groups_2_description",
+      "customer_groups_3", "customer_groups_3_description",
+      "customer_groups_4", "customer_groups_4_description",
+      "street", "city", "postal_code", "tax_number",
+      "telephone", "mobile_phone", "email", "nik_npwp_16", "flag_aktif",
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+    worksheet["!cols"] = headers.map((header) => ({ wch: Math.max(header.length + 3, 18) }));
+    const instructionRows = [
+      ["PETUNJUK UPLOAD DATA PELANGGAN"],
+      ["1. Isi data pelanggan pada sheet Template Pelanggan."],
+      ["2. Maksimal 100 baris data pelanggan dalam satu kali upload."],
+      ["3. Kolom wajib: name, plant, dan street."],
+      ["4. flag_aktif diisi Y untuk Aktif atau T untuk Nonaktif. Jika kosong, sistem mengisi Y."],
+      ["5. customer_groups_1 sampai customer_groups_4 diisi dengan kode referensi yang sesuai."],
+      ["6. customer_groups_3 menggunakan referensi channel_id."],
+      ["7. Baris pertama pada sheet Template Pelanggan adalah header, jangan diubah."],
+    ];
+    const instructionSheet = XLSX.utils.aoa_to_sheet(instructionRows);
+    instructionSheet["!cols"] = [{ wch: 105 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Pelanggan");
+    XLSX.utils.book_append_sheet(workbook, instructionSheet, "Petunjuk");
+    XLSX.writeFile(workbook, "Template_Upload_Pelanggan.xlsx");
+  };
+
+  const handleUploadExcel = async (fileOrEvent) => {
+    const file = fileOrEvent?.target ? fileOrEvent.target.files?.[0] : fileOrEvent;
+    if (fileOrEvent?.target) fileOrEvent.target.value = "";
+    if (!file) return;
+
+    try {
+      setUploadingExcel(true);
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: false });
+      const dataRows = rows.filter((row) => Object.values(row).some((value) => String(value ?? "").trim() !== ""));
+
+      if (dataRows.length === 0) throw new Error("File Excel tidak memiliki data pelanggan.");
+      if (dataRows.length > 100) throw new Error(`Upload maksimal 100 data pelanggan. File berisi ${dataRows.length} data.`);
+
+      const mappedRows = dataRows.map((row, index) => {
+        const data = {
+          kode_customer: getExcelField(row, ["kodecustomer"]),
+          name: getExcelField(row, ["name", "namapelanggan", "namacustomer", "customername"]),
+          plant: getExcelField(row, ["plant", "cabang"]),
+          customer_groups_1: getExcelField(row, ["customergroups1"]),
+          customer_groups_1_description: getExcelField(row, ["customergroups1description"]),
+          customer_groups_2: getExcelField(row, ["customergroups2"]),
+          customer_groups_2_description: getExcelField(row, ["customergroups2description"]),
+          customer_groups_3: getExcelField(row, ["channelid", "customergroups3"]),
+          customer_groups_3_description: getExcelField(row, ["channeldescription", "customergroups3description"]),
+          customer_groups_4: getExcelField(row, ["custgrp4", "customergroups4"]),
+          customer_groups_4_description: getExcelField(row, ["custgrp4description", "customergroups4description"]),
+          street: getExcelField(row, ["street", "alamat"]),
+          city: getExcelField(row, ["city", "kota"]),
+          postal_code: getExcelField(row, ["postalcode", "kodepos"]),
+          tax_number: getExcelField(row, ["taxnumber"]),
+          telephone: getExcelField(row, ["telephone", "telepon"]),
+          mobile_phone: getExcelField(row, ["mobilephone", "nohp"]),
+          email: getExcelField(row, ["email"]),
+          nik_npwp_16: getExcelField(row, ["niknpwp16", "npwp", "nonpwp"]),
+          flag_aktif: String(getExcelField(row, ["flagaktif", "status"]) || "Y").toUpperCase() === "T" || String(getExcelField(row, ["flagaktif", "status"]) || "").toUpperCase() === "NONAKTIF" ? "T" : "Y",
+        };
+        const validation = validatePelanggan(data);
+        return { rowNumber: index + 2, data, validation };
+      });
+
+      const invalidRows = mappedRows.filter((item) => item.validation);
+      if (invalidRows.length) {
+        const detail = invalidRows.slice(0, 10).map((item) => `Baris ${item.rowNumber}: ${item.validation}`).join("\n");
+        throw new Error(`Terdapat ${invalidRows.length} baris yang belum valid.\n${detail}`);
+      }
+
+      const confirm = await swal.confirm(
+        "Upload Data Pelanggan",
+        `Anda akan mengirim ${mappedRows.length} data pelanggan. Data akan diproses satu per satu. Lanjutkan?`
+      );
+      if (!confirm) return;
+
+      let successCount = 0;
+      const failedRows = [];
+      for (const item of mappedRows) {
+        try {
+          const response = await storeSchema.actions.insertPelanggan(buildPelangganPayload(item.data));
+          if (response?.status === true) successCount += 1;
+          else failedRows.push({ row: item.rowNumber, message: response?.message || "Gagal insert" });
+        } catch (error) {
+          failedRows.push({ row: item.rowNumber, message: error?.message || "Gagal insert" });
+        }
+      }
+
+      await getDataPelanggan();
+      setSelectedExcelFile(null);
+      setShowUploadModal(false);
+      if (failedRows.length) {
+        const failedInfo = failedRows.slice(0, 10).map((item) => `Baris ${item.row}: ${item.message}`).join("\n");
+        await swal.warning(`Upload selesai. Berhasil: ${successCount}, gagal: ${failedRows.length}.\n${failedInfo}`);
+      } else {
+        await swal.success(`Berhasil mengupload ${successCount} data pelanggan.`);
+      }
+    } catch (error) {
+      await swal.error(error?.message || "Gagal membaca file Excel.");
+    } finally {
+      setUploadingExcel(false);
+    }
+  };
 
   // ===================================================
   // DELETE
@@ -940,79 +1029,17 @@ const TableMasterPelanggan = ({
   // ===================================================
 
   const headerTable = [
-
-    {
-      label:
-        "Aksi",
-
-      icon:
-        <FaEllipsisV />,
-
-    },
-
-    {
-      label:
-        "No",
-
-      icon:
-        <FaHashtag />,
-
-    },
-
-    {
-      label:
-        "Customer",
-
-      icon:
-        <FaUsers />,
-
-    },
-
-    {
-      label:
-        "Jenis",
-
-      icon:
-        <FaBuilding />,
-
-    },
-
-    {
-      label:
-        "Cabang",
-
-      icon:
-        <FaStore />,
-
-    },
-
-    {
-      label:
-        "Alamat",
-
-      icon:
-        <FaMapMarkerAlt />,
-
-    },
-
-    {
-      label:
-        "NPWP",
-
-      icon:
-        <FaClipboardList />,
-
-    },
-
-    {
-      label:
-        "Status",
-
-      icon:
-        <FaClipboardList />,
-
-    },
-
+    { label: "Aksi", icon: <FaEllipsisV /> },
+    { label: "No", icon: <FaHashtag /> },
+    { label: "Customer", icon: <FaUsers /> },
+    { label: "Customer Groups 1", icon: <FaBuilding /> },
+    { label: "Customer Groups 2", icon: <FaBuilding /> },
+    { label: "Customer Groups 3 (Channel)", icon: <FaBuilding /> },
+    { label: "Customer Groups 4", icon: <FaBuilding /> },
+    { label: "Cabang", icon: <FaStore /> },
+    { label: "Alamat", icon: <FaMapMarkerAlt /> },
+    { label: "NPWP", icon: <FaClipboardList /> },
+    { label: "Status", icon: <FaClipboardList /> },
   ];
 
 
@@ -1335,6 +1362,15 @@ const TableMasterPelanggan = ({
 
       </div>
 
+      {/* AKSI PELANGGAN */}
+      <div className="flex flex-wrap justify-end gap-3">
+        <button type="button" onClick={() => setShowUploadModal(true)} disabled={uploadingExcel} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-60">
+          <FaFileExcel /> Upload Pelanggan
+        </button>
+        <button type="button" onClick={() => setShowInsert(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90">
+          <FaPlus /> Tambah Pelanggan
+        </button>
+      </div>
 
       {/* ================================================= */}
       {/* SUMMARY CARD */}
@@ -1967,7 +2003,7 @@ const TableMasterPelanggan = ({
                                 </li>
 
 
-                                <li>
+                                {/* <li>
 
                                   <button
                                     type="button"
@@ -1987,7 +2023,7 @@ const TableMasterPelanggan = ({
 
                                   </button>
 
-                                </li>
+                                </li> */}
 
                               </ul>
 
@@ -2097,39 +2133,37 @@ const TableMasterPelanggan = ({
                           </td>
 
 
-                          {/* JENIS */}
-
-                          <td
-                            className="
-                              px-4
-                              py-3
-                              whitespace-nowrap
-                            "
-                          >
-
-                            <span
-                              className="
-                                inline-flex
-                                px-3
-                                py-1.5
-                                rounded-full
-                                bg-blue-50
-                                text-primary
-                                text-xs
-                                font-semibold
-                              "
-                            >
-
-                              {
-                                displayValue(
-                                  item?.jenis_customer
-                                )
-                              }
-
-                            </span>
-
+                          {/* CUSTOMER GROUPS 1 */}
+                          <td className="px-4 py-3 min-w-[190px]">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-700">{displayValue(item?.customer_groups_1_description)}</span>
+                              <span className="text-xs text-gray-400">{displayValue(item?.customer_groups_1)}</span>
+                            </div>
                           </td>
 
+                          {/* CUSTOMER GROUPS 2 */}
+                          <td className="px-4 py-3 min-w-[190px]">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-700">{displayValue(item?.customer_groups_2_description)}</span>
+                              <span className="text-xs text-gray-400">{displayValue(item?.customer_groups_2)}</span>
+                            </div>
+                          </td>
+
+                          {/* CUSTOMER GROUPS 3 / CHANNEL */}
+                          <td className="px-4 py-3 min-w-[190px]">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-700">{displayValue(item?.customer_groups_3_description)}</span>
+                              <span className="text-xs text-gray-400">{displayValue(item?.customer_groups_3)}</span>
+                            </div>
+                          </td>
+
+                          {/* CUSTOMER GROUPS 4 */}
+                          <td className="px-4 py-3 min-w-[190px]">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-700">{displayValue(item?.customer_groups_4_description)}</span>
+                              <span className="text-xs text-gray-400">{displayValue(item?.customer_groups_4)}</span>
+                            </div>
+                          </td>
 
                           {/* CABANG */}
 
@@ -2579,6 +2613,97 @@ const TableMasterPelanggan = ({
 
       </div>
 
+
+      {/* ================================================= */}
+      {/* UPLOAD PELANGGAN MODAL */}
+      {/* ================================================= */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { if (!uploadingExcel) { setShowUploadModal(false); setSelectedExcelFile(null); } }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><FaFileExcel /></div>
+                <div><h3 className="font-bold text-lg">Upload Pelanggan</h3><p className="text-xs text-blue-100">Upload data pelanggan melalui file Excel</p></div>
+              </div>
+              <button type="button" disabled={uploadingExcel} onClick={() => { setShowUploadModal(false); setSelectedExcelFile(null); }} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center disabled:opacity-50"><FaTimes /></button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <div className="flex items-start gap-3">
+                  <FaDownload className="text-primary mt-1 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800">Download Template Excel</p>
+                    <p className="text-sm text-gray-500 mt-1">Gunakan template agar susunan kolom dan nama header sesuai dengan format upload.</p>
+                    <button type="button" onClick={downloadTemplatePelanggan} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:opacity-90"><FaDownload /> Download Template</button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Pilih File Excel</label>
+                <label className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center ${uploadingExcel ? "bg-gray-100 border-gray-200" : "bg-gray-50 border-gray-300 hover:border-primary cursor-pointer"}`}>
+                  <FaUpload className="text-2xl text-primary" />
+                  <span className="text-sm font-semibold text-gray-700">{selectedExcelFile?.name || "Klik untuk memilih file Excel"}</span>
+                  <span className="text-xs text-gray-400">Format .xlsx atau .xls · Maksimal 100 data</span>
+                  <input type="file" accept=".xlsx,.xls" className="hidden" disabled={uploadingExcel} onChange={(e) => { setSelectedExcelFile(e.target.files?.[0] || null); e.target.value = ""; }} />
+                </label>
+                <p className="text-xs text-gray-500 mt-2">Data akan divalidasi terlebih dahulu, kemudian dikirim satu per satu.</p>
+              </div>
+            </div>
+
+            <div className="border-t bg-gray-50 px-5 py-4 flex justify-end gap-3">
+              <button type="button" onClick={() => { setShowUploadModal(false); setSelectedExcelFile(null); }} disabled={uploadingExcel} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold disabled:opacity-50">Batal</button>
+              <button type="button" onClick={() => handleUploadExcel(selectedExcelFile)} disabled={!selectedExcelFile || uploadingExcel} className="px-6 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                {uploadingExcel ? <span className="loading loading-spinner loading-xs" /> : <FaUpload />}
+                {uploadingExcel ? "Memproses Excel..." : "Upload Data"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
+      {/* INSERT MODAL */}
+      {/* ================================================= */}
+      {showInsert && (
+        <div className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeInsert}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-primary px-6 py-4 text-white flex items-center justify-between sticky top-0 z-10">
+              <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><FaPlus /></div><div><h3 className="font-bold text-lg">Tambah Pelanggan</h3><p className="text-xs text-blue-100">Lengkapi data sesuai master pelanggan</p></div></div>
+              <button type="button" onClick={closeInsert} className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"><FaTimes /></button>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <InputPelanggan label="Kode Customer" value={insertData.kode_customer} onChange={(value) => setInsertData((prev) => ({ ...prev, kode_customer: value }))} />
+              <InputPelanggan label="Nama Pelanggan *" value={insertData.name} onChange={(value) => setInsertData((prev) => ({ ...prev, name: value }))} />
+              <SelectPelanggan label="Cabang / Plant *" value={insertData.plant} options={cabangOptions} onChange={(value) => setInsertData((prev) => ({ ...prev, plant: value }))} />
+              {[
+                ["customer_groups_1", "customer_groups_1_description", "Customer Groups 1", customerGroup1Options],
+                ["customer_groups_2", "customer_groups_2_description", "Customer Groups 2", customerGroup2Options],
+                ["customer_groups_3", "customer_groups_3_description", "Customer Groups 3", customerGroup3Options],
+                ["customer_groups_4", "customer_groups_4_description", "Customer Groups 4", customerGroup4Options],
+              ].map(([key, descriptionKey, label, options]) => (
+                <div key={key}>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+                  <select value={insertData[key]} onChange={(e) => { const selected = options.find((item) => String(item.value) === e.target.value); setInsertData((prev) => ({ ...prev, [key]: e.target.value, [descriptionKey]: selected?.label || "" })); }} className="select select-bordered w-full rounded-xl bg-white">
+                    <option value="">Pilih {label}</option>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </div>
+              ))}
+              <InputPelanggan label="Kota" value={insertData.city} onChange={(value) => setInsertData((prev) => ({ ...prev, city: value }))} />
+              <InputPelanggan label="Kode Pos" value={insertData.postal_code} onChange={(value) => setInsertData((prev) => ({ ...prev, postal_code: value }))} />
+              <InputPelanggan label="Tax Number" value={insertData.tax_number} onChange={(value) => setInsertData((prev) => ({ ...prev, tax_number: value }))} />
+              <InputPelanggan label="NPWP 16 Digit" value={insertData.nik_npwp_16} onChange={(value) => setInsertData((prev) => ({ ...prev, nik_npwp_16: value }))} />
+              <InputPelanggan label="Telepon" value={insertData.telephone} onChange={(value) => setInsertData((prev) => ({ ...prev, telephone: value }))} />
+              <InputPelanggan label="Mobile Phone" value={insertData.mobile_phone} onChange={(value) => setInsertData((prev) => ({ ...prev, mobile_phone: value }))} />
+              <InputPelanggan label="Email" value={insertData.email} onChange={(value) => setInsertData((prev) => ({ ...prev, email: value }))} />
+              <div className="md:col-span-2 lg:col-span-3"><label className="block text-sm font-semibold text-gray-700 mb-2">Alamat / Street *</label><textarea value={insertData.street} onChange={(e) => setInsertData((prev) => ({ ...prev, street: e.target.value }))} className="textarea textarea-bordered w-full min-h-[90px] rounded-xl" /></div>
+              <div><label className="block text-sm font-semibold text-gray-700 mb-2">Status</label><select value={insertData.flag_aktif} onChange={(e) => setInsertData((prev) => ({ ...prev, flag_aktif: e.target.value }))} className="select select-bordered w-full rounded-xl bg-white"><option value="Y">Aktif</option><option value="T">Nonaktif</option></select></div>
+            </div>
+            <div className="border-t bg-gray-50 px-5 py-4 flex justify-end gap-3"><button type="button" onClick={closeInsert} disabled={savingInsert} className="px-5 py-2.5 rounded-full border border-gray-300 bg-white text-gray-600 text-sm font-semibold">Batal</button><button type="button" onClick={handleSaveInsert} disabled={savingInsert} className="px-6 py-2.5 rounded-full bg-primary text-white text-sm font-semibold shadow-md inline-flex items-center gap-2 disabled:opacity-60">{savingInsert ? <span className="loading loading-spinner loading-xs" /> : <FaSave />} {savingInsert ? "Menyimpan..." : "Simpan Pelanggan"}</button></div>
+          </div>
+        </div>
+      )}
 
       {/* ================================================= */}
       {/* DETAIL MODAL */}
@@ -3201,564 +3326,29 @@ const TableMasterPelanggan = ({
 
 
               {/* FORM */}
-
-              <div
-                className="
-                  p-6
-                  grid
-                  grid-cols-1
-                  md:grid-cols-2
-                  gap-4
-                "
-              >
-
-                {/* CUSTOMER ID */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Customer ID
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.customer_id ||
-                      ""
-                    }
-                    disabled
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      bg-gray-100
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* KODE */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Kode Customer
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.kode_customer ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            kode_customer:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      bg-white
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* NAMA */}
-
-                <div
-                  className="
-                    md:col-span-2
-                  "
-                >
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Nama Pelanggan
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.nama_customer ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            nama_customer:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      bg-white
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* JENIS */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Jenis Customer
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.jenis_customer ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            jenis_customer:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      rounded-xl
-                      bg-white
-                    "
-                  />
-
-                </div>
-
-
-                {/* CABANG */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Cabang
-                  </label>
-
-                  <select
-                    value={
-                      editData?.cabang ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            cabang:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      select
-                      select-bordered
-                      w-full
-                      rounded-xl
-                      bg-white
-                    "
-                  >
-
-                    <option value="">
-                      Pilih Cabang
-                    </option>
-
-
-                    {
-                      cabangOptions.map(
-                        (cabang) => (
-
-                          <option
-                            key={
-                              cabang.value
-                            }
-                            value={
-                              cabang.value
-                            }
-                          >
-
-                            {
-                              cabang.label
-                            }
-
-                          </option>
-
-                        )
-                      )
-                    }
-
-                  </select>
-
-                </div>
-
-
-                {/* KOTA */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Kota
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.kota ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            kota:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* PROVINSI */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Provinsi
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.provinsi ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            provinsi:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* ALAMAT */}
-
-                <div
-                  className="
-                    md:col-span-2
-                  "
-                >
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Alamat
-                  </label>
-
-                  <textarea
-                    value={
-                      editData?.alamat ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            alamat:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      textarea
-                      textarea-bordered
-                      w-full
-                      min-h-[100px]
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* NO NPWP */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    No. NPWP
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.no_npwp ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            no_npwp:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* NAMA NPWP */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Nama NPWP
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      editData?.nama_npwp ||
-                      ""
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            nama_npwp:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      input
-                      input-bordered
-                      w-full
-                      rounded-xl
-                    "
-                  />
-
-                </div>
-
-
-                {/* STATUS */}
-
-                <div>
-
-                  <label
-                    className="
-                      block
-                      text-sm
-                      font-semibold
-                      text-gray-700
-                      mb-2
-                    "
-                  >
-                    Status
-                  </label>
-
-                  <select
-                    value={
-                      editData?.status ||
-                      "AKTIF"
-                    }
-                    onChange={
-                      (e) =>
-                        setEditData(
-                          (prev) => ({
-
-                            ...prev,
-
-                            status:
-                              e.target.value,
-
-                          })
-                        )
-                    }
-                    className="
-                      select
-                      select-bordered
-                      w-full
-                      rounded-xl
-                      bg-white
-                    "
-                  >
-
-                    <option value="AKTIF">
-                      Aktif
-                    </option>
-
-                    <option value="NONAKTIF">
-                      Nonaktif
-                    </option>
-
-                  </select>
-
-                </div>
-
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Customer ID</label><input value={editData?.customer_id || ""} disabled className="input input-bordered w-full bg-gray-100 rounded-xl" /></div>
+                <InputPelanggan label="Kode Customer" value={editData?.kode_customer || ""} onChange={(value) => setEditData((prev) => ({ ...prev, kode_customer: value }))} />
+                <InputPelanggan label="Nama Pelanggan *" value={editData?.name || editData?.nama_customer || ""} onChange={(value) => setEditData((prev) => ({ ...prev, name: value, nama_customer: value }))} />
+                <SelectPelanggan label="Cabang / Plant *" value={editData?.plant || editData?.cabang || ""} options={cabangOptions} onChange={(value) => setEditData((prev) => ({ ...prev, plant: value, cabang: value }))} />
+                {[
+                  ["customer_groups_1", "customer_groups_1_description", "Customer Groups 1", customerGroup1Options],
+                  ["customer_groups_2", "customer_groups_2_description", "Customer Groups 2", customerGroup2Options],
+                  ["customer_groups_3", "customer_groups_3_description", "Customer Groups 3", customerGroup3Options],
+                  ["customer_groups_4", "customer_groups_4_description", "Customer Groups 4", customerGroup4Options],
+                ].map(([key, descriptionKey, label, options]) => (
+                  <div key={key}><label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label><select value={editData?.[key] || ""} onChange={(e) => { const selected = options.find((item) => String(item.value) === e.target.value); setEditData((prev) => ({ ...prev, [key]: e.target.value, [descriptionKey]: selected?.label || "" })); }} className="select select-bordered w-full rounded-xl bg-white"><option value="">Pilih {label}</option>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+                ))}
+                <InputPelanggan label="Kota" value={editData?.city || editData?.kota || ""} onChange={(value) => setEditData((prev) => ({ ...prev, city: value, kota: value }))} />
+                <InputPelanggan label="Kode Pos" value={editData?.postal_code || ""} onChange={(value) => setEditData((prev) => ({ ...prev, postal_code: value }))} />
+                <InputPelanggan label="Tax Number" value={editData?.tax_number || ""} onChange={(value) => setEditData((prev) => ({ ...prev, tax_number: value }))} />
+                <InputPelanggan label="NPWP 16 Digit" value={editData?.nik_npwp_16 || editData?.no_npwp || ""} onChange={(value) => setEditData((prev) => ({ ...prev, nik_npwp_16: value, no_npwp: value }))} />
+                <InputPelanggan label="Telepon" value={editData?.telephone || ""} onChange={(value) => setEditData((prev) => ({ ...prev, telephone: value }))} />
+                <InputPelanggan label="Mobile Phone" value={editData?.mobile_phone || ""} onChange={(value) => setEditData((prev) => ({ ...prev, mobile_phone: value }))} />
+                <InputPelanggan label="Email" value={editData?.email || ""} onChange={(value) => setEditData((prev) => ({ ...prev, email: value }))} />
+                <div className="md:col-span-2 lg:col-span-3"><label className="block text-sm font-semibold text-gray-700 mb-2">Alamat / Street *</label><textarea value={editData?.street || editData?.alamat || ""} onChange={(e) => setEditData((prev) => ({ ...prev, street: e.target.value, alamat: e.target.value }))} className="textarea textarea-bordered w-full min-h-[90px] rounded-xl" /></div>
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Status</label><select value={editData?.flag_aktif || (editData?.status === "NONAKTIF" ? "T" : "Y")} onChange={(e) => setEditData((prev) => ({ ...prev, flag_aktif: e.target.value, status: e.target.value === "Y" ? "AKTIF" : "NONAKTIF" }))} className="select select-bordered w-full rounded-xl bg-white"><option value="Y">Aktif</option><option value="T">Nonaktif</option></select></div>
               </div>
-
 
               {/* FOOTER */}
 

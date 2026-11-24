@@ -403,7 +403,7 @@ const Header = () => {
       refreshNotifications();
     };
 
-    intervalId = setInterval(refreshIfSessionActive, 20000);
+    intervalId = setInterval(refreshIfSessionActive, 10000);
     refreshIfSessionActive();
 
     return () => clearInterval(intervalId);
