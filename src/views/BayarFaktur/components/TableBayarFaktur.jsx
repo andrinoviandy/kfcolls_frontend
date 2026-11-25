@@ -3683,7 +3683,8 @@ const TableBayarFaktur = ({
               <FaCalendarAlt className="text-primary text-sm" />
               <input
                 type="month"
-                value={filterPeriode}
+                // value={filterPeriode}
+                value={}
                 onChange={(e) => setFilterPeriode(e.target.value)}
                 className="h-full text-sm bg-transparent outline-none text-gray-600"
               />
