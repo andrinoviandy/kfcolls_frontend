@@ -66,11 +66,6 @@ const formatDate = (date) => {
 };
 
 
-const getCurrentPeriode = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-};
-
 // Mengambil URL lampiran dari field files, baik berupa string maupun object.
 const getPenerimaanFileUrl = (files) => {
   if (!files) return "";
@@ -516,8 +511,7 @@ const TableBayarFaktur = ({
   const [selectedStatusVerifikasi, setSelectedStatusVerifikasi] = useState("ALL");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
-  // const [filterPeriode, setFilterPeriode] = useState(getCurrentPeriode);
-  const [filterPeriode, setFilterPeriode] = useState();
+  const [filterPeriode, setFilterPeriode] = useState("");
   const [appliedFilters, setAppliedFilters] = useState(() => ({
     cabang: [],
     customer: [],
@@ -525,7 +519,7 @@ const TableBayarFaktur = ({
     statusVerifikasi: "ALL",
     startDate: "",
     endDate: "",
-    periode: getCurrentPeriode(),
+    periode: "",
   }));
   const [customerOptions, setCustomerOptions] = useState([]);
   const [cabangOptions, setCabangOptions] = useState([]);
@@ -1390,7 +1384,7 @@ const TableBayarFaktur = ({
     setSelectedStatusVerifikasi("ALL");
     setFilterStartDate("");
     setFilterEndDate("");
-    setFilterPeriode(getCurrentPeriode());
+    setFilterPeriode("");
     setAppliedFilters({
       cabang: [],
       customer: [],
@@ -1398,7 +1392,7 @@ const TableBayarFaktur = ({
       statusVerifikasi: "ALL",
       startDate: "",
       endDate: "",
-      periode: getCurrentPeriode(),
+      periode: "",
     });
     setCurrentPage(1);
   };
