@@ -3630,7 +3630,7 @@ const TableBayarFaktur = ({
             <button type="button" onClick={handleRefresh} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50">
               <FaSyncAlt /> Refresh
             </button>
-            {!['02'].includes(loginAccess?.role_id) && (
+            {!['02', '04'].includes(loginAccess?.role_id) && (
               <>
                 <button type="button" onClick={openPartialPayment} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition shadow-sm whitespace-nowrap">
                   <FaCreditCard /> Partial Payment
@@ -3814,7 +3814,7 @@ const TableBayarFaktur = ({
         </div>
 
         {/* PENERIMAAN LAIN - dibuat lebih ringkas */}
-        {loginAccess?.role_id !== '02' && (
+        {!['02', '04'].includes(loginAccess?.role_id) && (
           <button
             type="button"
             onClick={handleOpenRiwayatPenerimaanLain}
