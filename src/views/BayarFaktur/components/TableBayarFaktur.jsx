@@ -3684,7 +3684,6 @@ const TableBayarFaktur = ({
               <input
                 type="month"
                 // value={filterPeriode}
-                value={}
                 onChange={(e) => setFilterPeriode(e.target.value)}
                 className="h-full text-sm bg-transparent outline-none text-gray-600"
               />
