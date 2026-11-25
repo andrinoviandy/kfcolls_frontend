@@ -516,7 +516,8 @@ const TableBayarFaktur = ({
   const [selectedStatusVerifikasi, setSelectedStatusVerifikasi] = useState("ALL");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
-  const [filterPeriode, setFilterPeriode] = useState(getCurrentPeriode);
+  // const [filterPeriode, setFilterPeriode] = useState(getCurrentPeriode);
+  const [filterPeriode, setFilterPeriode] = useState();
   const [appliedFilters, setAppliedFilters] = useState(() => ({
     cabang: [],
     customer: [],
@@ -3683,7 +3684,7 @@ const TableBayarFaktur = ({
               <FaCalendarAlt className="text-primary text-sm" />
               <input
                 type="month"
-                // value={filterPeriode}
+                value={filterPeriode}
                 onChange={(e) => setFilterPeriode(e.target.value)}
                 className="h-full text-sm bg-transparent outline-none text-gray-600"
               />
