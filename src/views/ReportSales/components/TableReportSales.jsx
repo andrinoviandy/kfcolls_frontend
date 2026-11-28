@@ -4888,7 +4888,7 @@ const TableReportSales = ({
                         text-gray-500
                       "
                     >
-                      Total Penjualan
+                      Total Piutang
                     </p>
 
                     <p

@@ -216,10 +216,28 @@ const getTukarFakturStatus = (item) => {
   return "MENUNGGU_VERIFIKASI";
 };
 const getStatusLunas = (item) => {
-  const explicit = String(item?.status_lunas ?? item?.status_pelunasan ?? "").toUpperCase();
-  if (["LUNAS", "SUDAH_LUNAS", "PAID", "Y", "S"].includes(explicit)) return "LUNAS";
-  if (["BELUM_LUNAS", "BELUM LUNAS", "UNPAID", "N", "B"].includes(explicit)) return "BELUM_LUNAS";
-  return getPiutangStatus(item);
+  const dpp = Number(item?.dpp || 0);
+  const ppn = Number(item?.ppn || 0);
+  const totalInvoice = Number(
+    item?.total_invoice ??
+    item?.total_tagihan ??
+    item?.nominal_invoice ??
+    (dpp + ppn)
+  ) || 0;
+
+  // Saldo hanya dikurangi collection yang sudah terverifikasi.
+  const collectionsTerverifikasi = Number(
+    item?.collections_terverifikasi ??
+    item?.collections ??
+    item?.total_dibayar ??
+    0
+  ) || 0;
+
+  const saldoPiutang = totalInvoice - collectionsTerverifikasi;
+
+  return saldoPiutang >= 0 && saldoPiutang < 1
+    ? "LUNAS"
+    : "BELUM_LUNAS";
 };
 const getSalesman = (item) => item?.nama_sales ?? item?.nama_salesman ?? item?.salesman_name ?? item?.sales_name ?? item?.salesman ?? "-";
 const getPetugasTukarFaktur = (item) => item?.tukar_faktur_nama ?? item?.nama_petugas_tukar_faktur ?? item?.nama_salesman_tukar_faktur ?? getSalesman(item);
@@ -551,7 +569,6 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
         "Total Invoice": getDpp(item) + getPpn(item),
         Collection: getCollection(item), "Saldo Piutang": getOutstanding(item),
         "Keterangan Outstanding": item?.keterangan_outstanding || item?.keterangan || getInvoiceAmounts(item).keterangan,
-        Status: item?.status || item?.status_piutang || "-",
         "Pengiriman Notifikasi": getStatusPengirimanNotifikasi(item),
         "Email Penerima": item?.konfirmasi_email || item?.email_penerima || item?.email_customer || item?.email || "-",
         "Status Konfirmasi": getStatusKonfirmasiLaporan(item),
@@ -662,7 +679,6 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                 <th className="px-4 py-3 whitespace-nowrap text-right">Saldo Piutang</th>
                 <th className="px-4 py-3 whitespace-nowrap">Keterangan Outstanding</th>
                 <th className="px-4 py-3 whitespace-nowrap text-center">Aging</th>
-                <th className="px-4 py-3 whitespace-nowrap">Status</th>
                 <th className="px-4 py-3 whitespace-nowrap">Pengiriman Notifikasi</th>
                 <th className="px-4 py-3 whitespace-nowrap">Email Penerima</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status Konfirmasi</th>
@@ -676,12 +692,11 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                 <th className="px-4 py-3 whitespace-nowrap">Status Lunas</th>
               </tr></thead>
               <tbody>
-                {!tableData.length ? <tr><td colSpan={33} className="text-center py-16 text-gray-500"><FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" /><p className="font-medium">Tidak ada data laporan</p><p className="text-xs text-gray-400 mt-1">Silakan ubah filter atau kata pencarian</p></td></tr> : tableData.map((item, index) => {
+                {!tableData.length ? <tr><td colSpan={32} className="text-center py-16 text-gray-500"><FaFileInvoiceDollar className="text-4xl text-gray-300 mx-auto mb-3" /><p className="font-medium">Tidak ada data laporan</p><p className="text-xs text-gray-400 mt-1">Silakan ubah filter atau kata pencarian</p></td></tr> : tableData.map((item, index) => {
                   const amounts = getInvoiceAmounts(item);
                   const docDate = item?.document_date || item?.documentDate || item?.tanggal_faktur || item?.posting_date;
                   const postingDate = item?.posting_date || item?.tanggal_posting;
                   const aging = item?.aging ?? getUmurPiutang(item);
-                  const statusText = item?.status ?? item?.status_piutang ?? "-";
                   const rowKey = `${item?.no_billing || item?.no_tagihan || item?.billing_no || item?.no_faktur || "billing"}-${item?.kode_customer || item?.customer_code || "customer"}-${index}`;
                   return <React.Fragment key={rowKey}>
                   <tr className="border-b hover:bg-blue-50 transition duration-200">
@@ -715,7 +730,6 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                     <td className="px-4 py-2 whitespace-nowrap text-right font-bold text-red-600">{formatRupiah(amounts.saldoPiutang)}</td>
                     <td className="px-4 py-2 whitespace-nowrap"><span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">{displayValue(item?.keterangan_outstanding || item?.keterangan || amounts.keterangan)}</span></td>
                     <td className="px-4 py-2 whitespace-nowrap text-center">{displayValue(aging)}{typeof aging === "number" || /^\d+$/.test(String(aging)) ? " hari" : ""}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{displayValue(statusText)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">
                       <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${getStatusPengirimanNotifikasi(item) === "Sudah Dikirim" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
                         {getStatusPengirimanNotifikasi(item)}
@@ -764,7 +778,7 @@ const TableLaporan = ({ dimensionScreenW, check, loginAccess, reloadData, setRel
                   </tr>
                   {expandedRows[rowKey] && (
                     <tr className="border-b border-blue-100 bg-slate-50">
-                      <td colSpan={33} className="p-0">
+                      <td colSpan={32} className="p-0">
                         <div className="border-l-4 border-blue-500 px-4 py-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
